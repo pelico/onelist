@@ -20,7 +20,12 @@ func AlistProxy(c *gin.Context) {
 		return
 	}
 
-	filePath = filePath[1:]
+	// data.value.url 存储时带有 Alist 下载路由前缀 /d，
+	// 而 Alist /api/fs/get 需要的是不含 /d 的逻辑路径（如 /电影/xxx.mp4）
+	filePath = strings.TrimPrefix(filePath, "/d")
+	if !strings.HasPrefix(filePath, "/") {
+		filePath = "/" + filePath
+	}
 
 	db := database.NewDb()
 	gallery := models.Gallery{}
