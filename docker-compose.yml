@@ -3,7 +3,10 @@ services:
   onelist:
     restart: always
     container_name: onelist
+    # Docker Hub 镜像
     image: 'msterzhang/onelist:latest'
+    # GHCR 镜像（取消注释使用）
+    # image: 'ghcr.io/msterzhang/onelist:latest'
     volumes:
       - '/root/onelist/config:/config'
     ports:
