@@ -56,7 +56,7 @@
                                     <router-link :to="{ path: '/video', query: { id: item.id } }">
                                         <div class="show-img">
                                             <img loading="lazy"
-                                                :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + item.poster_path' alt="">
+                                                :src='COMMON.getPosterUrl(item.poster_path)' alt="">
                                         </div>
                                     </router-link>
                                     <div class="show-name">
@@ -94,7 +94,7 @@
                                     <router-link :to="{ path: '/video', query: { id: item.Id } }">
                                         <div class="show-img">
                                             <img loading="lazy"
-                                                :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + item.poster_path' alt="">
+                                                :src='COMMON.getPosterUrl(item.poster_path)' alt="">
                                         </div>
                                     </router-link>
                                     <div class="show-name">

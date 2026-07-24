@@ -50,7 +50,7 @@
                         </div>
                     </div>
                     <img loading="lazy" class="carousel-img"
-                        :src='COMMON.imgUrl + "/t/p/w220_and_h330_face" + item.poster_path'>
+                        :src='COMMON.getPosterUrl(item.poster_path)'>
                     <div v-if="item.video != null" class="view-item-title">
                         {{ item.title }}
                     </div>

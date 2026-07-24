@@ -7,7 +7,7 @@
             <div class="mainColumn">
                 <div class="view-scroller">
                     <div class="view-card-image">
-                        <img :src='COMMON.imgUrl + "/t/p/w220_and_h330_face" + data.poster_path' alt="">
+                        <img :src='COMMON.getPosterUrl(data.poster_path)' alt="">
                     </div>
                     <div class="view-card-detail detailTextContainer">
                         <div class="lex-direction-column">
@@ -112,7 +112,7 @@
                                         }
                                     }">
                                         <div class="show-img">
-                                            <img :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + item.poster_path'
+                                            <img :src='COMMON.getPosterUrl(item.poster_path)'
                                                 alt="">
                                         </div>
                                     </router-link>
@@ -201,7 +201,7 @@
                                             </div>
                                         </div>
                                         <img loading="lazy" class="carousel-img"
-                                            :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + item.poster_path'>
+                                            :src='COMMON.getPosterUrl(item.poster_path)'>
                                         <div v-if="item.video != null" class="view-item-title">
                                             {{ item.title }}
                                         </div>

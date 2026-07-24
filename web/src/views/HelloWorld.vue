@@ -68,7 +68,7 @@
                                 }
                             }">
                                 <img loading="lazy" class="carousel-img"
-                                    :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + item.poster_path'>
+                                    :src='COMMON.getPosterUrl(item.poster_path)'>
                             </router-link>
                             <div v-if="item.title != null" class="view-item-title">
                                 {{ item.title }}

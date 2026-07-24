@@ -7,6 +7,14 @@ const isMo = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAge
 import Snackbar from 'node-snackbar';
 
 
+// 获取电影/视频海报URL，无海报时返回默认图
+function getPosterUrl(posterPath) {
+    if (!posterPath || posterPath.length === 0 || posterPath === '/') {
+        return '/images/not_video.jpg';
+    }
+    return imgUrl + "/t/p/w220_and_h330_face" + posterPath;
+}
+
 function ShowMsg(msg) {
     Snackbar.show({ pos: 'top-center', text: msg, showAction: false });
 }
@@ -30,6 +38,7 @@ export default {
     title,
     isMo,
     imgUrl,
-    ShowMsg
+    ShowMsg,
+    getPosterUrl
 }
 </script>

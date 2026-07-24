@@ -7,7 +7,7 @@
             <div class="mainColumn">
                 <div class="view-scroller">
                     <div class="view-card-image">
-                        <img :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + data.poster_path' alt="">
+                        <img :src='COMMON.getPosterUrl(data.poster_path)' alt="">
                     </div>
                     <div class="view-card-detail detailTextContainer">
                         <div class="lex-direction-column">
