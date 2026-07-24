@@ -639,59 +639,69 @@ export default {
         },
         // 扫描单个目录
         scanDir(dir) {
-            this.scanAlistDir(dir.path);
+          this.scanAlistDir(dir.path);
         },
         // 扫描当前目录
         scanCurrentDir() {
-            this.scanAlistDir(this.currentPath);
+          this.scanAlistDir(this.currentPath);
         },
         // 批量扫描
         batchScan() {
-            if (this.selectedDirs.length === 0) return;
-            let count = 0;
-            let failed = 0;
-            this.selectedDirs.forEach(dir => {
-                let api = `${this.COMMON.apiUrl}/v1/api/gallery/alist_scan?id=${this.currentGallery.gallery_uid}&path=${encodeURIComponent(dir.path)}`;
-                this.axios.post(api, {}, {
-                    headers: {
-                        'content-type': 'application/json',
-                        'Authorization': this.$cookies.get("Authorization")
-                    }
-                }).then(res => {
-                    count++;
-                    if (count + failed === this.selectedDirs.length) {
-                        this.selectedDirs = [];
-                        this.dirList.forEach(d => d.checked = false);
-                        this.$message.info(`批量扫描完成! 成功 ${count} 个, 失败 ${failed} 个`, { duration: 5000 });
-                    }
-                }).catch(() => {
-                    failed++;
-                    if (count + failed === this.selectedDirs.length) {
-                        this.COMMON.ShowMsg(`批量扫描完成! 成功 ${count} 个, 失败 ${failed} 个`);
-                    }
-                });
-            });
-        },
-        // 调用扫描API
-        scanAlistDir(path) {
-            let api = `${this.COMMON.apiUrl}/v1/api/gallery/alist_scan?id=${this.currentGallery.gallery_uid}&path=${encodeURIComponent(path)}`;
-            this.dirLoading = true;
-            this.axios.post(api, {}, {
-                headers: {
-                    'content-type': 'application/json',
-                    'Authorization': this.$cookies.get("Authorization")
-                }
+          if (this.selectedDirs.length === 0) return;
+          let count = 0;
+          let failed = 0;
+          this.selectedDirs.forEach(dir => {
+            let api = `${this.COMMON.apiUrl}/v1/api/work/create`;
+            this.axios.post(api, {
+              gallery_uid: this.currentGallery.gallery_uid,
+              path: dir.path,
+              is_ref: false,
+              watching: true
+            }, {
+              headers: {
+                'content-type': 'application/json',
+                'Authorization': this.$cookies.get("Authorization")
+              }
             }).then(res => {
-                if (res.data.code == 200) {
-                    this.$message.success("扫描任务已创建！可点击右上角「查看进度」跟踪进度", { duration: 4000 });
-                } else {
-                    this.COMMON.ShowMsg(res.data.msg);
-                }
-                this.dirLoading = false;
-            }).catch((error) => {
-                this.COMMON.ShowMsg("扫描失败: " + error);
-                this.dirLoading = false;
+              count++;
+              if (count + failed === this.selectedDirs.length) {
+                this.selectedDirs = [];
+                this.dirList.forEach(d => d.checked = false);
+                this.$message.info(`批量挂载完成! 成功 ${count} 个, 失败 ${failed} 个`, { duration: 5000 });
+              }
+            }).catch(() => {
+              failed++;
+              if (count + failed === this.selectedDirs.length) {
+                this.COMMON.ShowMsg(`批量挂载完成! 成功 ${count} 个, 失败 ${failed} 个`);
+              }
             });
+          });
+        },
+        // 调用挂载API（创建挂载目录并开始扫描）
+        scanAlistDir(path) {
+          let api = `${this.COMMON.apiUrl}/v1/api/work/create`;
+          this.dirLoading = true;
+          this.axios.post(api, {
+            gallery_uid: this.currentGallery.gallery_uid,
+            path: path,
+            is_ref: false,
+            watching: true
+          }, {
+            headers: {
+              'content-type': 'application/json',
+              'Authorization': this.$cookies.get("Authorization")
+            }
+          }).then(res => {
+            if (res.data.code == 200) {
+              this.$message.success("挂载成功！可点击「查看进度」跟踪刮削进度", { duration: 4000 });
+            } else {
+              this.COMMON.ShowMsg(res.data.msg);
+            }
+            this.dirLoading = false;
+          }).catch((error) => {
+            this.COMMON.ShowMsg("挂载失败: " + error);
+            this.dirLoading = false;
+          });
         },
         // 跳转到挂载目录页面查看进度
         goToWorks() {
