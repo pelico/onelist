@@ -2,13 +2,16 @@ package controllers
 
 import (
 	"errors"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
 	"github.com/msterzhang/onelist/api/utils/dir"
+	"github.com/msterzhang/onelist/api/utils/gpool"
 	"github.com/msterzhang/onelist/plugins/alist"
 	"github.com/msterzhang/onelist/plugins/thedb"
 	"gorm.io/gorm"
@@ -25,58 +28,120 @@ func SaveErrFile(file string, errMsg string, galleryUid string, workId uint, isT
 	}
 }
 
-// 开始刮削任务
-func RunWork(files []string, work models.Work, gallery models.Gallery) {
-	var err error
+// 创建基础电影记录（文件名作标题，可立即播放）
+func CreateBasicMovieRecord(file string, galleryUid string) error {
 	db := database.NewDb()
+	fileName := filepath.Base(file)
+	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	
+	movie := models.TheMovie{
+		Title:      title,
+		Url:        file,
+		GalleryUid: galleryUid,
+	}
+	return db.Model(&models.TheMovie{}).Create(&movie).Error
+}
+
+// 创建基础电视剧记录（文件名作标题，可立即播放）
+func CreateBasicTvRecord(file string, galleryUid string) error {
+	db := database.NewDb()
+	fileName := filepath.Base(file)
+	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	
+	tv := models.TheTv{
+		Name:       title,
+		GalleryUid: galleryUid,
+	}
+	return db.Model(&models.TheTv{}).Create(&tv).Error
+}
+
+// 并发刮削配置
+var scrapeConcurrency = 3
+
+// 开始刮削任务（先创建基础记录，再并发刮削更新）
+func RunWork(files []string, work models.Work, gallery models.Gallery) {
+	db := database.NewDb()
+	
+	// 先创建基础记录，让视频可立即播放
 	for _, file := range files {
 		if gallery.GalleryType == "tv" {
-			_, err = thedb.RunTheTvWork(file, gallery.GalleryUid)
-			if err != nil {
-				SaveErrFile(file, err.Error(), gallery.GalleryUid, work.Id, true)
-			}
+			_ = CreateBasicTvRecord(file, gallery.GalleryUid)
 		} else {
-			_, err = thedb.RunTheMovieWork(file, gallery.GalleryUid)
-			if err != nil {
-				SaveErrFile(file, err.Error(), gallery.GalleryUid, work.Id, false)
-			}
+			_ = CreateBasicMovieRecord(file, gallery.GalleryUid)
 		}
-		work.Speed += 1
-		db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 	}
+	
+	// 更新进度为已创建基础记录
+	work.Speed = len(files)
+	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
+	
+	// 并发刮削（限制并发数）
+	pool := gpool.New(scrapeConcurrency)
+	for _, file := range files {
+		pool.Add(1)
+		go func(f string) {
+			defer pool.Done()
+			var scrapeErr error
+			if gallery.GalleryType == "tv" {
+				_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
+			} else {
+				_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
+			}
+			if scrapeErr != nil {
+				SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
+			}
+		}(file)
+	}
+	pool.Wait()
+	
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 }
 
-// 只刮削目录中新增的文件
+// 只刮削目录中新增的文件（先创建基础记录，再并发刮削）
 func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 	db := database.NewDb()
-	var err error
+	
+	// 先创建基础记录
 	for _, file := range files {
 		if gallery.GalleryType == "tv" {
 			episode := models.Episode{}
 			err := db.Model(&models.Episode{}).Where("url = ?", file).First(&episode).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				_, err = thedb.RunTheTvWork(file, gallery.GalleryUid)
-				if err != nil {
-					work.Speed += 1
-					continue
-				}
+				_ = CreateBasicTvRecord(file, gallery.GalleryUid)
 			}
 		} else {
 			themovie := models.TheMovie{}
-			err = db.Model(&models.TheMovie{}).Where("url = ?", file).First(&themovie).Error
+			err := db.Model(&models.TheMovie{}).Where("url = ?", file).First(&themovie).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				_, err = thedb.RunTheMovieWork(file, gallery.GalleryUid)
-				if err != nil {
-					work.Speed += 1
-					continue
-				}
+				_ = CreateBasicMovieRecord(file, gallery.GalleryUid)
 			}
 		}
-		work.Speed += 1
-		db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 	}
+	
+	// 更新进度
+	work.Speed = len(files)
+	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
+	
+	// 并发刮削
+	pool := gpool.New(scrapeConcurrency)
+	for _, file := range files {
+		pool.Add(1)
+		go func(f string) {
+			defer pool.Done()
+			var scrapeErr error
+			if gallery.GalleryType == "tv" {
+				_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
+			} else {
+				_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
+			}
+			if scrapeErr != nil {
+				SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
+			}
+		}(file)
+	}
+	pool.Wait()
+	
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 }
