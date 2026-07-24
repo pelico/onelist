@@ -1,4 +1,5 @@
 images
 *.db
 *.exe
-public/dist
+public/distonelist
+onelist
