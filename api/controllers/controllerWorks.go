@@ -146,6 +146,29 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 }
 
+// 清理Alist路径，移除URL前缀
+func cleanAlistPath(path string) string {
+	// 如果路径包含 http:// 或 https://，提取相对路径部分
+	path = strings.TrimSpace(path)
+	if strings.Contains(path, "http://") || strings.Contains(path, "https://") {
+		// 移除 http:// 或 https://
+		path = strings.TrimPrefix(path, "http://")
+		path = strings.TrimPrefix(path, "https://")
+		// 移除域名部分（第一个/之后的内容）
+		idx := strings.Index(path, "/")
+		if idx >= 0 {
+			path = path[idx:]
+		} else {
+			path = "/"
+		}
+	}
+	// 确保路径以 / 开头
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return path
+}
+
 func CreateWork(c *gin.Context) {
 	work := models.Work{}
 	err := c.ShouldBind(&work)
@@ -153,6 +176,8 @@ func CreateWork(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 201, "msg": "创建失败,表单解析出错!", "data": work})
 		return
 	}
+	// 清理Alist路径格式
+	work.Path = cleanAlistPath(work.Path)
 	gallery := models.Gallery{}
 	db := database.NewDb()
 	err = db.Model(&models.Gallery{}).Where("gallery_uid = ?", work.GalleryUid).First(&gallery).Error
@@ -261,6 +286,8 @@ func UpdateWorkById(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 201, "msg": "创建失败,表单解析出错!", "data": work})
 		return
 	}
+	// 清理Alist路径格式
+	work.Path = cleanAlistPath(work.Path)
 	db := database.NewDb()
 	repo := crud.NewRepositoryWorksCRUD(db)
 	func(workRepository repository.WorkRepository) {
