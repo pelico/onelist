@@ -1,4 +1,5 @@
-images
+# 运行时下载的海报/上传目录（仅仓库根目录），不影响前端静态资源 web/public/images
+/images/
 *.db
 *.exe
 onelist

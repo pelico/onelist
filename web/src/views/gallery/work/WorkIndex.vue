@@ -86,7 +86,16 @@
                 <n-spin :show="show">
                     <n-form :model="work">
                         <n-form-item label="目录">
-                            <n-input @focus="handleFocus" size="large" v-model:value="work.path" placeholder="" clearable />
+                            <n-input-group>
+                                <n-input @focus="handleFocus" size="large" v-model:value="work.path"
+                                    placeholder="点击右侧「浏览选择」从网盘选择，或手动输入" clearable />
+                                <n-button v-if="isAlist" size="large" type="primary" @click="openDirBrowser">
+                                    <template #icon>
+                                        <i class='bx bx-folder-open'></i>
+                                    </template>
+                                    浏览选择
+                                </n-button>
+                            </n-input-group>
                         </n-form-item>
                         <n-form-item label="是否强制刷新alist缓存后再获取文件?">
                             <n-switch size="large" v-model:value="work.is_ref" placeholder="" clearable />
@@ -171,6 +180,50 @@
                 </template>
             </n-card>
         </n-modal>
+        <!-- 网盘目录浏览选择弹窗 -->
+        <n-modal class="dir-browser" v-model:show="dirModal" transform-origin="center">
+            <n-card style="width: 700px; max-height: 80vh;" title="选择挂载目录" :bordered="false" size="huge" role="dialog"
+                aria-modal="true">
+                <template #header-extra>
+                    <n-button @click="dirModal = false" strong secondary circle>
+                        <i class='bx bx-x'></i>
+                    </n-button>
+                </template>
+                <n-spin :show="dirLoading">
+                    <div
+                        style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <n-breadcrumb>
+                            <n-breadcrumb-item v-for="(seg, i) in breadcrumb" :key="i" @click="loadDirByPath(seg.path)">
+                                {{ seg.name }}
+                            </n-breadcrumb-item>
+                        </n-breadcrumb>
+                        <n-button @click="selectCurrentDir" type="success" size="small">
+                            选择当前目录
+                        </n-button>
+                    </div>
+                    <div class="dir-list" style="max-height: 50vh; overflow-y: auto;">
+                        <div v-if="dirList.length === 0 && !dirLoading"
+                            style="text-align: center; padding: 20px; color: #999;">
+                            该目录下没有子目录
+                        </div>
+                        <div v-for="(dir, index) in dirList" :key="index" class="dir-item">
+                            <span class="dir-icon" @click="enterDir(dir)">
+                                <i class='bx bx-folder'></i>
+                            </span>
+                            <span class="dir-name" @click="enterDir(dir)">{{ dir.name }}</span>
+                            <n-button @click="selectDir(dir)" type="primary" size="tiny" style="margin-left: auto;">
+                                选择此目录
+                            </n-button>
+                        </div>
+                    </div>
+                </n-spin>
+                <template #footer>
+                    <n-space justify="end">
+                        <n-button @click="dirModal = false">关闭</n-button>
+                    </n-space>
+                </template>
+            </n-card>
+        </n-modal>
     </div>
 </template>
 <script>
@@ -186,6 +239,12 @@ export default {
         const updateModal = ref(false);
         const renewModal = ref(false);
         const gallery_uid = ref(null);
+        const isAlist = ref(false);
+        const dirModal = ref(false);
+        const dirLoading = ref(false);
+        const dirList = ref([]);
+        const currentPath = ref('/');
+        const breadcrumb = ref([{ name: '根目录', path: '/' }]);
         const error = ref(null);
         const data = ref(null);
         const { proxy } = getCurrentInstance();
@@ -265,6 +324,12 @@ export default {
             size,
             updateModal,
             renewModal,
+            isAlist,
+            dirModal,
+            dirLoading,
+            dirList,
+            currentPath,
+            breadcrumb,
             reF,
             typeOptions: ["movie", "tv"].map(
                 (v) => ({
@@ -292,7 +357,77 @@ export default {
                 "is_ref": false,
             };
             this.work.gallery_uid = this.gallery_uid
+            this.checkAlist();
             this.showModal = !this.showModal;
+        },
+        // 判断当前媒体库是否为 Alist 类型，决定是否显示「浏览选择」
+        checkAlist() {
+            this.isAlist = false;
+            this.axios.post(`${this.COMMON.apiUrl}/v1/api/gallery/host?id=${this.gallery_uid}`, {}, {
+                headers: {
+                    'content-type': 'application/json',
+                    'Authorization': this.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                if (res.data.code == 200) {
+                    this.isAlist = !!(res.data.data && res.data.data.length > 0);
+                }
+            }).catch(() => {
+                this.isAlist = false;
+            });
+        },
+        // 打开网盘目录浏览
+        openDirBrowser() {
+            this.currentPath = '/';
+            this.breadcrumb = [{ name: '根目录', path: '/' }];
+            this.dirModal = true;
+            this.loadDir('/');
+        },
+        // 加载目录列表
+        loadDir(path) {
+            this.dirLoading = true;
+            this.currentPath = path;
+            let api = `${this.COMMON.apiUrl}/v1/api/gallery/alist_dir?id=${this.gallery_uid}&path=${encodeURIComponent(path)}`;
+            this.axios.get(api, {
+                headers: {
+                    'Authorization': this.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                if (res.data.code == 200) {
+                    this.dirList = res.data.data || [];
+                } else {
+                    this.COMMON.ShowMsg(res.data.msg);
+                    this.dirList = [];
+                }
+                this.dirLoading = false;
+            }).catch((error) => {
+                this.COMMON.ShowMsg("加载目录失败: " + error);
+                this.dirList = [];
+                this.dirLoading = false;
+            });
+        },
+        // 通过面包屑跳转
+        loadDirByPath(path) {
+            let idx = this.breadcrumb.findIndex(b => b.path === path);
+            if (idx >= 0) {
+                this.breadcrumb = this.breadcrumb.slice(0, idx + 1);
+            }
+            this.loadDir(path);
+        },
+        // 进入子目录
+        enterDir(dir) {
+            this.breadcrumb.push({ name: dir.name, path: dir.path });
+            this.loadDir(dir.path);
+        },
+        // 选择某个子目录作为挂载目录
+        selectDir(dir) {
+            this.work.path = dir.path;
+            this.dirModal = false;
+        },
+        // 选择当前所在目录作为挂载目录
+        selectCurrentDir() {
+            this.work.path = this.currentPath;
+            this.dirModal = false;
         },
         Editwork(work) {
             this.work = work;
@@ -405,5 +540,29 @@ export default {
 
 .progres-content {
     text-align: center;
+}
+
+.dir-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.dir-item:hover {
+    background: #f5f7fa;
+}
+
+.dir-icon {
+    font-size: 20px;
+    color: #e6a23c;
+}
+
+.dir-name {
+    flex: 1;
+    font-size: 14px;
 }
 </style>
