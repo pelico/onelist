@@ -14,7 +14,7 @@ type AlistRspLogin struct {
 type Content struct {
 	Name        string    `json:"name"`
 	ContentHash string    `json:"content_hash"`
-	Size        int       `json:"size"`
+	Size        int64     `json:"size"`
 	IsDir       bool      `json:"is_dir"`
 	Modified    time.Time `json:"modified"`
 	Sign        string    `json:"sign"`

@@ -289,6 +289,12 @@
                             <n-button @click="scanCurrentDir" type="success" size="small">
                                 扫描当前目录
                             </n-button>
+                            <n-button @click="goToWorks" type="info" size="small">
+                                <template #icon>
+                                    <i class='bx bx-list-check'></i>
+                                </template>
+                                查看进度
+                            </n-button>
                         </n-space>
                     </div>
                     <div class="dir-list" style="max-height: 50vh; overflow-y: auto;">
@@ -654,9 +660,9 @@ export default {
                 }).then(res => {
                     count++;
                     if (count + failed === this.selectedDirs.length) {
-                        this.COMMON.ShowMsg(`批量扫描完成! 成功 ${count} 个, 失败 ${failed} 个`);
                         this.selectedDirs = [];
                         this.dirList.forEach(d => d.checked = false);
+                        this.$message.info(`批量扫描完成! 成功 ${count} 个, 失败 ${failed} 个`, { duration: 5000 });
                     }
                 }).catch(() => {
                     failed++;
@@ -677,7 +683,7 @@ export default {
                 }
             }).then(res => {
                 if (res.data.code == 200) {
-                    this.COMMON.ShowMsg("扫描任务已创建!");
+                    this.$message.success("扫描任务已创建！可点击右上角「查看进度」跟踪进度", { duration: 4000 });
                 } else {
                     this.COMMON.ShowMsg(res.data.msg);
                 }
@@ -685,6 +691,16 @@ export default {
             }).catch((error) => {
                 this.COMMON.ShowMsg("扫描失败: " + error);
                 this.dirLoading = false;
+            });
+        },
+        // 跳转到挂载目录页面查看进度
+        goToWorks() {
+            this.dirModal = false;
+            this.$router.push({
+                path: "/gallerys/works",
+                query: {
+                    gallery_uid: this.currentGallery.gallery_uid
+                }
             });
         },
     }

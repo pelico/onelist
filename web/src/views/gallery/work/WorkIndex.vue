@@ -175,7 +175,7 @@
 </template>
 <script>
 import { useMessage } from 'naive-ui';
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onUnmounted, ref } from "vue";
 export default {
     name: 'WorkIndex',
     setup() {
@@ -227,8 +227,29 @@ export default {
         const reF = async () => {
             fetchData();
         };
+        let autoRefreshTimer = null;
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            autoRefreshTimer = setInterval(() => {
+                if (data.value && data.value.some(w => !w.is_ok)) {
+                    fetchData();
+                } else {
+                    stopAutoRefresh();
+                }
+            }, 3000);
+        }
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+        }
         onMounted(() => {
             fetchData();
+            startAutoRefresh();
+        });
+        onUnmounted(() => {
+            stopAutoRefresh();
         });
         return {
             allFile,
@@ -312,7 +333,6 @@ export default {
             if (this.work.work_type == "tv") {
                 this.work.is_tv = true;
             }
-            this.show = true;
             let api = this.COMMON.apiUrl + '/v1/api/work/create';
             this.axios.post(api, this.work, {
                 headers: {
@@ -322,15 +342,14 @@ export default {
             }).then(res => {
                 if (res.data.code == 200) {
                     this.COMMON.ShowMsg(res.data.msg)
+                    this.showModal = false;
                     this.reF();
+                    startAutoRefresh();
                 } else {
                     this.COMMON.ShowMsg(res.data.msg)
                 }
-                this.show = false;
-                this.showModal = !this.showModal;
             }).catch((error) => {
                 this.COMMON.ShowMsg(error);
-                this.show = false;
             });
         },
         Update() {

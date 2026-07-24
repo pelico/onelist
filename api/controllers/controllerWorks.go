@@ -96,27 +96,33 @@ func CreateWork(c *gin.Context) {
 		return
 	}
 	work.GalleryUid = gallery.GalleryUid
-	var files = []string{}
-	if gallery.IsAlist {
-		files, err = alist.GetAlistFilesPath(work.Path, work.IsRef, gallery)
-		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": work})
-			return
-		}
-	} else {
-		files = dir.GetFilesByPath(work.Path)
-	}
-	if len(files) == 0 {
-		c.JSON(200, gin.H{"code": 201, "msg": errors.New("files is 0"), "data": work})
-		return
-	}
-	work.FileNumber = len(files)
+	work.FileNumber = 0
+	work.Speed = 0
+	work.IsOk = false
 	err = db.Model(&models.Work{}).Create(&work).Error
 	if err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": work})
 		return
 	}
-	go RunWork(files, work, gallery)
+	go func() {
+		var files []string
+		if gallery.IsAlist {
+			files, err = alist.GetAlistFilesPath(work.Path, work.IsRef, gallery)
+			if err != nil {
+				db.Model(&models.Work{}).Where("id = ?", work.Id).Update("is_ok", true)
+				return
+			}
+		} else {
+			files = dir.GetFilesByPath(work.Path)
+		}
+		if len(files) == 0 {
+			db.Model(&models.Work{}).Where("id = ?", work.Id).Update("is_ok", true)
+			return
+		}
+		db.Model(&models.Work{}).Where("id = ?", work.Id).Update("file_number", len(files))
+		work.FileNumber = len(files)
+		RunWork(files, work, gallery)
+	}()
 	c.JSON(200, gin.H{"code": 200, "msg": "创建刮削任务成功!", "data": work})
 }
 
