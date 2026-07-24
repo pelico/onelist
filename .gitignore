@@ -1,5 +1,9 @@
 images
 *.db
 *.exe
-public/distonelist
 onelist
+onelist-web
+# 前端构建输出（Docker构建时自动生成）
+public/dist
+# 前端依赖
+web/node_modules

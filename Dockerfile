@@ -1,10 +1,23 @@
-FROM alpine:3.18 AS Build
+# Stage 1: 构建前端
+FROM node:18-alpine AS frontend
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --silent
+COPY web/ ./
+# 输出到 /dist 目录
+RUN OUTPUT_DIR=/dist npm run build
 
+# Stage 2: 构建后端
+FROM alpine:3.18 AS backend
 RUN apk add --no-cache bash curl gcc git go musl-dev
 WORKDIR /build
 COPY --chmod=755 . /build
-RUN bash build.sh release docker
+# 用本地构建的前端替换下载的前端
+RUN rm -rf /build/public/dist
+COPY --from=frontend /dist /build/public/dist
+RUN go build -o ./bin/onelist -ldflags="-w -s" -tags=jsoniter .
 
+# Stage 3: 最终镜像
 FROM alpine:3.18
 
 LABEL MAINTAINER="ddsrem@163.com"
@@ -28,7 +41,7 @@ RUN apk add --no-cache \
     rm -rf /var/cache/apk/*
 
 COPY --chmod=755 ./docker/rootfs /
-COPY --chmod=755 --from=Build /build/bin/onelist /app/onelist
+COPY --chmod=755 --from=backend /build/bin/onelist /app/onelist
 
 WORKDIR /config
 
