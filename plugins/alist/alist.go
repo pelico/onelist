@@ -125,11 +125,94 @@ func GetAlistFilesPath(path string, isRef bool, gallery models.Gallery) ([]strin
 	if err != nil {
 		return []string{}, err
 	}
-	// 防止提交host中含有"/"导致url拼接错误
 	if gallery.AlistHost[len(gallery.AlistHost)-1:] == "/" {
 		gallery.AlistHost = strings.TrimRight(gallery.AlistHost, "/")
 	}
 	return AlistList(isRef, gallery, path, Authorization, fileList)
+}
+
+// 目录树节点
+type DirectoryNode struct {
+	Name     string           `json:"name"`
+	Path     string           `json:"path"`
+	IsDir    bool             `json:"is_dir"`
+	Children []DirectoryNode  `json:"children,omitempty"`
+}
+
+// 获取指定路径下的目录列表（只返回目录，不递归）
+func GetAlistDirectoryList(gallery models.Gallery, path string) ([]DirectoryNode, error) {
+	Authorization, err := AlistLogin(gallery)
+	if err != nil {
+		return []DirectoryNode{}, err
+	}
+	if gallery.AlistHost[len(gallery.AlistHost)-1:] == "/" {
+		gallery.AlistHost = strings.TrimRight(gallery.AlistHost, "/")
+	}
+	contents, err := AlistFilesByPath(false, gallery, path, Authorization)
+	if err != nil {
+		return []DirectoryNode{}, err
+	}
+	var dirs []DirectoryNode
+	for _, item := range contents {
+		if item.IsDir {
+			fullPath := path
+			if fullPath[len(fullPath)-1:] != "/" {
+				fullPath += "/"
+			}
+			fullPath += item.Name
+			dirs = append(dirs, DirectoryNode{
+				Name:  item.Name,
+				Path:  fullPath,
+				IsDir: true,
+			})
+		}
+	}
+	return dirs, nil
+}
+
+// 获取目录树结构（递归）
+func GetAlistDirectoryTree(gallery models.Gallery, path string, depth int) ([]DirectoryNode, error) {
+	Authorization, err := AlistLogin(gallery)
+	if err != nil {
+		return []DirectoryNode{}, err
+	}
+	if gallery.AlistHost[len(gallery.AlistHost)-1:] == "/" {
+		gallery.AlistHost = strings.TrimRight(gallery.AlistHost, "/")
+	}
+	return alistDirectoryTreeRecursive(false, gallery, path, Authorization, depth)
+}
+
+func alistDirectoryTreeRecursive(isRef bool, gallery models.Gallery, path string, Authorization string, depth int) ([]DirectoryNode, error) {
+	if depth <= 0 {
+		return []DirectoryNode{}, nil
+	}
+	contents, err := AlistFilesByPath(isRef, gallery, path, Authorization)
+	if err != nil {
+		return []DirectoryNode{}, err
+	}
+	var dirs []DirectoryNode
+	for _, item := range contents {
+		if item.IsDir {
+			fullPath := path
+			if fullPath[len(fullPath)-1:] != "/" {
+				fullPath += "/"
+			}
+			fullPath += item.Name
+			node := DirectoryNode{
+				Name:  item.Name,
+				Path:  fullPath,
+				IsDir: true,
+			}
+			if depth > 1 {
+				children, err := alistDirectoryTreeRecursive(isRef, gallery, fullPath, Authorization, depth-1)
+				if err == nil && len(children) > 0 {
+					node.Children = children
+				}
+			}
+			dirs = append(dirs, node)
+		}
+	}
+	return dirs, nil
 }
 
 // 刮削失败后修改文件名时候同时提交到alist修改

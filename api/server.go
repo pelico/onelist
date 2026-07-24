@@ -242,6 +242,9 @@ func Run() {
 	gallery.POST("/admin/list", auth.JWTAuthAdmin(), controllers.GetGalleryListAdmin)
 	gallery.POST("/search", auth.JWTAuth(), controllers.SearchGallery)
 	gallery.POST("/host", auth.JWTAuth(), controllers.GetGalleryHostByUid)
+	gallery.GET("/alist_dir", auth.JWTAuthAdmin(), controllers.GetAlistDirectory)
+	gallery.GET("/alist_tree", auth.JWTAuthAdmin(), controllers.GetAlistDirectoryTree)
+	gallery.POST("/alist_scan", auth.JWTAuthAdmin(), controllers.AutoScanAlist)
 
 	// 刮削任务
 	work := r.Group("/v1/api/work", auth.JWTAuthAdmin())

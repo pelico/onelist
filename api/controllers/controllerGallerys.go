@@ -8,6 +8,7 @@ import (
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
+	"github.com/msterzhang/onelist/plugins/alist"
 
 	"github.com/gin-gonic/gin"
 )
@@ -169,4 +170,123 @@ func SearchGallery(c *gin.Context) {
 		}
 		c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": gallerys, "num": num})
 	}(repo)
+}
+
+// 浏览Alist目录结构
+func GetAlistDirectory(c *gin.Context) {
+	id := c.Query("id")
+	if len(id) == 0 {
+		c.JSON(200, gin.H{"code": 201, "msg": "参数错误!", "data": ""})
+		return
+	}
+	path := c.Query("path")
+	if len(path) == 0 {
+		path = "/"
+	}
+	db := database.NewDb()
+	gallery := models.Gallery{}
+	err := db.Model(&models.Gallery{}).Where("gallery_uid = ?", id).First(&gallery).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "媒体库不存在!", "data": ""})
+		return
+	}
+	if !gallery.IsAlist {
+		c.JSON(200, gin.H{"code": 201, "msg": "该媒体库不是Alist类型!", "data": ""})
+		return
+	}
+	dirs, err := alist.GetAlistDirectoryList(gallery, path)
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "获取目录失败: " + err.Error(), "data": ""})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "获取目录成功!", "data": dirs})
+}
+
+// 获取Alist目录树（递归）
+func GetAlistDirectoryTree(c *gin.Context) {
+	id := c.Query("id")
+	if len(id) == 0 {
+		c.JSON(200, gin.H{"code": 201, "msg": "参数错误!", "data": ""})
+		return
+	}
+	path := c.Query("path")
+	if len(path) == 0 {
+		path = "/"
+	}
+	depthStr := c.Query("depth")
+	depth := 2
+	if len(depthStr) > 0 {
+		depth, _ = strconv.Atoi(depthStr)
+	}
+	db := database.NewDb()
+	gallery := models.Gallery{}
+	err := db.Model(&models.Gallery{}).Where("gallery_uid = ?", id).First(&gallery).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "媒体库不存在!", "data": ""})
+		return
+	}
+	if !gallery.IsAlist {
+		c.JSON(200, gin.H{"code": 201, "msg": "该媒体库不是Alist类型!", "data": ""})
+		return
+	}
+	tree, err := alist.GetAlistDirectoryTree(gallery, path, depth)
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "获取目录树失败: " + err.Error(), "data": ""})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "获取目录树成功!", "data": tree})
+}
+
+// 扫描Alist目录并创建刮削任务
+func AutoScanAlist(c *gin.Context) {
+	id := c.Query("id")
+	if len(id) == 0 {
+		c.JSON(200, gin.H{"code": 201, "msg": "参数错误!", "data": ""})
+		return
+	}
+	path := c.Query("path")
+	if len(path) == 0 {
+		path = "/"
+	}
+	db := database.NewDb()
+	gallery := models.Gallery{}
+	err := db.Model(&models.Gallery{}).Where("gallery_uid = ?", id).First(&gallery).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "媒体库不存在!", "data": ""})
+		return
+	}
+	if !gallery.IsAlist {
+		c.JSON(200, gin.H{"code": 201, "msg": "该媒体库不是Alist类型!", "data": ""})
+		return
+	}
+	dirs, err := alist.GetAlistDirectoryList(gallery, path)
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "获取目录失败: " + err.Error(), "data": ""})
+		return
+	}
+	if len(dirs) == 0 {
+		c.JSON(200, gin.H{"code": 201, "msg": "该目录下没有子目录!", "data": ""})
+		return
+	}
+	for _, dir := range dirs {
+		files, err := alist.GetAlistFilesPath(dir.Path, false, gallery)
+		if err != nil || len(files) == 0 {
+			continue
+		}
+		work := models.Work{
+			GalleryID:  gallery.Id,
+			GalleryUid: gallery.GalleryUid,
+			Path:       dir.Path,
+			FileNumber: len(files),
+			Speed:      0,
+			IsOk:       false,
+			Watching:   true,
+			IsRef:      false,
+		}
+		err = db.Model(&models.Work{}).Create(&work).Error
+		if err == nil {
+			go RunWork(files, work, gallery)
+		}
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "扫描完成，已创建刮削任务!", "data": len(dirs)})
 }
