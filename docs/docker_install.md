@@ -1,6 +1,6 @@
-### 1.拉取docker镜像
+### 1.拉取 docker 镜像
 ```
-docker pull msterzhang/onelist:latest
+docker pull ghcr.io/pelico/onelist:latest
 ```
 
 ### 2.新建一个用于保存配置相关文件的目录，比如：
@@ -10,7 +10,7 @@ docker pull msterzhang/onelist:latest
 
 ### 3.运行
 ```
-docker run -d --name onelist -e PUID=0 -e PGID=0 -e TZ=Asia/Shanghai -p 5245:5245 -v /root/onelist/config:/config --add-host api.themoviedb.org:13.224.161.90 msterzhang/onelist:latest
+docker run -d --name onelist -e PUID=0 -e PGID=0 -e TZ=Asia/Shanghai -p 5245:5245 -v /root/onelist/config:/config ghcr.io/pelico/onelist:latest
 ```
 
 ### 4.修改配置
@@ -33,10 +33,10 @@ Env=Debug
 UserEmail=xxxx.@qq.com
 UserPassword=xxxxx
 
-# 下载刮削图片到本地
-DownLoadImage=是
+# 下载刮削图片到本地（否=直接使用TMDB CDN，不占用本地空间）
+DownLoadImage=否
 # 留空则表示使用本地缓存图片,否则使用https://image.tmdb.org
-ImgUrl=
+ImgUrl=https://image.tmdb.org
 # 允许刮削alist中的视频文件类型
 VideoTypes=.mp4,.mkv,.flv
 

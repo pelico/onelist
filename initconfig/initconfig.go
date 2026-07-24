@@ -30,8 +30,8 @@ Env=Debug
 UserEmail=xxxx.@qq.com
 UserPassword=xxxxx
 
-# 下载刮削图片到本地
-DownLoadImage=是
+# 下载刮削图片到本地（否=直接引用TMDB CDN链接，不占用本地空间）
+DownLoadImage=否
 # 留空则表示使用本地缓存图片,否则使用https://image.tmdb.org
 ImgUrl=https://image.tmdb.org
 # 允许刮削alist中的视频文件类型

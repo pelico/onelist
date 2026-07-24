@@ -1,141 +1,150 @@
-# onelist
-一个类似emby的专注于刮削alist聚合网盘形成影视媒体库的程序。
+# OneList
+
+一个类似 Emby 的专注于刮削 Alist/OpenList 聚合网盘形成影视媒体库的程序。
 
 ![](./docs/imgs/01.png)
 
-### 主要解决以下痛点：
+## 主要解决以下痛点
 
-* alist挂载云盘后能在网页端看视频，却没有分类，没有海报墙
+* Alist/OpenList 挂载云盘后能在网页端看视频，却没有分类，没有海报墙
+* 使用 WebDAV 挂载本地后，用 Jellyfin 或者 Emby 刮削会下载视频截取封面导致封号
+* 用 Jellyfin 或者 Emby 之类，没有大带宽公网 IP，在外难以访问
 
-* 使用webdav挂载本地后，用jellyfin或者emby刮削会下载视频截取封面导致封号
+## 本 Fork 新增特性
 
-* 用jellyfin或者emby之类，没有大带宽公网ip，在外难以访问
+- **Docker 自动构建**：支持多平台镜像（amd64, arm64, armv7l, armv6），可从 GitHub Container Registry 直接拉取
+- **Alist 目录浏览**：新增从 Alist/OpenList 直接浏览目录并挂载的功能
+- **异步刮削**：视频先展示，刮削后台慢慢来，不用等刮削完成就能看到所有视频
+- **Alist 文件反代**：解决跨域/外网播放问题，Tailscale 等内网穿透也能正常播放
+- **TV 遥控器适配**：方向键导航、确认播放、返回退出，支持 Android TV 浏览器操作
+- **默认封面**：未刮削的视频自动显示默认封面，不再显示破图
+- **并发刮削控制**：限制同时刮削数量，避免 CPU 全部跑满
 
-### 常见问题汇总：
-* 比如你的alist是这样"[https://pan.alist.com/阿里云盘/电影](https://pan.alist.com/阿里云盘/电影)"，你在新建alist类型影库时候域名应该输入"https://pan.alist.com",不要有多余字符，在这个影库下挂载电影目录时候输入"/阿里云盘/电影"
-* 刮削成功无法播放，先确认alist使用最新版，且需要alist后台关闭"签名所有功能"，还有要确认是否是浏览器不支持的编码，这种可以调用外部浏览器播放
+## 快速开始
 
+### Docker 安装（推荐）
 
-### 多种安装方式，推荐docker安装：
-
----
-[docker安装](./docs/docker_install.md) | [docker-compose方式安装](./docs/docker_conpose_install.md)
-
----
-
-手动安装教程：https://www.bilibili.com/video/BV15M41177LN
-## 1.程序下载
-可以在github发布页下载已经编译好的二进制文件
-
-使用前必看，程序采用themoviedb作为刮削的资源库，推荐使用国外主机，否则你需要修改hosts文件。
+```bash
+docker run -d \
+  --name onelist \
+  --restart unless-stopped \
+  -p 5245:5245 \
+  -v /path/to/onelist/config:/config \
+  ghcr.io/pelico/onelist:latest
 ```
-99.84.251.12 api.themoviedb.org
-99.84.251.19 api.themoviedb.org
-99.84.251.67 api.themoviedb.org
-99.84.251.108 api.themoviedb.org
-156.146.56.162 image.tmdb.org
-108.138.246.49 image.tmdb.org
-```
-## 2.下载后先初始化配置文件
 
-输入`./onelist -run config`命令,便会生成配置文件config.env
-修改完config.env配置文件后,运行`onelist -run server`便可启动项目,运行`onelist -run admin`可查看管理员账户!
-
-config.env
+ARM 设备（如树莓派）：
+```bash
+docker run -d \
+  --name onelist \
+  --restart unless-stopped \
+  -p 5245:5245 \
+  -v /path/to/onelist/config:/config \
+  --platform linux/arm/v7 \
+  ghcr.io/pelico/onelist:latest
 ```
-# 服务设置
-# 注意要改为未被占用的端口
+
+### 首次运行配置
+
+1. 容器启动后，编辑 `/path/to/onelist/config/config.env`：
+
+```env
+# 服务端口
 API_PORT=5245
-FaviconicoUrl=https://wework.qpic.cn/wwpic/818353_fizV30xbQCGPQRP_1677394564/0
-API_SECRET=fRVvjcNd11gYGI85StVaeCtPVSmJTRRE
 
-# Env有两种模式，Debug及Release，主要用在数据库为mysql时候，需要注意修改Env环境和mysql密码对应
-Env=Debug
+# 管理员账户（首次启动后自动创建）
+UserEmail=admin@example.com
+UserPassword=yourpassword
 
-# 管理员账户设置，用于初始化管理员账户
-UserEmail=xxxx.@qq.com
-UserPassword=xxxxx
+# TheMovieDb API Key
+# 在 https://www.themoviedb.org/settings/api 申请
+KeyDb=your_tmdb_api_key
 
-# 数据库设置
+# 图片设置（默认不下载到本地，直接使用 TMDB CDN）
+DownLoadImage=否
+ImgUrl=https://image.tmdb.org
+
+# 允许刮削的视频文件类型
+VideoTypes=.mp4,.mkv,.flv,.avi,.wmv,.mov,.ts,.m2ts
+
+# 数据库（默认 sqlite，足够个人使用）
 DB_DRIVER=sqlite
-DB_USER=root
-DbName=onelist
-
-# 如果上面DB_DRIVER类型为mysql，就需要正确填下以下参数
-DB_PASSWORD_Debug=123456
-DB_PASSWORD_Release=123456
-
-# TheMovieDb Key
-# 在https://www.themoviedb.org网站申请
-KeyDb=22f10ca52f109158ac7fe064ebbcf697
 ```
-## 3.运行程序
 
+2. 重启容器生效：
+```bash
+docker restart onelist
 ```
-# 先运行，查看有无错误
-./onelist -run server
 
-注意：如果提示权限问题，可以先授权文件chmod 777 onelist
+3. 访问 `http://你的IP:5245`，用上面的管理员账户登录
 
-# 如果想后台一直保持运行，可用以下命令
-nohup ./onelist -run server >/dev/null 2>&1 &
+### 添加媒体库
+
+1. 进入后台 → 媒体中心 → 添加媒体库
+2. 选择类型（电影/电视剧）
+3. 填写 Alist/OpenList 地址、账号、密码
+4. 挂载目录，选择要刮削的文件夹
+
+> **注意**：挂载目录中的文件名决定了刮削效果
+> - 电影：`阿凡达2.mp4`
+> - 电视剧：`权力的游戏S01E01.mp4`
+
+### TMDB 访问问题
+
+如果刮削失败，可能是网络访问不了 TMDB。解决方法：
+
+**方法一**：在容器 hosts 中添加解析
+```bash
+docker exec -it onelist sh
+echo "13.226.238.76 api.themoviedb.org" >> /etc/hosts
 ```
-## 4.登录
-访问你的`ip:端口`就可以进入管理后台了(记得防火墙放行该端口)
-## 5.添加媒体库
-![](./docs/imgs/02.png)
 
-1.对应输入媒体库名字，比如电影，类型选择movie
-
-2.封面图片可以暂时不填
-
-3.填写alist相关信息，这个主要用于程序查询你alist中文件，根据文件名进行刮削
-
-## 6.挂载资源，新建完毕后，添加挂载目录。
-![](./docs/images/03.png)
-
-挂载的目录中文件必须满足下面这种命名方式
+**方法二**：使用代理
+```bash
+docker run -d \
+  --name onelist \
+  -e HTTP_PROXY=http://代理IP:端口 \
+  -p 5245:5245 \
+  -v /path/to/config:/config \
+  ghcr.io/pelico/onelist:latest
 ```
-电影就按电影名称
 
-电视同一部美剧，所有季可以分开或者放在不同子目录，但是文件名一定得满足以下格式
-权力的游戏S01E01.mp4
-权力的游戏S01E02.mp4
-权力的游戏S01E03.mp4
-```
-填写比如`/阿里2号/电影01组`即可，可以选择是否自动刮削，用于你网盘有新文件，程序自动给你添加进影库,
+## 常见问题
 
-点击创建后反应比较慢，是因为程序去遍历你的alist文件了，稍微等下
+**Q: 添加 Alist 后无法挂载目录？**
+A: 确保 Alist 域名格式正确，如 `http://192.168.1.100:5244`，不要有多余的 `/` 或路径。
 
-> 注意：添加挂载目录只能选择你建立媒体库中采用的alist相关目录，要与alist域名一致
->
-## 7.创建后点击刷新就可以看到刮削进度了
+**Q: 刮削成功但播放不了？**
+A: 
+1. 确认 Alist 后台关闭"签名所有功能"
+2. 确认视频编码是浏览器支持的（H.264）
+3. 如果是外网访问，确认使用了本镜像的反代功能（无需额外配置，自动生效）
 
-可以进入错误文件中查看
-### 交流群：
-> 群名称：
-onelist
-> QQ群   号：
-765592050
+**Q: 外网通过 Tailscale/VPN 访问播放不了？**
+A: 本镜像已内置 Alist 文件反代，视频统一走 onelist 同源地址，Tailscale 等内网穿透也能正常播放。
 
+**Q: 占用空间越来越大？**
+A: 默认配置 `DownLoadImage=否`，图片直接引用 TMDB CDN 链接，不占用本地空间。如需离线显示封面，可在设置中改为"是"。
 
-<span><small>感谢您的关注！开源不易，需要开发者们的不断努力和付出。如果您觉得我的项目对您有所帮助，希望能够支持我继续改进和维护这个项目，您可以考虑打赏我一杯咖啡的钱。
-您的支持将是我继续前进的动力，让我能够更加专注地投入到开源社区中，让我的项目变得更加完善和有用。如果您决定打赏我，可以通过以下方式：</small></span>
-<ul>
-    <li>给该项目点赞 &nbsp;<a style="vertical-align: text-bottom;" href="https://github.com/msterzhang/onelist">
-      <img src="https://img.shields.io/github/stars/msterzhang/onelist?style=social" alt="给该项目点赞" />
-    </a></li>
-    <li>关注我的 Github &nbsp;<a style="vertical-align: text-bottom;"  href="https://github.com/msterzhang/onelist">
-      <img src="https://img.shields.io/github/followers/msterzhang?style=social" alt="关注我的 Github" />
-    </a></li>
-</ul>
-<table>
-    <thead><tr>
-        <th>微信</th>
-        <th>支付宝</th>
-    </tr></thead>
-    <tbody><tr>
-        <td><img style="max-width: 150px" src="./docs/imgs/wx.png" alt="微信" /></td>
-        <td><img style="max-width: 150px" src="./docs/imgs/zfb.jpg" alt="支付宝" /></td>
-    </tr></tbody>
-</table>
+**Q: 支持哪些设备？**
+A: 
+- x86_64 / amd64（PC、NAS）
+- ARM64（树莓派 4/5、Apple Silicon）
+- ARMv7l（玩客云、旧树莓派）
+- ARMv6（树莓派 Zero）
+
+## 手动安装
+
+如需手动编译安装，参考 [docker_install.md](./docs/docker_install.md)
+
+## 交流群
+
+- QQ 群：765592050（原项目群）
+
+## 致谢
+
+本项目 Fork 自 [msterzhang/onelist](https://github.com/msterzhang/onelist)，感谢原作者的开源贡献。
+
+---
+
+> 开源不易，如果项目对你有帮助，欢迎 Star ⭐
