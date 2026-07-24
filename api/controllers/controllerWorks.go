@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -146,10 +147,14 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 }
 
-// 清理Alist路径，移除URL前缀
+// 清理Alist路径，移除URL前缀并解码URL编码
 func cleanAlistPath(path string) string {
-	// 如果路径包含 http:// 或 https://，提取相对路径部分
 	path = strings.TrimSpace(path)
+	// 尝试URL解码（处理中文路径被编码的问题）
+	if decoded, err := url.QueryUnescape(path); err == nil {
+		path = decoded
+	}
+	// 如果路径包含 http:// 或 https://，提取相对路径部分
 	if strings.Contains(path, "http://") || strings.Contains(path, "https://") {
 		// 移除 http:// 或 https://
 		path = strings.TrimPrefix(path, "http://")

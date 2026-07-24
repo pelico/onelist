@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -85,16 +86,18 @@ func AlistFilesByPath(isRef bool, gallery models.Gallery, path string, Authoriza
 
 // 递归获取所有文件
 func AlistList(isRef bool, gallery models.Gallery, path string, Authorization string, fileList []string) ([]string, error) {
-	fs, err := AlistFilesByPath(isRef, gallery, path, Authorization)
-	if err != nil {
-		// 目录错误就重试一次
-		fileList, err = AlistList(isRef, gallery, path, Authorization, fileList)
-		if err != nil {
-			if len(fileList) > 0 {
-				return fileList, nil
-			}
-			return fileList, err
+	var fs []Content
+	var err error
+	// 最多重试2次，防止无限循环
+	for retry := 0; retry <= 2; retry++ {
+		fs, err = AlistFilesByPath(isRef, gallery, path, Authorization)
+		if err == nil {
+			break
 		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if err != nil {
+		return fileList, err
 	}
 	for _, file := range fs {
 		// 防止拼接path错误
@@ -121,6 +124,8 @@ func AlistList(isRef bool, gallery models.Gallery, path string, Authorization st
 // 根据目录获取alist中所有文件
 func GetAlistFilesPath(path string, isRef bool, gallery models.Gallery) ([]string, error) {
 	fileList := []string{}
+	// 清理路径：URL解码，移除URL前缀
+	path = cleanPath(path)
 	Authorization, err := AlistLogin(gallery)
 	if err != nil {
 		return []string{}, err
@@ -129,6 +134,30 @@ func GetAlistFilesPath(path string, isRef bool, gallery models.Gallery) ([]strin
 		gallery.AlistHost = strings.TrimRight(gallery.AlistHost, "/")
 	}
 	return AlistList(isRef, gallery, path, Authorization, fileList)
+}
+
+// 清理路径：URL解码，移除URL前缀
+func cleanPath(path string) string {
+	path = strings.TrimSpace(path)
+	// URL解码
+	if decoded, err := url.QueryUnescape(path); err == nil {
+		path = decoded
+	}
+	// 移除 http:// 或 https:// 前缀及域名
+	if strings.Contains(path, "http://") || strings.Contains(path, "https://") {
+		path = strings.TrimPrefix(path, "http://")
+		path = strings.TrimPrefix(path, "https://")
+		idx := strings.Index(path, "/")
+		if idx >= 0 {
+			path = path[idx:]
+		} else {
+			path = "/"
+		}
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return path
 }
 
 // 目录树节点
@@ -141,6 +170,8 @@ type DirectoryNode struct {
 
 // 获取指定路径下的目录列表（只返回目录，不递归）
 func GetAlistDirectoryList(gallery models.Gallery, path string) ([]DirectoryNode, error) {
+	// 清理路径
+	path = cleanPath(path)
 	Authorization, err := AlistLogin(gallery)
 	if err != nil {
 		return []DirectoryNode{}, err
@@ -172,6 +203,8 @@ func GetAlistDirectoryList(gallery models.Gallery, path string) ([]DirectoryNode
 
 // 获取目录树结构（递归）
 func GetAlistDirectoryTree(gallery models.Gallery, path string, depth int) ([]DirectoryNode, error) {
+	// 清理路径
+	path = cleanPath(path)
 	Authorization, err := AlistLogin(gallery)
 	if err != nil {
 		return []DirectoryNode{}, err
