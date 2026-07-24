@@ -123,7 +123,7 @@
 </template>
 
 <script>
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onUnmounted, ref, nextTick, inject } from "vue";
 import { onBeforeRouteUpdate } from 'vue-router';
 
 export default {
@@ -155,6 +155,10 @@ export default {
             per_card.value = 3;
         }
         const pageText = ref(null);
+
+        // 电视导航支持
+        const tvNavigation = inject('tvNavigation', null);
+        const videoGridRef = ref(null);
 
         let page_str = localStorage.getItem("page")
         if (page_str != null) {
@@ -217,6 +221,11 @@ export default {
                     init(gallery_uid.value);
                     initPageText();
                     fetchGenreData();
+                    
+                    // 注册视频网格到电视导航系统
+                    nextTick(() => {
+                        setupTvNavigation();
+                    });
                 }
 
             }).catch((error) => {
@@ -246,10 +255,47 @@ export default {
                     }
                     num.value = res.data.num;
                     initPageText();
+                    
+                    // 更新电视导航
+                    nextTick(() => {
+                        setupTvNavigation();
+                    });
                 }
             }).catch((error) => {
                 proxy.COMMON.ShowMsg(error);
             });
+        }
+
+        // 设置电视导航
+        function setupTvNavigation() {
+            if (!tvNavigation || !tvNavigation.isTvMode) return;
+            
+            const gridContainer = document.querySelector('.view-card-list');
+            if (gridContainer) {
+                const items = gridContainer.querySelectorAll('.view-item');
+                if (items.length > 0) {
+                    // 检测列数
+                    const cols = tvNavigation.detectGridCols(Array.from(items).map(el => el.querySelector('a') || el));
+                    
+                    // 注册网格组
+                    tvNavigation.registerGroup('videoGrid', Array.from(items).map(el => el.querySelector('a') || el), {
+                        cols: cols,
+                        wrap: false
+                    });
+                    
+                    // 设置为当前组
+                    tvNavigation.setCurrentGroup('videoGrid');
+                }
+            }
+            
+            // 注册工具栏按钮
+            const toolButtons = document.querySelectorAll('.seriesTab-list .n-button');
+            if (toolButtons.length > 0) {
+                tvNavigation.registerGroup('videoTools', Array.from(toolButtons), {
+                    vertical: false,
+                    wrap: true
+                });
+            }
         }
 
         onBeforeRouteUpdate((to, from) => {
@@ -264,6 +310,14 @@ export default {
 
         onMounted(() => {
             fetchData()
+        });
+
+        onUnmounted(() => {
+            // 清理导航组
+            if (tvNavigation) {
+                tvNavigation.unregisterGroup('videoGrid');
+                tvNavigation.unregisterGroup('videoTools');
+            }
         });
 
         return {
@@ -281,6 +335,7 @@ export default {
             genre,
             year,
             refresh,
+            videoGridRef,
             handleChange(e) {
                 page.value = 1;
                 fetchData();

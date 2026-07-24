@@ -288,8 +288,9 @@ import Artplayer from "./ArtPlayer.vue";
 
 import flvjs from 'flv.js';
 import Hls from 'hls.js';
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onUnmounted, ref } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
+import tvNavigation from '@/plugins/tvNavigation';
 export default {
     name: 'VideoPlayer',
     components: {
@@ -861,9 +862,167 @@ export default {
             document.title = proxy.COMMON.title;
         });
 
+        // 电视遥控器播放器控制
+        function setupTvPlayerControl() {
+            if (!tvNavigation || !tvNavigation.isTvMode) return;
+
+            const handleKeydown = (event) => {
+                if (!art) return;
+
+                // 播放器全屏时处理遥控器按键
+                const keyActions = {
+                    // 确认键 - 播放/暂停
+                    'Enter': () => {
+                        art.toggle();
+                    },
+                    // 返回键 - 退出全屏
+                    'Escape': () => {
+                        if (art.fullscreen) {
+                            art.fullscreen = false;
+                        }
+                    },
+                    // 左方向键 - 快退10秒
+                    'ArrowLeft': () => {
+                        if (art.playing) {
+                            art.seek = Math.max(0, art.seek - 10);
+                        }
+                    },
+                    // 右方向键 - 快进10秒
+                    'ArrowRight': () => {
+                        if (art.playing) {
+                            art.seek = Math.min(art.duration, art.seek + 10);
+                        }
+                    },
+                    // 上方向键 - 音量增加
+                    'ArrowUp': () => {
+                        art.volume = Math.min(1, art.volume + 0.1);
+                    },
+                    // 下方向键 - 音量减少
+                    'ArrowDown': () => {
+                        art.volume = Math.max(0, art.volume - 0.1);
+                    },
+                    // 媒体播放键
+                    'MediaPlayPause': () => {
+                        art.toggle();
+                    },
+                    'MediaStop': () => {
+                        art.pause();
+                    },
+                    'MediaFastForward': () => {
+                        if (art.playing) {
+                            art.seek = Math.min(art.duration, art.seek + 30);
+                        }
+                    },
+                    'MediaRewind': () => {
+                        if (art.playing) {
+                            art.seek = Math.max(0, art.seek - 30);
+                        }
+                    },
+                    // PageUp - 上一集
+                    'PageUp': () => {
+                        if (gallery_type.value === 'tv' && speed.value > 0) {
+                            speed.value--;
+                            if (urlList.value && urlList.value[speed.value]) {
+                                const item = urlList.value[speed.value];
+                                if (is_ali_open.value) {
+                                    urlBase.value = encodeURI(alist_host.value + item.url);
+                                    OpenVideo(item.url);
+                                } else {
+                                    urlBase.value = encodeURI(item.url);
+                                    art.switchUrl(item.url, item.html);
+                                    art.option.id = item.url.replaceAll(alist_host.value, "");
+                                    art.on('ready', () => {
+                                        art.play();
+                                        chunkSubtitles(item.url.replaceAll(alist_host.value, ""));
+                                    });
+                                }
+                            }
+                        }
+                    },
+                    // PageDown - 下一集
+                    'PageDown': () => {
+                        if (gallery_type.value === 'tv' && urlList.value && speed.value < urlList.value.length - 1) {
+                            speed.value++;
+                            const item = urlList.value[speed.value];
+                            if (is_ali_open.value) {
+                                urlBase.value = encodeURI(alist_host.value + item.url);
+                                OpenVideo(item.url);
+                            } else {
+                                urlBase.value = encodeURI(item.url);
+                                art.switchUrl(item.url, item.html);
+                                art.option.id = item.url.replaceAll(alist_host.value, "");
+                                art.on('ready', () => {
+                                    art.play();
+                                    chunkSubtitles(item.url.replaceAll(alist_host.value, ""));
+                                });
+                            }
+                        }
+                    },
+                    // 数字键 - 快速跳转
+                    'Digit1': () => { art.seek = art.duration * 0.1; },
+                    'Digit2': () => { art.seek = art.duration * 0.2; },
+                    'Digit3': () => { art.seek = art.duration * 0.3; },
+                    'Digit4': () => { art.seek = art.duration * 0.4; },
+                    'Digit5': () => { art.seek = art.duration * 0.5; },
+                    'Digit6': () => { art.seek = art.duration * 0.6; },
+                    'Digit7': () => { art.seek = art.duration * 0.7; },
+                    'Digit8': () => { art.seek = art.duration * 0.8; },
+                    'Digit9': () => { art.seek = art.duration * 0.9; },
+                    'Digit0': () => { art.seek = 0; },
+                    // M键 - 静音切换
+                    'KeyM': () => {
+                        art.muted = !art.muted;
+                    },
+                    // F键 - 全屏切换
+                    'KeyF': () => {
+                        art.fullscreen = !art.fullscreen;
+                    },
+                    // 空格键 - 播放/暂停
+                    'Space': () => {
+                        art.toggle();
+                    }
+                };
+
+                const action = keyActions[event.code];
+                if (action) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    action();
+
+                    // 显示控制栏提示
+                    if (art.controls) {
+                        art.controls.show = true;
+                        setTimeout(() => {
+                            if (art.controls && art.controls.hide) {
+                                art.controls.hide();
+                            }
+                        }, 2000);
+                    }
+                }
+            };
+
+            // 绑定全局键盘事件
+            window.addEventListener('keydown', handleKeydown, true);
+
+            // 保存引用以便清理
+            window._tvPlayerKeyHandler = handleKeydown;
+        }
+
         onMounted(() => {
             initArt();
             fetchData();
+            // 延迟初始化电视遥控器控制，等待播放器就绪
+            setTimeout(() => {
+                setupTvPlayerControl();
+            }, 1000);
+        });
+
+        onUnmounted(() => {
+            // 清理键盘事件监听
+            if (window._tvPlayerKeyHandler) {
+                window.removeEventListener('keydown', window._tvPlayerKeyHandler, true);
+                delete window._tvPlayerKeyHandler;
+            }
         });
 
         return {

@@ -34,7 +34,7 @@
                                 </div>
                             </div>
                             <n-space size="large" class="detailButtons">
-                                <button @click="Play()" class="detailButton outlineButton">
+                                <button @click="Play()" class="detailButton outlineButton" data-action="play">
                                     <span class="button-icon">
                                         <i class='bx bxs-caret-right-circle'></i>
                                     </span>
