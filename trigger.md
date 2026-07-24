@@ -1,1 +1,0 @@
-# GHCR Build Trigger
