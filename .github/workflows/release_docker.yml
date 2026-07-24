@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - armv7l
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -66,7 +67,8 @@ jobs:
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
+      - name: Build and push (full platforms for main/master)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -75,3 +77,15 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build and push (armv7 only for armv7l branch)
+        if: github.ref == 'refs/heads/armv7l'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/arm/v7
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/onelist:armv7l
+            ghcr.io/${{ github.repository_owner }}/onelist:armv7l-latest
