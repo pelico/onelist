@@ -297,3 +297,58 @@ func AlistAliOpenVideo(file string, gallery_uid string) (AliOpenVideo, error) {
 	}
 	return AliOpenVideo{}, errors.New(data.Message)
 }
+
+type AlistFsGetRsp struct {
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    AlistFsGetData  `json:"data"`
+}
+
+type AlistFsGetData struct {
+	Name    string `json:"name"`
+	Size    int64  `json:"size"`
+	IsDir   bool   `json:"is_dir"`
+	RawUrl  string `json:"raw_url"`
+	Readme  string `json:"readme"`
+	Provider string `json:"provider"`
+}
+
+func AlistFsGet(gallery models.Gallery, path string) (AlistFsGetData, error) {
+	Authorization, err := AlistLogin(gallery)
+	if err != nil {
+		return AlistFsGetData{}, err
+	}
+	if gallery.AlistHost[len(gallery.AlistHost)-1:] == "/" {
+		gallery.AlistHost = strings.TrimRight(gallery.AlistHost, "/")
+	}
+	api := fmt.Sprintf("%s/api/fs/get", gallery.AlistHost)
+	form := fmt.Sprintf(`{"path":"%s","password":""}`, path)
+	req, err := http.NewRequest("POST", api, bytes.NewBufferString(form))
+	if err != nil {
+		return AlistFsGetData{}, err
+	}
+	req.Header.Set("User-Agent", config.UA)
+	req.Header.Set("Authorization", Authorization)
+	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+	client := http.Client{
+		Timeout: 10 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return AlistFsGetData{}, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return AlistFsGetData{}, err
+	}
+	var data = AlistFsGetRsp{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return AlistFsGetData{}, err
+	}
+	if data.Code == 200 {
+		return data.Data, nil
+	}
+	return AlistFsGetData{}, errors.New(data.Message)
+}

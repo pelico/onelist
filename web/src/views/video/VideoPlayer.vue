@@ -814,7 +814,8 @@ export default {
             }).then(res => {
                 if (res.data.code == 200) {
                     if (res.data.data.length > 0) {
-                        alist_host.value = res.data.data;
+                        const proxyBase = process.env.NODE_ENV === 'production' ? window.location.origin : proxy.COMMON.apiUrl;
+                        alist_host.value = proxyBase + "/alist/proxy/" + data.value.gallery_uid;
                     } else {
                         alist_host.value = process.env.NODE_ENV === 'production' ? window.location.origin + "/file/" : proxy.COMMON.apiUrl + "/file/";
                     }

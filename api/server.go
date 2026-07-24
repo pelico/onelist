@@ -326,6 +326,7 @@ func Run() {
 	r.GET("/t/p/*path", controllers.ImgServer)
 	r.GET("/gallery/*path", controllers.GalleryImgServer)
 	r.GET("/file/*path", controllers.FileServer)
+	r.GET("/alist/proxy/:gallery_uid/*path", controllers.AlistProxy)
 	r.POST("/file/gallery/upload", controllers.FileUpload, auth.JWTAuthAdmin())
 	r.Run(fmt.Sprintf(":%d", config.PORT))
 }
