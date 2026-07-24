@@ -15,6 +15,7 @@ import (
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/utils/extract"
+	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/config"
 
 	"gorm.io/gorm"
@@ -58,6 +59,7 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.Error("thedb", "TMDB搜索请求失败: "+key, err.Error())
 		return ThedbSearchRsp{}, err
 	}
 	defer resp.Body.Close()
@@ -70,6 +72,7 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	if err != nil {
 		return ThedbSearchRsp{}, err
 	}
+	logger.Debug("thedb", "搜索结果: "+key, "找到 "+fmt.Sprintf("%d", len(data.Results))+" 条结果")
 	return data, nil
 }
 

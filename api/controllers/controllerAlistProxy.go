@@ -42,7 +42,7 @@ func AlistProxy(c *gin.Context) {
 
 	fsData, err := alist.AlistFsGet(gallery, filePath)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "获取文件链接失败: "+err.Error())
+		c.String(http.StatusNotFound, "文件不存在: "+err.Error())
 		return
 	}
 

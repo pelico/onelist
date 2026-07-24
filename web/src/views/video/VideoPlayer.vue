@@ -585,8 +585,7 @@ export default {
                     return true;
                 }
                 return false;
-            }).catch((error) => {
-                proxy.COMMON.ShowMsg(error);
+            }).catch(() => {
                 return false;
             });
         }

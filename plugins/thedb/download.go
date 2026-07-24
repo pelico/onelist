@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/msterzhang/onelist/api/utils/dir"
+	"github.com/msterzhang/onelist/api/utils/logger"
 )
 
 var imgpath = "images"
@@ -149,14 +150,20 @@ func Download(url string, fileName string) error {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.Warn("thedb", "图片下载失败: "+url, err.Error())
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		logger.Warn("thedb", "图片下载状态异常: "+url, "状态码: "+fmt.Sprintf("%d", resp.StatusCode))
+		return fmt.Errorf("status code: %d", resp.StatusCode)
+	}
 	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	io.Copy(file, resp.Body)
+	logger.Debug("thedb", "图片下载成功: "+fileName)
 	return nil
 }

@@ -11,22 +11,25 @@ import (
 )
 
 var (
-	EnvFile       = "config.env"
-	PORT          = 0
-	Title         = ""
-	FaviconicoUrl = ""
-	SECRETKEY     []byte
-	DBDRIVER      = ""
-	DBURL         = ""
-	DBDATAURL     = ""
-	DbName        = ""
-	KeyDb         = ""
-	UserEmail     = ""
-	UserPassword  = ""
-	DownLoadImage = ""
-	ImgUrl        = ""
-	VideoTypes    = ""
-	UA            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+	EnvFile           = "config.env"
+	PORT              = 0
+	Title             = ""
+	FaviconicoUrl     = ""
+	SECRETKEY         []byte
+	DBDRIVER          = ""
+	DBURL             = ""
+	DBDATAURL         = ""
+	DbName            = ""
+	KeyDb             = ""
+	UserEmail         = ""
+	UserPassword      = ""
+	DownLoadImage     = ""
+	ImgUrl            = ""
+	VideoTypes        = ""
+	UA                = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+	IsDev             = false
+	LogRetentionDays  = ""
+	Version           = "1.0.0"
 )
 
 // Load the server PORT
@@ -41,8 +44,12 @@ func Load() {
 		PORT = 9000
 	}
 	Env := os.Getenv("Env")
+	if Env == "Debug" {
+		IsDev = true
+	}
 	Title = os.Getenv("Title")
 	FaviconicoUrl = os.Getenv("FaviconicoUrl")
+	LogRetentionDays = os.Getenv("LogRetentionDays")
 	if Env == "Debug" {
 		DBDATAURL = fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/?charset=utf8mb4", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD_Debug"))
 		DBURL = fmt.Sprintf("%s:%s@/%s",

@@ -11,6 +11,7 @@ import (
 	"github.com/msterzhang/onelist/api/controllers"
 	"github.com/msterzhang/onelist/api/crons"
 	"github.com/msterzhang/onelist/api/middleware"
+	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/auto"
 	"github.com/msterzhang/onelist/config"
 	"github.com/msterzhang/onelist/public"
@@ -51,6 +52,11 @@ func Faviconico(c *gin.Context) {
 func Run() {
 	// 初始化
 	InitServer()
+
+	// 启动日志清理任务
+	logRetentionDays := logger.ParseRetentionDays(config.LogRetentionDays)
+	logger.StartLogCleaner(logRetentionDays)
+	logger.Info("system", "onelist 服务启动", "版本: "+config.Version)
 
 	// Disable Console Color, you don't need console color when writing the logs to file.
 	gin.DisableConsoleColor()
@@ -328,5 +334,10 @@ func Run() {
 	r.GET("/file/*path", controllers.FileServer)
 	r.GET("/alist/proxy/:gallery_uid/*path", controllers.AlistProxy)
 	r.POST("/file/gallery/upload", controllers.FileUpload, auth.JWTAuthAdmin())
+
+	// 日志
+	logApi := r.Group("/v1/api/log", auth.JWTAuth())
+	logApi.GET("/list", controllers.GetLogs)
+	logApi.POST("/clean", controllers.CleanLogs)
 	r.Run(fmt.Sprintf(":%d", config.PORT))
 }

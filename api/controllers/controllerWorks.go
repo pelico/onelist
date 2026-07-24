@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
@@ -13,6 +14,7 @@ import (
 	"github.com/msterzhang/onelist/api/repository/crud"
 	"github.com/msterzhang/onelist/api/utils/dir"
 	"github.com/msterzhang/onelist/api/utils/gpool"
+	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/plugins/alist"
 	"github.com/msterzhang/onelist/plugins/thedb"
 	"gorm.io/gorm"
@@ -62,7 +64,8 @@ var scrapeConcurrency = 3
 // 开始刮削任务（先创建基础记录，再并发刮削更新）
 func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	db := database.NewDb()
-	
+	logger.Info("work", "开始刮削任务", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
+
 	// 先创建基础记录，让视频可立即播放
 	for _, file := range files {
 		if gallery.GalleryType == "tv" {
@@ -71,13 +74,15 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 			_ = CreateBasicMovieRecord(file, gallery.GalleryUid)
 		}
 	}
-	
+
 	// 更新进度为已创建基础记录
 	work.Speed = len(files)
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
-	
+
 	// 并发刮削（限制并发数）
 	pool := gpool.New(scrapeConcurrency)
+	var successCount int64 = 0
+	var errCount int64 = 0
 	for _, file := range files {
 		pool.Add(1)
 		go func(f string) {
@@ -89,14 +94,19 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 				_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
 			}
 			if scrapeErr != nil {
+				atomic.AddInt64(&errCount, 1)
+				logger.Warn("work", "刮削失败: "+f, scrapeErr.Error())
 				SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
+			} else {
+				atomic.AddInt64(&successCount, 1)
 			}
 		}(file)
 	}
 	pool.Wait()
-	
+
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
+	logger.Info("work", "刮削任务完成", "路径: "+work.Path+", 成功: "+strconv.FormatInt(successCount, 10)+", 失败: "+strconv.FormatInt(errCount, 10))
 }
 
 // 只刮削目录中新增的文件（先创建基础记录，再并发刮削）

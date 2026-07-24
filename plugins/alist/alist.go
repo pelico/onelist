@@ -14,6 +14,7 @@ import (
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
+	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/config"
 )
 
@@ -81,6 +82,7 @@ func AlistFilesByPath(isRef bool, gallery models.Gallery, path string, Authoriza
 	if data.Code == 200 {
 		return data.Data.Content, nil
 	}
+	logger.Error("alist", "获取文件列表失败: "+data.Message, "path: "+path)
 	return []Content{}, errors.New(data.Message)
 }
 
