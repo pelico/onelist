@@ -47,9 +47,10 @@ func CreateBasicMovieRecord(file string, galleryUid string) error {
 	}
 	
 	movie := models.TheMovie{
-		Title:      title,
-		Url:        file,
-		GalleryUid: galleryUid,
+		Title:       title,
+		Url:         file,
+		GalleryUid:  galleryUid,
+		PosterPath:  "/",
 	}
 	return db.Model(&models.TheMovie{}).Create(&movie).Error
 }
@@ -70,8 +71,9 @@ func CreateBasicTvRecord(file string, galleryUid string) error {
 	}
 	
 	tv := models.TheTv{
-		Name:       title,
-		GalleryUid: galleryUid,
+		Name:        title,
+		GalleryUid:  galleryUid,
+		PosterPath:  "/",
 	}
 	return db.Model(&models.TheTv{}).Create(&tv).Error
 }
@@ -552,7 +554,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 		}
 	} else {
 		var movies []models.TheMovie
-		db.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, work.Path+"%").Find(&movies)
+		db.Model(&models.TheMovie{}).Where("gallery_uid = ?", work.GalleryUid).Find(&movies)
 		deletedCount := 0
 		for _, movie := range movies {
 			if !fileSet[movie.Url] {
