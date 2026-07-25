@@ -60,17 +60,21 @@ func DownImages(id string) error {
 	if len(id) == 0 {
 		return nil
 	}
+	logger.Info("thedb", "开始下载竖向海报图", "图片ID: "+id)
 	initDir()
 	for _, key := range keys {
 		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
+			logger.Info("thedb", "跳过已存在的竖向海报图", "文件: "+file)
 			continue
 		}
 		err := Download(url, file)
 		if err != nil {
+			logger.Warn("thedb", "下载竖向海报图失败", "URL: "+url+", 错误: "+err.Error())
 			continue
 		}
+		logger.Info("thedb", "下载竖向海报图成功", "文件: "+file)
 	}
 	return nil
 }
@@ -80,17 +84,21 @@ func DownSeasonImages(id string) error {
 	if len(id) == 0 {
 		return nil
 	}
+	logger.Info("thedb", "开始下载分季图片", "图片ID: "+id)
 	initDir()
 	for _, key := range keysSeason {
 		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
+			logger.Info("thedb", "跳过已存在的分季图片", "文件: "+file)
 			continue
 		}
 		err := Download(url, file)
 		if err != nil {
+			logger.Warn("thedb", "下载分季图片失败", "URL: "+url+", 错误: "+err.Error())
 			continue
 		}
+		logger.Info("thedb", "下载分季图片成功", "文件: "+file)
 	}
 	return nil
 }
@@ -100,17 +108,21 @@ func DownEpisodeImages(id string) error {
 	if len(id) == 0 {
 		return nil
 	}
+	logger.Info("thedb", "开始下载分集图片", "图片ID: "+id)
 	initDir()
 	for _, key := range keysEpisode {
 		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
+			logger.Info("thedb", "跳过已存在的分集图片", "文件: "+file)
 			continue
 		}
 		err := Download(url, file)
 		if err != nil {
+			logger.Warn("thedb", "下载分集图片失败", "URL: "+url+", 错误: "+err.Error())
 			continue
 		}
+		logger.Info("thedb", "下载分集图片成功", "文件: "+file)
 	}
 	return nil
 }
@@ -120,16 +132,20 @@ func DownPersonImage(id string) error {
 	if len(id) == 0 {
 		return nil
 	}
+	logger.Info("thedb", "开始下载影人图片", "图片ID: "+id)
 	initDir()
 	url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), "w220_and_h330_face", id)
 	file := fmt.Sprintf("%s/%s/%s", imgpath, "w220_and_h330_face", id)
 	if dir.FileExists(file) {
+		logger.Info("thedb", "跳过已存在的影人图片", "文件: "+file)
 		return nil
 	}
 	err := Download(url, file)
 	if err != nil {
+		logger.Warn("thedb", "下载影人图片失败", "URL: "+url+", 错误: "+err.Error())
 		return err
 	}
+	logger.Info("thedb", "下载影人图片成功", "文件: "+file)
 	return nil
 }
 
@@ -138,25 +154,31 @@ func DownBackImage(id string) error {
 	if len(id) == 0 {
 		return nil
 	}
+	logger.Info("thedb", "开始下载背景图", "图片ID: "+id)
 	initDir()
 	for _, key := range keysBackImge {
 		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
+			logger.Info("thedb", "跳过已存在的背景图", "文件: "+file)
 			continue
 		}
 		err := Download(url, file)
 		if err != nil {
+			logger.Warn("thedb", "下载背景图失败", "URL: "+url+", 错误: "+err.Error())
 			continue
 		}
+		logger.Info("thedb", "下载背景图成功", "文件: "+file)
 	}
 	return nil
 }
 
 // 下载图片
 func Download(url string, fileName string) error {
+	logger.Info("thedb", "发起图片下载请求", "URL: "+url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		logger.Error("thedb", "创建图片下载请求失败", "URL: "+url+", 错误: "+err.Error())
 		return err
 	}
 	client := http.Client{
@@ -164,25 +186,31 @@ func Download(url string, fileName string) error {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Warn("thedb", "图片下载失败: "+url, err.Error())
+		logger.Error("thedb", "图片下载请求失败", "URL: "+url+", 错误: "+err.Error())
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		logger.Warn("thedb", "图片下载状态异常: "+url, "状态码: "+fmt.Sprintf("%d", resp.StatusCode))
+		logger.Warn("thedb", "图片下载状态异常", "URL: "+url+", 状态码: "+fmt.Sprintf("%d", resp.StatusCode))
 		return fmt.Errorf("status code: %d", resp.StatusCode)
 	}
 	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
+		logger.Error("thedb", "创建图片文件失败", "文件: "+fileName+", 错误: "+err.Error())
 		return err
 	}
 	defer file.Close()
-	io.Copy(file, resp.Body)
-	logger.Debug("thedb", "图片下载成功: "+fileName)
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		logger.Error("thedb", "写入图片文件失败", "文件: "+fileName+", 错误: "+err.Error())
+		return err
+	}
+	logger.Info("thedb", "图片下载成功", "文件: "+fileName+", URL: "+url)
 	return nil
 }
 
 func DownloadImageToMedia(mediaPath string, posterUrl string, backdropUrl string) {
+	logger.Info("thedb", "开始下载图片到媒体目录", "媒体文件: "+mediaPath)
 	mediaDir := filepath.Dir(mediaPath)
 	fileName := filepath.Base(mediaPath)
 	ext := filepath.Ext(fileName)
@@ -192,19 +220,25 @@ func DownloadImageToMedia(mediaPath string, posterUrl string, backdropUrl string
 	if !dir.DirExists(metadataDir) {
 		err := os.MkdirAll(metadataDir, os.ModePerm)
 		if err != nil {
-			logger.Warn("thedb", "创建媒体元数据目录失败: "+metadataDir, err.Error())
+			logger.Error("thedb", "创建媒体元数据目录失败", "目录: "+metadataDir+", 错误: "+err.Error())
 			return
 		}
+		logger.Info("thedb", "创建媒体元数据目录成功", "目录: "+metadataDir)
 	}
 
 	if posterUrl != "" {
 		posterFileName := filepath.Join(metadataDir, "poster.jpg")
 		if !dir.FileExists(posterFileName) {
 			fullUrl := GetImgCdn() + "/t/p/w600_and_h900_bestv2" + posterUrl
+			logger.Info("thedb", "开始下载封面到媒体目录", "URL: "+fullUrl+", 文件: "+posterFileName)
 			err := Download(fullUrl, posterFileName)
 			if err != nil {
-				logger.Warn("thedb", "下载封面到媒体目录失败: "+posterFileName, err.Error())
+				logger.Warn("thedb", "下载封面到媒体目录失败", "文件: "+posterFileName+", 错误: "+err.Error())
+			} else {
+				logger.Info("thedb", "下载封面到媒体目录成功", "文件: "+posterFileName)
 			}
+		} else {
+			logger.Info("thedb", "跳过已存在的媒体封面", "文件: "+posterFileName)
 		}
 	}
 
@@ -212,10 +246,15 @@ func DownloadImageToMedia(mediaPath string, posterUrl string, backdropUrl string
 		backdropFileName := filepath.Join(metadataDir, "backdrop.jpg")
 		if !dir.FileExists(backdropFileName) {
 			fullUrl := GetImgCdn() + "/t/p/w1920_and_h1080_bestv2" + backdropUrl
+			logger.Info("thedb", "开始下载背景图到媒体目录", "URL: "+fullUrl+", 文件: "+backdropFileName)
 			err := Download(fullUrl, backdropFileName)
 			if err != nil {
-				logger.Warn("thedb", "下载背景图到媒体目录失败: "+backdropFileName, err.Error())
+				logger.Warn("thedb", "下载背景图到媒体目录失败", "文件: "+backdropFileName+", 错误: "+err.Error())
+			} else {
+				logger.Info("thedb", "下载背景图到媒体目录成功", "文件: "+backdropFileName)
 			}
+		} else {
+			logger.Info("thedb", "跳过已存在的媒体背景图", "文件: "+backdropFileName)
 		}
 	}
 }
