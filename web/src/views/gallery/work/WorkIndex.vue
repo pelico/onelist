@@ -64,12 +64,6 @@
                                     </n-space>
                                 </div>
                                 <n-space justify="end" size="medium">
-                                    <n-button @click="ErrFiles(item)" type="error">
-                                        <template #icon>
-                                            <i class='bx bx-error'></i>
-                                        </template>
-                                        出错文件
-                                    </n-button>
                                     <n-button @click="showReNew(item)" type="info">
                                         <template #icon>
                                             <i class='bx bx-plus-circle'></i>
@@ -516,26 +510,7 @@ export default {
         Delete() {
             this.Request(this.COMMON.apiUrl + '/v1/api/work/delete?id=' + this.work.id, {})
         },
-        ErrFiles(work) {
-            this.$router.push({
-                path: "/gallerys/works/errfiles",
-                query: {
-                    id: work.id
-                }
-            })
-        },
-        RefErrFiles(work) {
-            this.axios.post(`${this.COMMON.apiUrl}/v1/api/errfile/ref/work/list?id=${work.id}`, {}, {
-                headers: {
-                    'content-type': 'application/json',
-                    'Authorization': this.$cookies.get("Authorization")
-                }
-            }).then(res => {
-                this.COMMON.ShowMsg(res.data.msg)
-            }).catch((error) => {
-                this.COMMON.ShowMsg(error);
-            });
-        }
+
     }
 }
 </script >

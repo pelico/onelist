@@ -17,11 +17,6 @@ const routes = [
         component: () => import('../views/gallery/work/WorkIndex.vue')
     },
     {
-        path: '/gallerys/works/errfiles',
-        name: 'ErrFileIndex',
-        component: () => import('../views/gallery/work/errfile/ErrFileIndex.vue')
-    },
-    {
         path: '/list',
         name: 'VideoList',
         component: () => import('../views/video/VideoList.vue')

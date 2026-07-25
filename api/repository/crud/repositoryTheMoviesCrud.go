@@ -36,13 +36,14 @@ func (r *RepositoryTheMoviesCRUD) Sort(galleryUid string, mode string, order str
 	go func(ch chan<- bool) {
 		defer close(ch)
 		subQuery := r.db.Model(&models.TheMovie{}).Select("MIN(id)").Where("gallery_uid = ?", galleryUid).Group("url")
-		result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
-		result.Count(&num)
+		countResult := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
+		countResult.Count(&num)
 		orderSql := fmt.Sprintf("%s %s", mode, order)
 		if config.DBDRIVER == "sqlite" && strings.Contains(mode, "_at") {
 			orderSql = fmt.Sprintf("datetime(%s) %s", mode, order)
 		}
-		err = result.Order(orderSql).Limit(size).Offset((page - 1) * size).Scan(&themovies).Error
+		scanResult := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
+		err = scanResult.Order(orderSql).Limit(size).Offset((page - 1) * size).Scan(&themovies).Error
 		if err != nil {
 			ch <- false
 			return
@@ -67,12 +68,13 @@ func (r *RepositoryTheMoviesCRUD) FindByGalleryId(id string, page int, size int)
 	go func(ch chan<- bool) {
 		defer close(ch)
 		subQuery := r.db.Model(&models.TheMovie{}).Select("MIN(id)").Where("gallery_uid = ?", id).Group("url")
-		result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
-		result.Count(&num)
+		countResult := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
+		countResult.Count(&num)
+		scanResult := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
 		if config.DBDRIVER == "sqlite" {
-			err = result.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&themovies).Error
+			err = scanResult.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&themovies).Error
 		} else {
-			err = result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&themovies).Error
+			err = scanResult.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&themovies).Error
 		}
 		if err != nil {
 			ch <- false

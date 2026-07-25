@@ -14,11 +14,11 @@
                     <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" strong secondary circle size="medium">
                         <i class='bx bx-down-arrow-alt'></i>
                     </n-button>
-                    <n-button @click="showSort = !showSort" type="primary" circle size="medium">
+                    <n-button @click="showSort = !showSort" type="primary" size="medium" class="oval-btn">
                         <i class='bx bx-align-middle'></i>
                         <span class="btn-text">排序</span>
                     </n-button>
-                    <n-button @click="showFilter = !showFilter" type="success" circle size="medium">
+                    <n-button @click="showFilter = !showFilter" type="success" size="medium" class="oval-btn">
                         <i class='bx bx-filter'></i>
                         <span class="btn-text">筛选</span>
                     </n-button>
@@ -490,6 +490,12 @@ export default {
 .btn-text {
     margin-left: 4px;
     font-size: 0.9em;
+}
+
+.oval-btn {
+    border-radius: 9999px;
+    padding: 0 16px;
+    white-space: nowrap;
 }
 
 .sort-title {

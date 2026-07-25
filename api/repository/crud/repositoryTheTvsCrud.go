@@ -36,8 +36,8 @@ func (r *RepositoryTheTvsCRUD) Sort(galleryUid string, mode string, order string
 	go func(ch chan<- bool) {
 		defer close(ch)
 		subQuery := r.db.Model(&models.TheTv{}).Select("MIN(id)").Where("gallery_uid = ?", galleryUid).Group("name")
-		result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
-		result.Count(&num)
+		countResult := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
+		countResult.Count(&num)
 		if mode == "release_date" {
 			mode = "last_air_date"
 		}
@@ -45,7 +45,8 @@ func (r *RepositoryTheTvsCRUD) Sort(galleryUid string, mode string, order string
 		if config.DBDRIVER == "sqlite" && strings.Contains(mode, "_at") {
 			orderSql = fmt.Sprintf("datetime(%s) %s", mode, order)
 		}
-		err = result.Order(orderSql).Limit(size).Offset((page - 1) * size).Scan(&theTvs).Error
+		scanResult := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
+		err = scanResult.Order(orderSql).Limit(size).Offset((page - 1) * size).Scan(&theTvs).Error
 		if err != nil {
 			ch <- false
 			return
@@ -70,12 +71,13 @@ func (r *RepositoryTheTvsCRUD) FindByGalleryId(id string, page int, size int) ([
 	go func(ch chan<- bool) {
 		defer close(ch)
 		subQuery := r.db.Model(&models.TheTv{}).Select("MIN(id)").Where("gallery_uid = ?", id).Group("name")
-		result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
-		result.Count(&num)
+		countResult := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
+		countResult.Count(&num)
+		scanResult := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
 		if config.DBDRIVER == "sqlite" {
-			err = result.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&thetvs).Error
+			err = scanResult.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&thetvs).Error
 		} else {
-			err = result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&thetvs).Error
+			err = scanResult.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&thetvs).Error
 		}
 		if err != nil {
 			ch <- false
