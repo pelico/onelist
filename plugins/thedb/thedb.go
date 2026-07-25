@@ -42,7 +42,9 @@ var (
 // TheApi 返回当前配置中的 TMDB API 地址
 func TheApi() string {
 	if config.TheMovieDbApiUrl != "" {
-		url := strings.TrimSpace(config.TheMovieDbApiUrl)
+		url := config.TheMovieDbApiUrl
+		url = strings.ReplaceAll(url, " ", "")
+		url = strings.TrimSpace(url)
 		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 			url = "https://" + url
 		}
