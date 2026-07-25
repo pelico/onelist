@@ -9,9 +9,9 @@ import (
 // 喜欢
 type Heart struct {
 	Id        uint      `json:"id" gorm:"primaryKey"`
-	UserId    string    `json:"user_id"`
-	DataType  string    `json:"data_type"`
-	DataId    int       `json:"data_id"`
+	UserId    string    `json:"user_id" gorm:"index"`
+	DataType  string    `json:"data_type" gorm:"index"`
+	DataId    int       `json:"data_id" gorm:"index"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

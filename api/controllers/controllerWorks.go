@@ -401,3 +401,45 @@ func GetWorkListByGalleryId(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": works, "num": num})
 	}(repo)
 }
+
+// 启动时恢复未完成的刮削任务
+func ResumePendingWorks() {
+	db := database.NewDb()
+	var works []models.Work
+	// 查找所有未完成的任务（排除文件数为0的空任务）
+	err := db.Model(&models.Work{}).Where("is_ok = ? AND file_number > 0", false).Find(&works).Error
+	if err != nil {
+		logger.Warn("work", "恢复未完成任务失败", err.Error())
+		return
+	}
+	if len(works) == 0 {
+		return
+	}
+	logger.Info("work", "发现未完成刮削任务", "数量: "+strconv.Itoa(len(works)))
+
+	for _, work := range works {
+		// 查找关联的 gallery
+		gallery := models.Gallery{}
+		err := db.Model(&models.Gallery{}).Where("gallery_uid = ?", work.GalleryUid).First(&gallery).Error
+		if err != nil {
+			logger.Warn("work", "恢复任务失败,Gallery不存在", "WorkId: "+strconv.Itoa(int(work.Id)))
+			db.Model(&models.Work{}).Where("id = ?", work.Id).Update("is_ok", true)
+			continue
+		}
+		// 重新获取文件列表
+		var files []string
+		if gallery.IsAlist {
+			files, err = alist.GetAlistFilesPath(work.Path, work.IsRef, gallery)
+		} else {
+			files = dir.GetFilesByPath(work.Path)
+		}
+		if err != nil || len(files) == 0 {
+			logger.Warn("work", "恢复任务失败,获取文件列表为空", "路径: "+work.Path)
+			db.Model(&models.Work{}).Where("id = ?", work.Id).Update("is_ok", true)
+			continue
+		}
+		// 异步重新执行刮削
+		go RunWork(files, work, gallery)
+		logger.Info("work", "已恢复刮削任务", "路径: "+work.Path)
+	}
+}

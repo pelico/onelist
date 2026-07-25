@@ -58,6 +58,9 @@ func Run() {
 	logger.StartLogCleaner(logRetentionDays)
 	logger.Info("system", "onelist 服务启动", "版本: "+config.Version)
 
+	// 恢复未完成的刮削任务
+	controllers.ResumePendingWorks()
+
 	// Disable Console Color, you don't need console color when writing the logs to file.
 	gin.DisableConsoleColor()
 

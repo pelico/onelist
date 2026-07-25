@@ -9,12 +9,12 @@
                 </div>
                 <div class="seriesTab-item">
                     <n-button @click="BackPage()" strong secondary circle>
-                        <i class='bx bx-left-arrow-alt'></i>
+                        <i class='bx bx-up-arrow-alt'></i>
                     </n-button>
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="NextPage()" strong secondary circle>
-                        <i class='bx bx-right-arrow-alt'></i>
+                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" strong secondary circle>
+                        <i class='bx bx-down-arrow-alt'></i>
                     </n-button>
                 </div>
                 <div class="seriesTab-item">
@@ -49,7 +49,7 @@
                             </div>
                         </div>
                     </div>
-                    <img loading="lazy" class="carousel-img"
+                    <img loading="lazy" v-img-fade class="carousel-img"
                         :src='COMMON.getPosterUrl(item.poster_path)'>
                     <div v-if="item.video != null" class="view-item-title">
                         {{ item.title }}
@@ -59,6 +59,14 @@
                     </div>
                 </router-link>
             </div>
+        </div>
+        <!-- 无限滚动哨兵：滚动到此处自动加载下一页 -->
+        <div ref="sentinelRef" class="scroll-sentinel">
+            <div v-if="loadingMore" class="load-more-hint">
+                <i class='bx bx-loader-alt bx-spin'></i> 加载中...
+            </div>
+            <div v-else-if="hasMore" class="load-more-hint">向下滚动加载更多</div>
+            <div v-else-if="data && data.length > 0" class="load-more-hint">已经到底啦</div>
         </div>
         <n-modal v-model:show="showSort" transform-origin="center">
             <n-card style="width: 600px;" title="排序" :bordered="false" size="huge" role="dialog" aria-modal="true">
@@ -123,7 +131,7 @@
 </template>
 
 <script>
-import { getCurrentInstance, onMounted, onUnmounted, ref, nextTick, inject } from "vue";
+import { getCurrentInstance, onMounted, onUnmounted, ref, nextTick, inject, computed } from "vue";
 import { onBeforeRouteUpdate } from 'vue-router';
 
 export default {
@@ -138,6 +146,7 @@ export default {
         const filters = ref(null);
         const error = ref(null);
         const loading = ref(true);
+        const loadingMore = ref(false);
         const { proxy } = getCurrentInstance();
         const num = ref(null);
         const search = ref(false);
@@ -150,6 +159,9 @@ export default {
         size.value = 48;
         page.value = 1;
 
+        // 当前筛选的 genre id；null 表示浏览（sort）模式
+        const currentFilterId = ref(null);
+
         const per_card = ref(8);
         if (proxy.COMMON.isMo) {
             per_card.value = 3;
@@ -159,6 +171,16 @@ export default {
         // 电视导航支持
         const tvNavigation = inject('tvNavigation', null);
         const videoGridRef = ref(null);
+
+        // 无限滚动哨兵
+        const sentinelRef = ref(null);
+        let observer = null;
+        // 软上限：超过该数量后停止自动加载，提示用户使用筛选缩小范围
+        const MAX_LOADED = 480;
+
+        const hasMore = computed(() => {
+            return data.value != null && num.value != null && data.value.length < num.value && data.value.length < MAX_LOADED;
+        });
 
         let page_str = localStorage.getItem("page")
         if (page_str != null) {
@@ -178,12 +200,14 @@ export default {
         }
 
         function initPageText() {
-            let si = size.value;
-            if (num.value < size.value) {
-                si = num.value;
+            const loaded = (data.value || []).length;
+            const total = num.value || 0;
+            if (loaded === 0) {
+                pageText.value = "共 " + total + " 部";
+            } else {
+                pageText.value = "已加载 " + loaded + " / " + total + " 部";
             }
             localStorage.setItem("page", page.value);
-            pageText.value = num.value + " 的 " + (page.value - 1) * size.value + "-" + ((page.value - 1) * size.value + si);
         }
 
         function fetchGenreData() {
@@ -203,11 +227,40 @@ export default {
             });
         }
 
-        function fetchData() {
-            let api = `${proxy.COMMON.apiUrl}/v1/api/thetv/sort?gallery_uid=${gallery_uid.value}&mode=${mode.value}&order=${order.value}&page=${page.value}&size=${size.value}`;
-            if (gallery_type.value == "movie") {
-                api = `${proxy.COMMON.apiUrl}/v1/api/themovie/sort?gallery_uid=${gallery_uid.value}&mode=${mode.value}&order=${order.value}&page=${page.value}&size=${size.value}`;
+        // 构造请求地址：根据 currentFilterId 自动切换 sort / filte 接口
+        function buildApi(p) {
+            const base = proxy.COMMON.apiUrl;
+            const common = `gallery_uid=${gallery_uid.value}&mode=${mode.value}&order=${order.value}&page=${p}&size=${size.value}`;
+            if (currentFilterId.value) {
+                return `${base}/v1/api/genre/filte?id=${currentFilterId.value}&gallery_type=${gallery_type.value}&${common}`;
             }
+            if (gallery_type.value == "movie") {
+                return `${base}/v1/api/themovie/sort?${common}`;
+            }
+            return `${base}/v1/api/thetv/sort?${common}`;
+        }
+
+        // 从响应里抽取影片数组（sort 接口直接是数组，filte 接口在 the_movies/the_tvs 里）
+        function extractItems(res) {
+            if (currentFilterId.value) {
+                if (gallery_type.value == "movie") {
+                    return (res.data.data && res.data.data.the_movies) || [];
+                }
+                return (res.data.data && res.data.data.the_tvs) || [];
+            }
+            return res.data.data || [];
+        }
+
+        function fetchData(append = false) {
+            if (append) {
+                if (loadingMore.value) return;
+                if (!hasMore.value) return;
+                page.value++;
+                loadingMore.value = true;
+            } else {
+                page.value = 1;
+            }
+            const api = buildApi(page.value);
             proxy.axios.post(api, {}, {
                 headers: {
                     'content-type': 'application/json',
@@ -215,79 +268,67 @@ export default {
                 }
             }).then(res => {
                 if (res.data.code == 200) {
-                    data.value = res.data.data;
+                    const items = extractItems(res);
+                    if (!append && currentFilterId.value && items.length === 0) {
+                        proxy.COMMON.ShowMsg("未查询到相关内容!");
+                    }
+                    if (append) {
+                        data.value = (data.value || []).concat(items);
+                    } else {
+                        data.value = items;
+                    }
                     num.value = res.data.num;
-
-                    init(gallery_uid.value);
+                    if (!append) {
+                        init(gallery_uid.value);
+                        fetchGenreData();
+                    }
                     initPageText();
-                    fetchGenreData();
-                    
+
                     // 注册视频网格到电视导航系统
                     nextTick(() => {
                         setupTvNavigation();
+                        // 若内容不足以撑满视口，继续加载下一页
+                        if (append && hasMore.value && sentinelRef.value) {
+                            const rect = sentinelRef.value.getBoundingClientRect();
+                            if (rect.top < (window.innerHeight + 300)) {
+                                fetchMore();
+                            }
+                        }
                     });
                 }
-
+                loadingMore.value = false;
             }).catch((error) => {
+                loadingMore.value = false;
                 proxy.COMMON.ShowMsg(error);
             });
         }
 
-        function fetchfilterData(id) {
-            let api = `${proxy.COMMON.apiUrl}/v1/api/genre/filte?id=${id}&gallery_uid=${gallery_uid.value}&gallery_type=${gallery_type.value}&mode=${mode.value}&order=${order.value}&page=${page.value}&size=${size.value}`;
-            proxy.axios.post(api, {}, {
-                headers: {
-                    'content-type': 'application/json',
-                    'Authorization': proxy.$cookies.get("Authorization")
-                }
-            }).then(res => {
-                if (res.data.code == 200) {
-                    if (gallery_type.value == "movie") {
-                        if (res.data.data.the_movies == null) {
-                            proxy.COMMON.ShowMsg("未查询到相关内容!");
-                        }
-                        data.value = res.data.data.the_movies;
-                    } else {
-                        if (res.data.data.the_tvs == null) {
-                            proxy.COMMON.ShowMsg("未查询到相关内容!");
-                        }
-                        data.value = res.data.data.the_tvs;
-                    }
-                    num.value = res.data.num;
-                    initPageText();
-                    
-                    // 更新电视导航
-                    nextTick(() => {
-                        setupTvNavigation();
-                    });
-                }
-            }).catch((error) => {
-                proxy.COMMON.ShowMsg(error);
-            });
+        function fetchMore() {
+            fetchData(true);
         }
 
         // 设置电视导航
         function setupTvNavigation() {
             if (!tvNavigation || !tvNavigation.isTvMode) return;
-            
+
             const gridContainer = document.querySelector('.view-card-list');
             if (gridContainer) {
                 const items = gridContainer.querySelectorAll('.view-item');
                 if (items.length > 0) {
                     // 检测列数
                     const cols = tvNavigation.detectGridCols(Array.from(items).map(el => el.querySelector('a') || el));
-                    
+
                     // 注册网格组
                     tvNavigation.registerGroup('videoGrid', Array.from(items).map(el => el.querySelector('a') || el), {
                         cols: cols,
                         wrap: false
                     });
-                    
+
                     // 设置为当前组
                     tvNavigation.setCurrentGroup('videoGrid');
                 }
             }
-            
+
             // 注册工具栏按钮
             const toolButtons = document.querySelectorAll('.seriesTab-list .n-button');
             if (toolButtons.length > 0) {
@@ -298,22 +339,38 @@ export default {
             }
         }
 
+        // 无限滚动观察器
+        function setupObserver() {
+            if (observer) observer.disconnect();
+            if (!sentinelRef.value) return;
+            observer = new IntersectionObserver((entries) => {
+                if (entries[0] && entries[0].isIntersecting) {
+                    fetchMore();
+                }
+            }, { rootMargin: '300px' });
+            observer.observe(sentinelRef.value);
+        }
+
         onBeforeRouteUpdate((to, from) => {
             gallery_uid.value = to.query.gallery_uid;
             gallery_type.value = to.query.gallery_type;
-            fetchData();
+            currentFilterId.value = null;
+            fetchData(false);
         });
 
         const refresh = () => {
-            fetchData();
+            currentFilterId.value = null;
+            fetchData(false);
         };
 
         onMounted(() => {
-            fetchData()
+            fetchData(false);
+            nextTick(() => setupObserver());
         });
 
         onUnmounted(() => {
-            // 清理导航组
+            // 清理观察器与导航组
+            if (observer) observer.disconnect();
             if (tvNavigation) {
                 tvNavigation.unregisterGroup('videoGrid');
                 tvNavigation.unregisterGroup('videoTools');
@@ -325,6 +382,9 @@ export default {
             per_card,
             data,
             loading,
+            loadingMore,
+            hasMore,
+            sentinelRef,
             error,
             page,
             size,
@@ -336,13 +396,14 @@ export default {
             year,
             refresh,
             videoGridRef,
+            fetchMore,
             handleChange(e) {
-                page.value = 1;
-                fetchData();
+                currentFilterId.value = null;
+                fetchData(false);
             },
             filterChange(e) {
-                page.value = 1;
-                fetchfilterData(genre.value.id)
+                currentFilterId.value = genre.value.id;
+                fetchData(false);
             },
             showSort: ref(false),
             showFilter: ref(false),
@@ -386,16 +447,16 @@ export default {
     },
     methods: {
         BackPage() {
-            this.page = this.page - 1;
-            if (this.page <= 0) {
-                this.COMMON.ShowMsg("已经是第1页啦!")
-                this.page = 1;
+            // 回到顶部
+            const scroller = document.querySelector('.n-layout .n-layout-scroll-container');
+            if (scroller && scroller.scrollTo) {
+                scroller.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
-            this.refresh();
         },
         NextPage() {
-            this.page = this.page + 1;
-            this.refresh();
+            this.fetchMore();
         },
     }
 }
@@ -504,6 +565,21 @@ export default {
 
 .project .n-pagination {
     float: right;
+}
+
+/* 无限滚动哨兵 */
+.scroll-sentinel {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 16px;
+}
+
+.load-more-hint {
+    color: #888;
+    font-size: 0.9em;
+    opacity: 0.8;
 }
 
 @media (max-width: 767px) {

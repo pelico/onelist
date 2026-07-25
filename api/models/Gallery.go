@@ -14,7 +14,7 @@ type Gallery struct {
 	GalleryType string    `json:"gallery_type"`                 //影库类型，电影或者电视
 	IsTv        bool      `json:"is_tv"`                        //影库类型，是否是电视
 	IsAliOpen   bool      `json:"is_ali_open"`                  //挂载盘类型，是否阿里云盘open，支持多清晰度
-	GalleryUid  string    `json:"gallery_uid"`                  //唯一uid
+	GalleryUid  string    `json:"gallery_uid" gorm:"index"`                  //唯一uid
 	Image       string    `json:"image"`                        //图片
 	IsAlist     bool      `json:"is_alist"`                     //是否是alist
 	AlistHost   string    `json:"alist_host"`                   //alist网站域名

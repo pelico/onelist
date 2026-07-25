@@ -59,7 +59,7 @@ type Networks struct {
 
 type TheTv struct {
 	ID                  int                  `json:"id" gorm:"not null;unique"`
-	GalleryUid          string               `json:"gallery_uid"`
+	GalleryUid          string               `json:"gallery_uid" gorm:"index"`
 	Adult               bool                 `json:"adult"`
 	BackdropPath        string               `json:"backdrop_path"`
 	FirstAirDate        string               `json:"first_air_date"`

@@ -11,6 +11,7 @@ import global from './components/common.vue'
 // 电视遥控器导航支持
 import tvNavigation from './plugins/tvNavigation'
 import { setupTvFocusDirectives } from './directives/tvFocus'
+import { setupImgFade } from './directives/imgFade'
 import './styles/tv-focus.css'
 
 import 'boxicons/css/boxicons.min.css'
@@ -25,6 +26,9 @@ app.use(tvNavigation, { forceTvMode: false });
 
 // 注册电视焦点指令
 setupTvFocusDirectives(app);
+
+// 注册图片淡入指令
+setupImgFade(app);
 
 app.use(naive).use(router).use(VueAxios, axios);
 app.mount('#app');

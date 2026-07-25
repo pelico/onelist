@@ -18,7 +18,7 @@ type BelongsToCollection struct {
 // 电影结构体
 type TheMovie struct {
 	ID                    int                  `json:"id" gorm:"not null;unique"`
-	GalleryUid            string               `json:"gallery_uid"`
+	GalleryUid            string               `json:"gallery_uid" gorm:"index"`
 	Adult                 bool                 `json:"adult"`
 	BackdropPath          string               `json:"backdrop_path"`
 	BelongsToCollection   BelongsToCollection  `json:"belongs_to_collection"`
@@ -41,7 +41,7 @@ type TheMovie struct {
 	Status                string               `json:"status"`
 	Tagline               string               `json:"tagline"`
 	Title                 string               `json:"title"`
-	Url                   string               `json:"url"`
+	Url                   string               `json:"url" gorm:"index"`
 	Video                 bool                 `json:"video"`
 	VoteAverage           float64              `json:"vote_average"`
 	VoteCount             int                  `json:"vote_count"`

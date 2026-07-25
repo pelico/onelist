@@ -42,14 +42,39 @@ function initConfig() {
 
 initConfig()
 
+// 热更新配置：直接更新内存中的 title/imgUrl，并派发事件让 App.vue 同步响应式状态
+// 这样修改配置后无需 location.reload() 即可生效
+function applyConfig(cfg) {
+    if (!cfg) return;
+    if (cfg.title != null) {
+        title = cfg.title;
+        api.title = title;
+    }
+    if (cfg.img_url !== undefined && cfg.img_url !== null) {
+        let v = cfg.img_url;
+        // 与 initConfig 保持一致：开发模式下空值回退到本地 apiUrl
+        if (process.env.NODE_ENV != 'production' && v.length == 0) {
+            v = apiUrl;
+        }
+        imgUrl = v;
+        api.imgUrl = imgUrl;
+    }
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('onelist:config-changed', { detail: cfg }));
+    }
+}
+
 // 暴露出这些属性和方法
-export default {
+const api = {
     apiUrl,
     title,
     isMo,
     imgUrl,
     ShowMsg,
     getPosterUrl,
-    setMsgHandler
+    setMsgHandler,
+    applyConfig
 }
+
+export default api
 </script>

@@ -149,22 +149,60 @@
                                 <router-view v-on:refApp="RefAppData()" />
                             </n-layout>
                         </n-layout>
-                        <n-layout-footer position="absolute" style="height: 64px; padding: 24px" bordered>
+                        <n-layout-footer position="absolute" style="height: 64px; padding: 24px" bordered class="desktop-footer">
                             @2023
                         </n-layout-footer>
+
+                        <!-- 移动端底部导航栏 -->
+                        <div class="mobile-bottom-nav">
+                            <router-link to="/" class="bottom-nav-item">
+                                <i class='bx bx-home'></i>
+                                <span>主页</span>
+                            </router-link>
+                            <div class="bottom-nav-item" @click="showSaerch = !showSaerch">
+                                <i class='bx bx-search'></i>
+                                <span>搜索</span>
+                            </div>
+                            <router-link to="/heart" class="bottom-nav-item">
+                                <i class='bx bx-heart'></i>
+                                <span>最爱</span>
+                            </router-link>
+                            <router-link to="/played" class="bottom-nav-item">
+                                <i class='bx bx-detail'></i>
+                                <span>已播</span>
+                            </router-link>
+                            <router-link v-if="is_admin" to="/setting" class="bottom-nav-item">
+                                <i class='bx bx-cog'></i>
+                                <span>设置</span>
+                            </router-link>
+                            <router-link v-else to="/star" class="bottom-nav-item">
+                                <i class='bx bx-star'></i>
+                                <span>收藏</span>
+                            </router-link>
+                        </div>
+
+                        <!-- 搜索弹窗（增强版：带实时建议） -->
                         <n-modal v-model:show="showSaerch" transform-origin="center">
-                            <n-card style="width: 600px" title="搜索" :bordered="false" size="huge" role="dialog"
+                            <n-card style="width: 600px; max-width: 90vw" title="搜索" :bordered="false" size="huge" role="dialog"
                                 aria-modal="true">
                                 <template #header-extra>
                                     <n-button @click="(showSaerch = !showSaerch)" strong secondary circle>
                                         <i class='bx bx-x'></i>
                                     </n-button>
                                 </template>
-                                <n-input @keyup.enter="Search()" v-model:value="q" type="text" size="large" placeholder="">
+                                <n-auto-complete
+                                    v-model:value="q"
+                                    :input-props="{ autocomplete: 'off' }"
+                                    :options="searchOptions"
+                                    placeholder="输入影片名称..."
+                                    clearable
+                                    size="large"
+                                    @select="onSearchSelect"
+                                    @keyup.enter="Search()">
                                     <template #prefix>
                                         <i class='bx bx-search'></i>
                                     </template>
-                                </n-input>
+                                </n-auto-complete>
                             </n-card>
                         </n-modal>
                     </n-layout>
@@ -180,7 +218,7 @@
 <script>
 import { darkTheme } from 'naive-ui';
 import { useMessage, useDialog } from 'naive-ui';
-import { defineComponent, getCurrentInstance, onMounted, ref } from 'vue';
+import { defineComponent, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue';
 import Login from './components/Login';
 import global from './components/common.vue';
 
@@ -209,6 +247,10 @@ export default defineComponent({
         const { proxy } = getCurrentInstance();
         title.value = proxy.COMMON.title;
         document.title = title.value;
+
+        // 搜索建议
+        const searchOptions = ref([]);
+        let searchTimer = null;
 
         // 注入全局消息处理器，让 common.vue 的 ShowMsg 使用 naive-ui message
         global.setMsgHandler((msg) => {
@@ -317,8 +359,74 @@ export default defineComponent({
             getData()
         };
 
+        // 搜索建议：输入时防抖请求
+        watch(q, (newVal) => {
+            if (searchTimer) clearTimeout(searchTimer);
+            if (!newVal || newVal.trim().length < 1) {
+                searchOptions.value = [];
+                return;
+            }
+            searchTimer = setTimeout(() => {
+                proxy.axios.post(proxy.COMMON.apiUrl + '/v1/api/themovie/search?q=' + encodeURIComponent(newVal), {}, {
+                    headers: { 'Authorization': proxy.$cookies.get("Authorization") }
+                }).then(res => {
+                    if (res.data.code == 200 && res.data.data) {
+                        searchOptions.value = res.data.data.slice(0, 8).map(item => ({
+                            label: item.title || item.name,
+                            value: item.title || item.name
+                        }));
+                    }
+                }).catch(() => {});
+                // 同时搜索电视剧
+                proxy.axios.post(proxy.COMMON.apiUrl + '/v1/api/thetv/search?q=' + encodeURIComponent(newVal), {}, {
+                    headers: { 'Authorization': proxy.$cookies.get("Authorization") }
+                }).then(res => {
+                    if (res.data.code == 200 && res.data.data) {
+                        let tvOpts = res.data.data.slice(0, 5).map(item => ({
+                            label: item.name,
+                            value: item.name
+                        }));
+                        searchOptions.value = [...searchOptions.value, ...tvOpts];
+                    }
+                }).catch(() => {});
+            }, 400);
+        });
+
+        // 选中建议项时跳转搜索
+        function onSearchSelect(value) {
+            if (value) {
+                q.value = value;
+                Search();
+            }
+        }
+
+        // 配置热更新：监听 common.vue 派发的事件，同步响应式状态
+        function onConfigChanged(e) {
+            const cfg = e && e.detail;
+            if (!cfg) return;
+            if (cfg.title != null) {
+                title.value = cfg.title;
+                document.title = cfg.title;
+            }
+            if (cfg.faviconico_url != null && cfg.faviconico_url !== '') {
+                let favicon = document.querySelector('link[rel="icon"]');
+                if (favicon !== null) {
+                    favicon.href = cfg.faviconico_url;
+                } else {
+                    favicon = document.createElement("link");
+                    favicon.rel = "icon";
+                    favicon.href = cfg.faviconico_url;
+                    document.head.appendChild(favicon);
+                }
+            }
+        }
+
         onMounted(() => {
             getConfig();
+            window.addEventListener('onelist:config-changed', onConfigChanged);
+        });
+        onUnmounted(() => {
+            window.removeEventListener('onelist:config-changed', onConfigChanged);
         });
         return {
             dark,
@@ -333,6 +441,8 @@ export default defineComponent({
             theme,
             data,
             showSaerch,
+            searchOptions,
+            onSearchSelect,
             q: ref(null),
             reF,
             reFApp,
@@ -598,6 +708,71 @@ span.n-avatar {
 
 .n-layout-footer {
     text-align: center;
+}
+
+/* 移动端底部导航栏 */
+.mobile-bottom-nav {
+    display: none;
+}
+
+.bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+.bottom-nav-item i {
+    font-size: 22px;
+    margin-bottom: 2px;
+}
+
+.bottom-nav-item span {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.router-link-active.bottom-nav-item {
+    color: #2d8cf0;
+}
+
+/* 响应式：小屏设备显示底部导航，隐藏侧边栏和footer */
+@media screen and (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 56px;
+        background: var(--n-color, #fff);
+        border-top: 1px solid var(--n-border-color, #efeff5);
+        z-index: 100;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    .desktop-footer {
+        display: none !important;
+    }
+
+    .n-layout-sider {
+        display: none !important;
+    }
+
+    .n-layout[position="absolute"] {
+        bottom: 56px !important;
+    }
+
+    /* 小屏隐藏部分header按钮 */
+    .header-content .n-space:last-child .n-button:first-child {
+        display: none;
+    }
 }
 </style>
 

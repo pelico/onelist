@@ -5,7 +5,7 @@ type Episode struct {
 	EpisodeNumber  int     `json:"episode_number"`
 	ID             int     `json:"id" gorm:"not null;unique"`
 	Name           string  `json:"name"`
-	Url            string  `json:"url"`
+	Url            string  `json:"url" gorm:"index"`
 	Overview       string  `json:"overview"`
 	ProductionCode string  `json:"production_code"`
 	Runtime        int     `json:"runtime"`
@@ -14,7 +14,7 @@ type Episode struct {
 	StillPath      string  `json:"still_path"`
 	VoteAverage    float64 `json:"vote_average"`
 	VoteCount      int     `json:"vote_count"`
-	TheSeasonID    uint    `json:"the_season_id"`
+	TheSeasonID    uint    `json:"the_season_id" gorm:"index"`
 }
 
 type TheSeason struct {
@@ -26,5 +26,5 @@ type TheSeason struct {
 	ID           int       `json:"id" gorm:"not null;unique"`
 	PosterPath   string    `json:"poster_path"`
 	SeasonNumber int       `json:"season_number"`
-	TheTvID      uint      `json:"the_tv_id"`
+	TheTvID      uint      `json:"the_tv_id" gorm:"index"`
 }

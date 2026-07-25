@@ -67,7 +67,7 @@
                                     gallery_type: item.title != null ? 'movie' : 'tv'
                                 }
                             }">
-                                <img loading="lazy" class="carousel-img"
+                                <img loading="lazy" v-img-fade class="carousel-img"
                                     :src='COMMON.getPosterUrl(item.poster_path)'>
                             </router-link>
                             <div v-if="item.title != null" class="view-item-title">
