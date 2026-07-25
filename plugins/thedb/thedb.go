@@ -67,6 +67,7 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 		return ThedbSearchRsp{}, err
 	}
 	req.Header.Set("User-Agent", config.UA)
+	req.Header.Set("Accept", "application/json")
 	client := http.Client{
 		Timeout: timeOut,
 	}
@@ -76,6 +77,9 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 		return ThedbSearchRsp{}, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return ThedbSearchRsp{}, fmt.Errorf("TMDB API 返回错误状态码: %d", resp.StatusCode)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ThedbSearchRsp{}, err
@@ -83,6 +87,11 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	var data = ThedbSearchRsp{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
+		bodyPreview := string(body)
+		if len(bodyPreview) > 200 {
+			bodyPreview = bodyPreview[:200] + "..."
+		}
+		logger.Error("thedb", "TMDB JSON解析失败: "+key, "响应内容: "+bodyPreview)
 		return ThedbSearchRsp{}, err
 	}
 	logger.Debug("thedb", "搜索结果: "+key, "找到 "+fmt.Sprintf("%d", len(data.Results))+" 条结果")
