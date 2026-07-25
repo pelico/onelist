@@ -7,13 +7,26 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/msterzhang/onelist/api/utils/dir"
 	"github.com/msterzhang/onelist/api/utils/logger"
+	"github.com/msterzhang/onelist/config"
 )
 
 var imgpath = "images"
-var imgcdn = "https://tmdb-image-prod.b-cdn.net"
+
+func GetImgCdn() string {
+	if config.ImgUrl != "" {
+		url := strings.TrimSpace(config.ImgUrl)
+		url = strings.ReplaceAll(url, " ", "")
+		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+			url = "https://" + url
+		}
+		return url
+	}
+	return "https://tmdb-image-prod.b-cdn.net"
+}
 
 var dirs = []string{"w220_and_h330_face", "w440_and_h660_face", "w600_and_h900_bestv2", "w710_and_h400_multi_faces", "w227_and_h127_bestv2", "w1920_and_h1080_bestv2", "w355_and_h200_multi_faces"}
 
@@ -49,7 +62,7 @@ func DownImages(id string) error {
 	}
 	initDir()
 	for _, key := range keys {
-		url := fmt.Sprintf("%s/t/p/%s/%s", imgcdn, key, id)
+		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
 			continue
@@ -69,7 +82,7 @@ func DownSeasonImages(id string) error {
 	}
 	initDir()
 	for _, key := range keysSeason {
-		url := fmt.Sprintf("%s/t/p/%s/%s", imgcdn, key, id)
+		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
 			continue
@@ -89,7 +102,7 @@ func DownEpisodeImages(id string) error {
 	}
 	initDir()
 	for _, key := range keysEpisode {
-		url := fmt.Sprintf("%s/t/p/%s/%s", imgcdn, key, id)
+		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
 			continue
@@ -108,7 +121,7 @@ func DownPersonImage(id string) error {
 		return nil
 	}
 	initDir()
-	url := fmt.Sprintf("%s/t/p/%s/%s", imgcdn, "w220_and_h330_face", id)
+	url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), "w220_and_h330_face", id)
 	file := fmt.Sprintf("%s/%s/%s", imgpath, "w220_and_h330_face", id)
 	if dir.FileExists(file) {
 		return nil
@@ -127,7 +140,7 @@ func DownBackImage(id string) error {
 	}
 	initDir()
 	for _, key := range keysBackImge {
-		url := fmt.Sprintf("%s/t/p/%s/%s", imgcdn, key, id)
+		url := fmt.Sprintf("%s/t/p/%s/%s", GetImgCdn(), key, id)
 		file := fmt.Sprintf("%s/%s/%s", imgpath, key, id)
 		if dir.FileExists(file) {
 			continue
@@ -187,7 +200,7 @@ func DownloadImageToMedia(mediaPath string, posterUrl string, backdropUrl string
 	if posterUrl != "" {
 		posterFileName := filepath.Join(metadataDir, "poster.jpg")
 		if !dir.FileExists(posterFileName) {
-			fullUrl := imgcdn + "/t/p/w600_and_h900_bestv2" + posterUrl
+			fullUrl := GetImgCdn() + "/t/p/w600_and_h900_bestv2" + posterUrl
 			err := Download(fullUrl, posterFileName)
 			if err != nil {
 				logger.Warn("thedb", "下载封面到媒体目录失败: "+posterFileName, err.Error())
@@ -198,7 +211,7 @@ func DownloadImageToMedia(mediaPath string, posterUrl string, backdropUrl string
 	if backdropUrl != "" {
 		backdropFileName := filepath.Join(metadataDir, "backdrop.jpg")
 		if !dir.FileExists(backdropFileName) {
-			fullUrl := imgcdn + "/t/p/w1920_and_h1080_bestv2" + backdropUrl
+			fullUrl := GetImgCdn() + "/t/p/w1920_and_h1080_bestv2" + backdropUrl
 			err := Download(fullUrl, backdropFileName)
 			if err != nil {
 				logger.Warn("thedb", "下载背景图到媒体目录失败: "+backdropFileName, err.Error())
