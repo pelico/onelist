@@ -705,14 +705,10 @@ span.n-avatar {
 }
 
 .light .navigation ul li a.active .title,
-.light .navigation ul li a.active .icon {
-    color: #2d8cf0 !important;
-}
-
+.light .navigation ul li a.active .icon,
 .light .navigation.more ul li a.active .title,
 .light .navigation.more ul li a.active .icon {
-    display: block;
-    color: black;
+    color: #2d8cf0 !important;
 }
 
 .n-layout-footer {

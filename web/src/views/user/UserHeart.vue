@@ -117,6 +117,7 @@ export default {
 
 
         function fetchData() {
+            loading.value = true;
             let api = proxy.COMMON.apiUrl + `/v1/api/heart/data/list?data_type=${data_type.value}&page=${page.value}&size=${size.value}`;
             proxy.axios.post(api, {}, {
                 headers: {
@@ -125,16 +126,22 @@ export default {
                 }
             }).then(res => {
                 if (res.data.code == 200) {
-                    data.value = res.data.data;
-                    num.value = res.data.num;
+                    data.value = res.data.data || [];
+                    num.value = res.data.num || 0;
                     loading.value = false;
                     initPageText();
+                } else {
+                    loading.value = false;
+                    data.value = [];
+                    num.value = 0;
+                    proxy.COMMON.ShowMsg(res.data.msg || "加载失败");
                 }
-
             }).catch((error) => {
-               proxy.COMMON.ShowMsg(error);
+                loading.value = false;
+                data.value = [];
+                num.value = 0;
+                proxy.COMMON.ShowMsg(error);
             });
-
         }
 
         onBeforeRouteUpdate((to, from) => {
