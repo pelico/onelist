@@ -35,7 +35,8 @@ func (r *RepositoryTheMoviesCRUD) Sort(galleryUid string, mode string, order str
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		result := r.db.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid)
+		subQuery := r.db.Model(&models.TheMovie{}).Select("MIN(id)").Where("gallery_uid = ?", galleryUid).Group("url")
+		result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
 		result.Count(&num)
 		orderSql := fmt.Sprintf("%s %s", mode, order)
 		if config.DBDRIVER == "sqlite" && strings.Contains(mode, "_at") {

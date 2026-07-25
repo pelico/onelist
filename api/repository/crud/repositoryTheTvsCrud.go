@@ -35,7 +35,8 @@ func (r *RepositoryTheTvsCRUD) Sort(galleryUid string, mode string, order string
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		result := r.db.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid)
+		subQuery := r.db.Model(&models.TheTv{}).Select("MIN(id)").Where("gallery_uid = ?", galleryUid).Group("name")
+		result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
 		result.Count(&num)
 		if mode == "release_date" {
 			mode = "last_air_date"

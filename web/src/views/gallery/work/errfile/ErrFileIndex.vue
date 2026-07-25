@@ -133,6 +133,12 @@ const createColumns = ({
             maxWidth: 600
         },
         {
+            title: "创建时间",
+            key: "created_at",
+            resizable: true,
+            minWidth: 160,
+        },
+        {
             title: "操作",
             key: "actions",
             render(row) {

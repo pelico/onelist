@@ -53,6 +53,7 @@ func CleanOldLogs(retentionDays int) (int64, error) {
 	}
 	cutoffTime := time.Now().AddDate(0, 0, -retentionDays)
 	db := database.NewDb()
+	
 	result := db.Model(&models.Log{}).Where("created_at < ?", cutoffTime).Delete(&models.Log{})
 	if result.Error != nil {
 		return 0, result.Error
@@ -60,7 +61,16 @@ func CleanOldLogs(retentionDays int) (int64, error) {
 	if result.RowsAffected > 0 {
 		log.Printf("[INFO][system] 清理了 %d 条过期日志", result.RowsAffected)
 	}
-	return result.RowsAffected, nil
+	
+	errFileResult := db.Model(&models.ErrFile{}).Where("created_at < ?", cutoffTime).Delete(&models.ErrFile{})
+	if errFileResult.Error != nil {
+		return 0, errFileResult.Error
+	}
+	if errFileResult.RowsAffected > 0 {
+		log.Printf("[INFO][system] 清理了 %d 条过期错误文件记录", errFileResult.RowsAffected)
+	}
+	
+	return result.RowsAffected + errFileResult.RowsAffected, nil
 }
 
 func GetLogs(level string, module string, page int, pageSize int, keyword string) ([]models.Log, int64, error) {
