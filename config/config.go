@@ -80,12 +80,13 @@ func Load() {
 // 获取配置
 func GetConfig() models.Config {
 	config := models.Config{
-		Title:         Title,
-		DownLoadImage: DownLoadImage,
-		ImgUrl:        ImgUrl,
-		KeyDb:         KeyDb,
-		FaviconicoUrl: FaviconicoUrl,
-		VideoTypes:    VideoTypes,
+		Title:            Title,
+		DownLoadImage:    DownLoadImage,
+		ImgUrl:           ImgUrl,
+		KeyDb:            KeyDb,
+		FaviconicoUrl:    FaviconicoUrl,
+		VideoTypes:       VideoTypes,
+		LogRetentionDays: LogRetentionDays,
 	}
 	return config
 }
@@ -98,6 +99,7 @@ func SetConfig(config models.Config) {
 	KeyDb = config.KeyDb
 	FaviconicoUrl = config.FaviconicoUrl
 	VideoTypes = config.VideoTypes
+	LogRetentionDays = config.LogRetentionDays
 }
 
 // 保存配置
@@ -112,6 +114,7 @@ func SaveConfig(config models.Config) (models.Config, error) {
 	data = strings.ReplaceAll(data, "FaviconicoUrl="+FaviconicoUrl, "FaviconicoUrl="+config.FaviconicoUrl)
 	data = strings.ReplaceAll(data, "KeyDb="+KeyDb, "KeyDb="+config.KeyDb)
 	data = strings.ReplaceAll(data, "VideoTypes="+VideoTypes, "VideoTypes="+config.VideoTypes)
+	data = strings.ReplaceAll(data, "LogRetentionDays="+LogRetentionDays, "LogRetentionDays="+config.LogRetentionDays)
 	content := []byte(data)
 	err = os.WriteFile(EnvFile, content, 0644)
 	if err != nil {

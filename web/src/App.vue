@@ -127,6 +127,14 @@
                                                     <span class="title">系统设置</span>
                                                 </router-link>
                                             </li>
+                                            <li>
+                                                <router-link to="/logs">
+                                                    <span class="icon">
+                                                        <i class='bx bx-file-find'></i>
+                                                    </span>
+                                                    <span class="title">系统日志</span>
+                                                </router-link>
+                                            </li>
                                         </ul>
                                     </div>
                                 </div>

@@ -32,6 +32,10 @@
                 <n-form-item label="TheMovieDb api 密匙" path="key_db">
                     <n-input v-model:value="config.key_db" size="large" type="password" show-password-on="click" placeholder="请输入 TheMovieDb api 密匙" clearable />
                 </n-form-item>
+                <n-form-item label="日志保留天数" path="log_retention_days">
+                    <n-input-number v-model:value="logRetentionDaysNum" size="large" :min="1" :max="365" placeholder="默认 7 天" style="width: 100%" />
+                    <span class="form-hint">超过该天数的日志将被自动清理（重启服务后生效）</span>
+                </n-form-item>
                 <n-button size="large" class="btn-save" @click="Save()" type="info" :loading="saving">
                     保存
                 </n-button>
@@ -51,7 +55,8 @@ export default {
             "img_url": null,
             "key_db": null,
             "faviconico_url": null,
-            "video_types": null
+            "video_types": null,
+            "log_retention_days": null
         })
         const { proxy } = getCurrentInstance();
         const load = ref(true);
@@ -59,6 +64,17 @@ export default {
 
         // download_image 字段在后端是字符串 "是"/"否"，前端用 switch 更直观
         const downloadImageBool = computed(() => config.value.download_image === "是");
+
+        // log_retention_days 后端是字符串，前端用数字输入框更直观
+        const logRetentionDaysNum = computed({
+            get: () => {
+                const n = parseInt(config.value.log_retention_days);
+                return isNaN(n) || n <= 0 ? 7 : n;
+            },
+            set: (val) => {
+                config.value.log_retention_days = val != null ? String(val) : "";
+            }
+        });
 
         function onDownloadImageChange(val) {
             config.value.download_image = val ? "是" : "否";
@@ -124,6 +140,7 @@ export default {
             load,
             saving,
             downloadImageBool,
+            logRetentionDaysNum,
             onDownloadImageChange,
             saveF
         }

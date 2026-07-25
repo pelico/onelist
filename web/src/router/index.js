@@ -76,6 +76,11 @@ const routes = [
         name: 'SettingIndex',
         component: () => import('../views/setting/SettingIndex.vue')
     },
+    {
+        path: '/logs',
+        name: 'LogIndex',
+        component: () => import('../views/log/LogIndex.vue')
+    },
 ];
 
 const router = createRouter({
