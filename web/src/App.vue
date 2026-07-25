@@ -2,7 +2,8 @@
     <div v-if="load" class="load"></div>
     <n-config-provider preflight-style-disabled=true :theme="theme" v-else>
         <n-message-provider>
-            <n-notification-provider>
+                <MessageBridge />
+                <n-notification-provider>
                 <n-dialog-provider>
                     <n-layout v-if="login" :class='[dark ? "dark" : "light", "home"]'>
                         <n-layout-header bordered>
@@ -216,19 +217,31 @@
 </template>
 
 <script>
-import { darkTheme } from 'naive-ui';
-import { useMessage, useDialog } from 'naive-ui';
+import { darkTheme, useMessage } from 'naive-ui';
 import { defineComponent, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue';
 import Login from './components/Login';
 import global from './components/common.vue';
+
+// 消息桥接组件：必须渲染在 n-message-provider 内部才能正确获取 message API
+// （App 组件本身渲染 n-message-provider，因此在 App 的 setup 中调用 useMessage() 找不到 provider）
+const MessageBridge = defineComponent({
+    name: 'MessageBridge',
+    setup() {
+        const message = useMessage();
+        global.setMsgHandler((msg) => {
+            message.info(msg, { duration: 3000 });
+        });
+        return () => null;
+    }
+});
 
 export default defineComponent({
     name: 'App',
     components: {
         Login,
+        MessageBridge,
     },
     setup() {
-        const message = useMessage();
         const dark = ref(false);
         const theme = ref(null);
         const data = ref(null);
@@ -251,11 +264,6 @@ export default defineComponent({
         // 搜索建议
         const searchOptions = ref([]);
         let searchTimer = null;
-
-        // 注入全局消息处理器，让 common.vue 的 ShowMsg 使用 naive-ui message
-        global.setMsgHandler((msg) => {
-            message.info(msg, { duration: 3000 });
-        });
 
         const them = proxy.$cookies.get("dark");
         const collapsedItem = proxy.$cookies.get("collapsed");
