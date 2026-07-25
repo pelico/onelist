@@ -77,6 +77,9 @@ func Run() {
 	r.GET("/", IndexView)
 	r.NoRoute(IndexView)
 
+	// 首页聚合数据
+	r.GET("/v1/api/home", auth.JWTAuth(), controllers.GetHomeData)
+
 	// 用户
 	user := r.Group("/v1/api/user")
 	user.POST("/create", controllers.CreateUser)

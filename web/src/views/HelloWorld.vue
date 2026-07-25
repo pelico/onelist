@@ -1,8 +1,9 @@
 <template>
-    <div v-if="loading" class="load">
-    </div>
-    <div v-else class="content">
-        <div class="card-list">
+    <div class="content">
+        <div v-if="!data" class="skeleton-gallery">
+            <div class="skeleton-card" v-for="n in 5" :key="'sg-'+n"></div>
+        </div>
+        <div v-else class="card-list">
             <div class="card-shows medias">
                 <div class="card-show-title-row">
                     <div class="card-show-title">
@@ -202,11 +203,8 @@ export default {
         const latestTvs = ref([]);
         var dataDict = new Object();
 
-        const size = ref(100);
+        const size = ref(24);
 
-        const loading = ref(true);
-        const error = ref(null);
-        
         const galleryCarousel = ref(null);
         const carouselRefs = ref([]);
         const latestMovieCarousel = ref(null);
@@ -266,85 +264,33 @@ export default {
             }
         }
 
-        function fetchLatestMovies() {
-            return proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/themovie/latest?size=24`, {}, {
-                headers: {
-                    'content-type': 'application/json',
-                    'Authorization': proxy.$cookies.get("Authorization")
-                }
-            }).then(res => {
-                if (res.data.code == 200) {
-                    latestMovies.value = res.data.data;
-                }
-            }).catch((error) => {
-               proxy.COMMON.ShowMsg(error);
-            });
-        }
-        
-        function fetchLatestTvs() {
-            return proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/thetv/latest?size=24`, {}, {
-                headers: {
-                    'content-type': 'application/json',
-                    'Authorization': proxy.$cookies.get("Authorization")
-                }
-            }).then(res => {
-                if (res.data.code == 200) {
-                    latestTvs.value = res.data.data;
-                }
-            }).catch((error) => {
-               proxy.COMMON.ShowMsg(error);
-            });
-        }
-
         function fetchData() {
-            loading.value = true;
-            Promise.all([
-                fetchLatestMovies(),
-                fetchLatestTvs()
-            ]).then(() => {
-                proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/gallery/list?page=1&size=` + size.value, {}, {
-                    headers: {
-                        'content-type': 'application/json',
-                        'Authorization': proxy.$cookies.get("Authorization")
-                    }
-                }).then(res => {
-                    if (res.data.code == 200) {
-                        data.value = res.data.data;
-                        Promise.all(
-                            res.data.data.map(async (gallery) => {
-                                await latestData(gallery)
-                            })
-                        ).then(() => {
-                            loading.value = false;
-                            nextTick(() => {
-                                setupTvNavigation();
-                            });
-                        })
-                    }
-                }).catch((error) => {
-                   proxy.COMMON.ShowMsg(error);
-                });
-            });
-        }
-
-        function latestData(gallery) {
-            let api = proxy.COMMON.apiUrl + `/v1/api/thetv/gallery/list?id=` + gallery.gallery_uid + "&page=1&size=24";
-            if (gallery.gallery_type == "movie") {
-                api = proxy.COMMON.apiUrl + `/v1/api/themovie/gallery/list?id=` + gallery.gallery_uid + "&page=1&size=24";
-            }
-            return proxy.axios.post(api, {}, {
+            proxy.axios.get(proxy.COMMON.apiUrl + `/v1/api/home?size=` + size.value + `&gallery_size=` + size.value, {
                 headers: {
                     'content-type': 'application/json',
                     'Authorization': proxy.$cookies.get("Authorization")
                 }
             }).then(res => {
                 if (res.data.code == 200) {
-                    dataDict[gallery.title] = res.data.data;
-                    dict_data.value = dataDict;
+                    const homeData = res.data.data;
+                    data.value = homeData.galleries || [];
+                    latestMovies.value = homeData.latest_movies || [];
+                    latestTvs.value = homeData.latest_tvs || [];
+                    const items = homeData.gallery_items || {};
+                    const newDict = {};
+                    for (const gallery of data.value) {
+                        if (items[gallery.gallery_uid] && items[gallery.gallery_uid].length > 0) {
+                            newDict[gallery.title] = items[gallery.gallery_uid];
+                        }
+                    }
+                    dict_data.value = newDict;
+                    nextTick(() => {
+                        setupTvNavigation();
+                    });
                 }
             }).catch((error) => {
                proxy.COMMON.ShowMsg(error);
-            })
+            });
         }
         
         function setupTvNavigation() {
@@ -361,8 +307,6 @@ export default {
             latestTvs,
             per_view,
             per_card,
-            loading,
-            error,
             size,
             galleryCarousel,
             carouselRefs,
@@ -453,6 +397,30 @@ export default {
 .custom-arrow button:active {
     transform: scale(0.95);
     transform-origin: center;
+}
+
+.skeleton-gallery {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.skeleton-card {
+    flex: 1;
+    height: 120px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 @media (max-width: 750px) {
