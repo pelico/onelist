@@ -4,27 +4,23 @@
     <div v-else class="content">
         <div class="seriesTab">
             <div class="seriesTab-list">
-                <div class="seriesTab-item">
+                <div class="seriesTab-item page-info">
                     {{ pageText }}
                 </div>
-                <div class="seriesTab-item">
-                    <n-button @click="BackPage()" strong secondary circle>
+                <div class="seriesTab-item action-buttons">
+                    <n-button @click="BackPage()" strong secondary circle size="medium">
                         <i class='bx bx-up-arrow-alt'></i>
                     </n-button>
-                </div>
-                <div class="seriesTab-item">
-                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" strong secondary circle>
+                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" strong secondary circle size="medium">
                         <i class='bx bx-down-arrow-alt'></i>
                     </n-button>
-                </div>
-                <div class="seriesTab-item">
-                    <n-button @click="showSort = !showSort" strong secondary circle>
+                    <n-button @click="showSort = !showSort" type="primary" circle size="medium">
                         <i class='bx bx-align-middle'></i>
+                        <span class="btn-text">排序</span>
                     </n-button>
-                </div>
-                <div class="seriesTab-item">
-                    <n-button @click="showFilter = !showFilter" strong secondary circle>
+                    <n-button @click="showFilter = !showFilter" type="success" circle size="medium">
                         <i class='bx bx-filter'></i>
+                        <span class="btn-text">筛选</span>
                     </n-button>
                 </div>
             </div>
@@ -466,15 +462,34 @@ export default {
 .seriesTab {
     margin-top: 20px;
     margin-bottom: 20px;
-    text-align: center;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
 }
 
 .seriesTab .seriesTab-list {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+}
+
+.seriesTab-item.page-info {
+    font-size: 1.1em;
+    color: #fff;
+    font-weight: 500;
+}
+
+.seriesTab-item.action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-text {
+    margin-left: 4px;
+    font-size: 0.9em;
 }
 
 .sort-title {

@@ -66,7 +66,8 @@ func (r *RepositoryTheMoviesCRUD) FindByGalleryId(id string, page int, size int)
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		result := r.db.Model(&models.TheMovie{}).Where("gallery_uid = ?", id)
+		subQuery := r.db.Model(&models.TheMovie{}).Select("MIN(id)").Where("gallery_uid = ?", id).Group("url")
+		result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
 		result.Count(&num)
 		if config.DBDRIVER == "sqlite" {
 			err = result.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&themovies).Error

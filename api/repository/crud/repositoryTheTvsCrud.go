@@ -69,7 +69,8 @@ func (r *RepositoryTheTvsCRUD) FindByGalleryId(id string, page int, size int) ([
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		result := r.db.Model(&models.TheTv{}).Where("gallery_uid = ?", id)
+		subQuery := r.db.Model(&models.TheTv{}).Select("MIN(id)").Where("gallery_uid = ?", id).Group("name")
+		result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
 		result.Count(&num)
 		if config.DBDRIVER == "sqlite" {
 			err = result.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&thetvs).Error
