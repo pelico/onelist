@@ -13,7 +13,6 @@ import tvNavigation from './plugins/tvNavigation'
 import { setupTvFocusDirectives } from './directives/tvFocus'
 import './styles/tv-focus.css'
 
-import "node-snackbar/dist/snackbar.min.css"
 import 'boxicons/css/boxicons.min.css'
 
 const app = createApp(App);

@@ -39,7 +39,14 @@
                             </n-button>
                         </template>
                         <div class="progres-content">
-                            <n-progress type="circle" :percentage="(item.speed * 100 / item.file_number).toFixed(0)" />
+                            <n-progress type="circle"
+                                :percentage="getProgress(item)"
+                                :indicator-placement="'label'"
+                                :color="item.is_ok ? '#18a058' : '#2080f0'">
+                                <template #default>
+                                    <span style="font-size: 13px;">{{ getProgressText(item) }}</span>
+                                </template>
+                            </n-progress>
                         </div>
                         <template #footer>
                             <div class="work-tool">
@@ -340,6 +347,22 @@ export default {
         }
     },
     methods: {
+        // 计算进度百分比，防止 NaN
+        getProgress(item) {
+            if (!item.file_number || item.file_number === 0) {
+                return 0;
+            }
+            let pct = (item.speed * 100 / item.file_number);
+            if (isNaN(pct) || pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            return Math.round(pct);
+        },
+        // 进度文字显示
+        getProgressText(item) {
+            if (item.is_ok) return '完成';
+            if (!item.file_number || item.file_number === 0) return '等待中';
+            return this.getProgress(item) + '%';
+        },
         handleFocus() {
             this.message.info("比如'http://alist.cn/云盘/电影'就应该输入'/云盘/电影',或者是本地文件夹绝对路径", { duration: 8000 })
         },

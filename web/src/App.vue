@@ -179,8 +179,10 @@
 
 <script>
 import { darkTheme } from 'naive-ui';
+import { useMessage, useDialog } from 'naive-ui';
 import { defineComponent, getCurrentInstance, onMounted, ref } from 'vue';
 import Login from './components/Login';
+import global from './components/common.vue';
 
 export default defineComponent({
     name: 'App',
@@ -188,6 +190,7 @@ export default defineComponent({
         Login,
     },
     setup() {
+        const message = useMessage();
         const dark = ref(false);
         const theme = ref(null);
         const data = ref(null);
@@ -206,6 +209,11 @@ export default defineComponent({
         const { proxy } = getCurrentInstance();
         title.value = proxy.COMMON.title;
         document.title = title.value;
+
+        // 注入全局消息处理器，让 common.vue 的 ShowMsg 使用 naive-ui message
+        global.setMsgHandler((msg) => {
+            message.info(msg, { duration: 3000 });
+        });
 
         const them = proxy.$cookies.get("dark");
         const collapsedItem = proxy.$cookies.get("collapsed");
