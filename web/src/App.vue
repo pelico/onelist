@@ -9,12 +9,12 @@
                         <n-layout-header bordered>
                             <div class="header-content">
                                 <n-space>
-                                    <div @click="toggDrawer">
+                                    <div @click="toggDrawer" class="menu-toggle-btn">
                                         <n-button circle>
                                             <i class='bx bx-menu'></i>
                                         </n-button>
                                     </div>
-                                    <div @click="Home" class="title">
+                                    <div @click="Home" class="title header-title">
                                         {{ title }}
                                     </div>
                                 </n-space>
@@ -590,6 +590,14 @@ ul li .title,
     font-size: 1.4em;
 }
 
+.header-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40vw;
+    line-height: 60px;
+}
+
 .content {
     padding: 12px;
 }
@@ -785,6 +793,17 @@ span.n-avatar {
     /* 小屏隐藏部分header按钮 */
     .header-content .n-space:last-child .n-button:first-child {
         display: none;
+    }
+
+    /* 移动端隐藏侧边栏汉堡按钮（侧边栏已隐藏，按钮无意义） */
+    .menu-toggle-btn {
+        display: none !important;
+    }
+
+    /* 移动端标题缩小并限制宽度 */
+    .header-title {
+        font-size: 1.1em;
+        max-width: 50vw;
     }
 }
 </style>

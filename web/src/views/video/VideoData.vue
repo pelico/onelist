@@ -12,6 +12,10 @@
                     <div class="view-card-detail detailTextContainer">
                         <div class="lex-direction-column">
                             <div class="itemPrimaryNameContainer">
+                                <button class="back-button" @click="goBack">
+                                    <i class='bx bx-arrow-back'></i>
+                                    <span class="back-text">返回</span>
+                                </button>
                                 <h1 class="itemName-primary">{{ gallery_type == "tv" ? data.name : data.title }}</h1>
                             </div>
                             <div class="mediaInfo">
@@ -471,6 +475,13 @@ export default {
             reF,
             q,
             searchData,
+            goBack() {
+                if (window.history.length > 1) {
+                    proxy.$router.back();
+                } else {
+                    proxy.$router.push({ path: "/" });
+                }
+            },
             options: [
                 {
                     label: "重新刮削",
@@ -697,6 +708,34 @@ export default {
     align-items: center;
     margin-top: 20px;
     margin-bottom: 20px;
+}
+
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 6px 10px;
+    margin-right: 12px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.back-button i {
+    font-size: 20px;
+}
+
+.back-text {
+    font-weight: 500;
 }
 
 .view-card-image {
