@@ -2,6 +2,17 @@
     <div v-if="loading" class="load">
     </div>
     <div v-else class="content">
+        <div class="page-header">
+            <div class="page-title">我的收藏</div>
+            <div class="type-tabs">
+                <div :class="['tab-item', { active: data_type === 'movie' }]" @click="switchType('movie')">
+                    电影
+                </div>
+                <div :class="['tab-item', { active: data_type === 'tv' }]" @click="switchType('tv')">
+                    剧集
+                </div>
+            </div>
+        </div>
         <div class="seriesTab">
             <div class="seriesTab-list">
                 <div class="seriesTab-item">
@@ -17,14 +28,14 @@
                         <i class='bx bx-right-arrow-alt'></i>
                     </n-button>
                 </div>
-                <div class="seriesTab-item">
-                    <n-button @click="showSort = !showSort" strong secondary circle>
-                        <i class='bx bx-filter'></i>
-                    </n-button>
-                </div>
             </div>
         </div>
-        <div class="card-show-content view-card-list">
+        <div v-if="data && data.length === 0" class="empty-tip">
+            <i class='bx bx-star'></i>
+            <p>暂无收藏内容</p>
+            <span>去发现好看的影片并加入收藏吧</span>
+        </div>
+        <div v-else class="card-show-content view-card-list">
             <div class="view-item" v-for="(item, index) in data" :key="index">
                 <router-link :to="{
                     path: '/video', query: {
@@ -55,27 +66,6 @@
                 </router-link>
             </div>
         </div>
-        <n-modal v-model:show="showSort" transform-origin="center">
-            <n-card style="width: 600px;" title="选择分类" :bordered="false" size="huge" role="dialog" aria-modal="true">
-                <template #header-extra>
-                    <n-button @click="showSort = !showSort" strong secondary circle>
-                        <i class='bx bx-x'></i>
-                    </n-button>
-                </template>
-                <div class="sort-list">
-                    <div class="sort-list">
-                        <n-radio-group v-model:value="mode" name="radiogroup">
-                            <n-space vertical>
-                                <n-radio @change="handleChange" class="sort-item" v-for="item in modes"
-                                    :checked="mode === item.value" :key="item.value" :value="item.value">
-                                    {{ item.label }}
-                                </n-radio>
-                            </n-space>
-                        </n-radio-group>
-                    </div>
-                </div>
-            </n-card>
-        </n-modal>
     </div>
 </template>
 
@@ -86,27 +76,20 @@ import { onBeforeRouteUpdate } from 'vue-router';
 export default {
     name: "UserStar",
     setup() {
-        const data_type = ref(null);
-        const size = ref(null);
-        const page = ref(null);
+        const data_type = ref("movie");
+        const size = ref(48);
+        const page = ref(1);
         const data = ref(null);
         const error = ref(null);
         const loading = ref(true);
         const { proxy } = getCurrentInstance();
-        const num = ref(null);
-        const search = ref(false);
-        const mode = ref(null);
-        const genre = ref("");
-        const year = ref("");
-        size.value = 48;
-        page.value = 1;
+        const num = ref(0);
         const per_card = ref(8);
         if (proxy.COMMON.isMo) {
             per_card.value = 3;
         }
-        const pageText = ref(null);
-        data_type.value = "tv";
-        mode.value = data_type.value
+        const pageText = ref("");
+
         function initPageText() {
             let si = size.value;
             if (num.value < size.value) {
@@ -114,7 +97,6 @@ export default {
             }
             pageText.value = num.value + " 的 " + (page.value - 1) * size.value + "-" + ((page.value - 1) * size.value + si);
         }
-
 
         function fetchData() {
             loading.value = true;
@@ -144,6 +126,13 @@ export default {
             });
         }
 
+        function switchType(type) {
+            if (data_type.value === type) return;
+            data_type.value = type;
+            page.value = 1;
+            fetchData();
+        }
+
         onBeforeRouteUpdate((to, from) => {
             fetchData();
         });
@@ -165,32 +154,9 @@ export default {
             page,
             size,
             num,
-            search,
             pageText,
-            genre,
-            year,
             reF,
-            handleChange() {
-                page.value = 1;
-                data_type.value = mode.value;
-                fetchData();
-            },
-            showSort: ref(false),
-            showFilter: ref(false),
-            mode: mode,
-            modes: [
-                {
-                    value: "tv",
-                    label: "节目"
-                },
-                {
-                    value: 'movie',
-                    label: '电影'
-                },
-            ].map((s) => {
-                s.value = s.value.toLowerCase()
-                return s
-            }),
+            switchType,
         }
     },
     methods: {
@@ -211,6 +177,77 @@ export default {
 </script>
 
 <style scoped>
+.page-header {
+    margin-bottom: 16px;
+    margin-top: 20px;
+}
+
+.page-title {
+    font-size: 1.4em;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+
+.type-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tab-item {
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 0.95em;
+    cursor: pointer;
+    background: var(--n-color-hover-color, #f5f5f5);
+    transition: all 0.2s;
+}
+
+.tab-item:hover {
+    background: var(--n-primary-color-hover, #e6f1ff);
+}
+
+.tab-item.active {
+    background: #2d8cf0;
+    color: white;
+}
+
+.dark .tab-item {
+    background: #2a2a2a;
+    color: #ccc;
+}
+
+.dark .tab-item.active {
+    background: #2d8cf0;
+    color: white;
+}
+
+.empty-tip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    color: #999;
+    text-align: center;
+}
+
+.empty-tip i {
+    font-size: 4em;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-tip p {
+    font-size: 1.2em;
+    margin: 8px 0;
+}
+
+.empty-tip span {
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
 .seriesTab {
     margin-top: 20px;
     margin-bottom: 20px;

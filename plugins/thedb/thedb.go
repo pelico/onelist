@@ -34,20 +34,27 @@ import (
 
 var (
 	ImageHost = "http://image.tmdb.org/"
-	TheApi    = "https://api.themoviedb.org/3"
 	// 取0-24，共计24人
 	personNumber = 24
 	timeOut      = 30 * time.Second
 )
+
+// TheApi 返回当前配置中的 TMDB API 地址
+func TheApi() string {
+	if config.TheMovieDbApiUrl != "" {
+		return config.TheMovieDbApiUrl
+	}
+	return "https://api.themoviedb.org/3"
+}
 
 // 搜索资源
 func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	if !tv {
 		key = extract.ExtractMovieName(key)
 	}
-	api := fmt.Sprintf("%s/search/movie?api_key=%s&language=zh&page=1&query=%s", TheApi, config.KeyDb, key)
+	api := fmt.Sprintf("%s/search/movie?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, key)
 	if tv {
-		api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh&page=1&query=%s", TheApi, config.KeyDb, key)
+		api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, key)
 	}
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
@@ -78,9 +85,9 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 
 // 获取整个剧组人员
 func GetCredits(id int, tv bool) (models.TheCredit, error) {
-	api := fmt.Sprintf("%s/movie/%d/credits?api_key=%s&language=zh", TheApi, id, config.KeyDb)
+	api := fmt.Sprintf("%s/movie/%d/credits?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
 	if tv {
-		api = fmt.Sprintf("%s/tv/%d/credits?api_key=%s&language=zh", TheApi, id, config.KeyDb)
+		api = fmt.Sprintf("%s/tv/%d/credits?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
 	}
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
@@ -119,7 +126,7 @@ func GetCredits(id int, tv bool) (models.TheCredit, error) {
 
 // 获取电影数据
 func GetMovieData(id int) (models.TheMovie, error) {
-	api := fmt.Sprintf("%s/movie/%d?api_key=%s&language=zh", TheApi, id, config.KeyDb)
+	api := fmt.Sprintf("%s/movie/%d?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
 		return models.TheMovie{}, err
@@ -151,7 +158,7 @@ func GetMovieData(id int) (models.TheMovie, error) {
 
 // 获取电视节目数据
 func GetTvData(id int) (models.TheTv, error) {
-	api := fmt.Sprintf("%s/tv/%d?api_key=%s&language=zh", TheApi, id, config.KeyDb)
+	api := fmt.Sprintf("%s/tv/%d?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
 		return models.TheTv{}, err
@@ -183,7 +190,7 @@ func GetTvData(id int) (models.TheTv, error) {
 
 // 获取电视每季详情
 func GetTheSeasonData(id int, item int) (models.TheSeason, error) {
-	api := fmt.Sprintf("%s/tv/%d/season/%d?api_key=%s&language=zh", TheApi, id, item, config.KeyDb)
+	api := fmt.Sprintf("%s/tv/%d/season/%d?api_key=%s&language=zh", TheApi(), id, item, config.KeyDb)
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
 		return models.TheSeason{}, err
@@ -217,7 +224,7 @@ func GetTheSeasonData(id int, item int) (models.TheSeason, error) {
 
 // 获取演员信息
 func GetThePersonData(id int) (models.ThePerson, error) {
-	api := fmt.Sprintf("%s/person/%d?api_key=%s&language=zh", TheApi, id, config.KeyDb)
+	api := fmt.Sprintf("%s/person/%d?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
 		return models.ThePerson{}, err

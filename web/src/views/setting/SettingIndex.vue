@@ -29,6 +29,10 @@
                 <n-form-item label="允许刮削的视频文件类型" path="video_types">
                     <n-input v-model:value="config.video_types" size="large" placeholder="例如 mp4,mkv,avi,rmvb" clearable />
                 </n-form-item>
+                <n-form-item label="TheMovieDb API 地址" path="themoviedb_api_url">
+                    <n-input v-model:value="config.themoviedb_api_url" size="large" placeholder="例如 https://api.themoviedb.org/3" clearable />
+                    <span class="form-hint">可填写镜像或反代地址解决网络超时问题</span>
+                </n-form-item>
                 <n-form-item label="TheMovieDb api 密匙" path="key_db">
                     <n-input v-model:value="config.key_db" size="large" type="password" show-password-on="click" placeholder="请输入 TheMovieDb api 密匙" clearable />
                 </n-form-item>
@@ -53,6 +57,7 @@ export default {
             "title": null,
             "download_image": null,
             "img_url": null,
+            "themoviedb_api_url": null,
             "key_db": null,
             "faviconico_url": null,
             "video_types": null,

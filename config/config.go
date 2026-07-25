@@ -25,6 +25,7 @@ var (
 	UserPassword      = ""
 	DownLoadImage     = ""
 	ImgUrl            = ""
+	TheMovieDbApiUrl  = ""
 	VideoTypes        = ""
 	UA                = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
 	IsDev             = false
@@ -74,6 +75,10 @@ func Load() {
 	UserPassword = os.Getenv("UserPassword")
 	DownLoadImage = os.Getenv("DownLoadImage")
 	ImgUrl = os.Getenv("ImgUrl")
+	TheMovieDbApiUrl = os.Getenv("TheMovieDbApiUrl")
+	if TheMovieDbApiUrl == "" {
+		TheMovieDbApiUrl = "https://api.themoviedb.org/3"
+	}
 	VideoTypes = os.Getenv("VideoTypes")
 }
 
@@ -83,6 +88,7 @@ func GetConfig() models.Config {
 		Title:            Title,
 		DownLoadImage:    DownLoadImage,
 		ImgUrl:           ImgUrl,
+		TheMovieDbApiUrl: TheMovieDbApiUrl,
 		KeyDb:            KeyDb,
 		FaviconicoUrl:    FaviconicoUrl,
 		VideoTypes:       VideoTypes,
@@ -96,6 +102,9 @@ func SetConfig(config models.Config) {
 	Title = config.Title
 	DownLoadImage = config.DownLoadImage
 	ImgUrl = config.ImgUrl
+	if config.TheMovieDbApiUrl != "" {
+		TheMovieDbApiUrl = config.TheMovieDbApiUrl
+	}
 	KeyDb = config.KeyDb
 	FaviconicoUrl = config.FaviconicoUrl
 	VideoTypes = config.VideoTypes
@@ -111,6 +120,7 @@ func SaveConfig(config models.Config) (models.Config, error) {
 	data := strings.ReplaceAll(string(b), "Title="+Title, "Title="+config.Title)
 	data = strings.ReplaceAll(data, "DownLoadImage="+DownLoadImage, "DownLoadImage="+config.DownLoadImage)
 	data = strings.ReplaceAll(data, "ImgUrl="+ImgUrl, "ImgUrl="+config.ImgUrl)
+	data = strings.ReplaceAll(data, "TheMovieDbApiUrl="+TheMovieDbApiUrl, "TheMovieDbApiUrl="+config.TheMovieDbApiUrl)
 	data = strings.ReplaceAll(data, "FaviconicoUrl="+FaviconicoUrl, "FaviconicoUrl="+config.FaviconicoUrl)
 	data = strings.ReplaceAll(data, "KeyDb="+KeyDb, "KeyDb="+config.KeyDb)
 	data = strings.ReplaceAll(data, "VideoTypes="+VideoTypes, "VideoTypes="+config.VideoTypes)
