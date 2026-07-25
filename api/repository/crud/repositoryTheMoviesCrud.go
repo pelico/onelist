@@ -88,3 +88,32 @@ func (r *RepositoryTheMoviesCRUD) FindByGalleryId(id string, page int, size int)
 	}
 	return []models.TheMovie{}, 0, err
 }
+
+// GetLatest 获取最新添加的电影
+func (r *RepositoryTheMoviesCRUD) GetLatest(size int) ([]models.TheMovie, error) {
+	var err error
+	themovies := []models.TheMovie{}
+	done := make(chan bool)
+	go func(ch chan<- bool) {
+		defer close(ch)
+		subQuery := r.db.Model(&models.TheMovie{}).Select("MIN(id)").Group("url")
+		result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
+		if config.DBDRIVER == "sqlite" {
+			err = result.Limit(size).Order("datetime(created_at) desc").Scan(&themovies).Error
+		} else {
+			err = result.Limit(size).Order("-created_at").Scan(&themovies).Error
+		}
+		if err != nil {
+			ch <- false
+			return
+		}
+		ch <- true
+	}(done)
+	if channels.OK(done) {
+		return themovies, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return []models.TheMovie{}, errors.New("themovies Not Found")
+	}
+	return []models.TheMovie{}, err
+}

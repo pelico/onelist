@@ -91,3 +91,32 @@ func (r *RepositoryTheTvsCRUD) FindByGalleryId(id string, page int, size int) ([
 	}
 	return []models.TheTv{}, 0, err
 }
+
+// GetLatest 获取最新添加的剧集
+func (r *RepositoryTheTvsCRUD) GetLatest(size int) ([]models.TheTv, error) {
+	var err error
+	thetvs := []models.TheTv{}
+	done := make(chan bool)
+	go func(ch chan<- bool) {
+		defer close(ch)
+		subQuery := r.db.Model(&models.TheTv{}).Select("MIN(id)").Group("name")
+		result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
+		if config.DBDRIVER == "sqlite" {
+			err = result.Limit(size).Order("datetime(created_at) desc").Scan(&thetvs).Error
+		} else {
+			err = result.Limit(size).Order("-created_at").Scan(&thetvs).Error
+		}
+		if err != nil {
+			ch <- false
+			return
+		}
+		ch <- true
+	}(done)
+	if channels.OK(done) {
+		return thetvs, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return []models.TheTv{}, errors.New("thetvs Not Found")
+	}
+	return []models.TheTv{}, err
+}

@@ -167,6 +167,7 @@ func Run() {
 	themovie.POST("/search", controllers.SearchTheMovie)
 	themovie.POST("/add", controllers.AddThemovie)
 	themovie.POST("/sort", controllers.SortThemovie)
+	themovie.POST("/latest", controllers.GetLatestTheMovies)
 
 	// 演员
 	theperson := r.Group("/v1/api/theperson", auth.JWTAuth())
@@ -189,6 +190,7 @@ func Run() {
 	thetv.POST("/search", controllers.SearchTheTv)
 	thetv.POST("/add", controllers.AddTheTv)
 	thetv.POST("/sort", controllers.SortTheTv)
+	thetv.POST("/latest", controllers.GetLatestTheTvs)
 
 	// 剧集分集
 	episode := r.Group("/v1/api/episode", auth.JWTAuth())

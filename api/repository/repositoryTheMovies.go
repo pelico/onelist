@@ -11,4 +11,5 @@ type TheMovieRepository interface {
 	Search(string, int, int) ([]models.TheMovie, int, error)
 	Sort(string,string,string, int, int) ([]models.TheMovie, int, error)
 	FindByGalleryId(string, int, int) ([]models.TheMovie, int, error)
+	GetLatest(int) ([]models.TheMovie, error)
 }

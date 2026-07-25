@@ -235,6 +235,25 @@ func GetTheMovieListByGalleryId(c *gin.Context) {
 	}(repo)
 }
 
+// 获取最新电影
+func GetLatestTheMovies(c *gin.Context) {
+	size, errSize := strconv.Atoi(c.Query("size"))
+	if errSize != nil {
+		size = 24
+	}
+	db := database.NewDb()
+	repo := crud.NewRepositoryTheMoviesCRUD(db)
+	func(themovieRepository repository.TheMovieRepository) {
+		themovies, err := themovieRepository.GetLatest(size)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": themovies})
+			return
+		}
+		themoviesNew := service.TheMoviesService(themovies, c.GetString("UserId"))
+		c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": themoviesNew})
+	}(repo)
+}
+
 // 手动添加视频
 func AddThemovie(c *gin.Context) {
 	addVideo := models.AddVideo{}

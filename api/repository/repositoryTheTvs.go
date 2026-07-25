@@ -11,4 +11,5 @@ type TheTvRepository interface {
 	Search(string, int, int) ([]models.TheTv, int, error)
 	Sort(string,string,string, int, int) ([]models.TheTv, int, error)
 	FindByGalleryId(string, int, int) ([]models.TheTv, int, error)
+	GetLatest(int) ([]models.TheTv, error)
 }

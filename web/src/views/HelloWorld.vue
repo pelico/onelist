@@ -4,11 +4,21 @@
     <div v-else class="content">
         <div class="card-list">
             <div class="card-shows medias">
-                <div class="card-show-title">
-                    我的媒体
+                <div class="card-show-title-row">
+                    <div class="card-show-title">
+                        我的媒体
+                    </div>
+                    <div class="custom-arrow">
+                        <button type="button" class="custom-arrow--left" @click="galleryPrev">
+                            <i class='bx bx-chevron-left'></i>
+                        </button>
+                        <button type="button" class="custom-arrow--right" @click="galleryNext">
+                            <i class='bx bx-chevron-right'></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="card-show-content gallery-card">
-                    <n-carousel :show-dots="false" show-arrow :slides-per-view="per_view" :space-between="20" :loop="false"
+                    <n-carousel ref="galleryCarousel" :show-dots="false" :show-arrow="false" :slides-per-view="per_view" :space-between="20" :loop="false"
                         draggable>
                         <div class="view-item" v-for="(item, index) in data" :key="index">
                             <router-link :to="{
@@ -25,25 +35,117 @@
                                 </div>
                             </router-link>
                         </div>
-                        <template #arrow="{ prev, next }">
-                            <div class="custom-arrow">
-                                <button type="button" class="custom-arrow--left" @click="prev">
-                                    <i class='bx bx-chevron-left'></i>
-                                </button>
-                                <button type="button" class="custom-arrow--right" @click="next">
-                                    <i class='bx bx-chevron-right'></i>
-                                </button>
+                    </n-carousel>
+                </div>
+            </div>
+            <div v-if="latestMovies && latestMovies.length > 0" class="card-shows">
+                <div class="card-show-title-row">
+                    <div class="card-show-title">
+                        <i class='bx bx-film'></i> 最新电影
+                    </div>
+                    <div class="custom-arrow">
+                        <button type="button" class="custom-arrow--left" @click="latestMoviePrev">
+                            <i class='bx bx-chevron-left'></i>
+                        </button>
+                        <button type="button" class="custom-arrow--right" @click="latestMovieNext">
+                            <i class='bx bx-chevron-right'></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-show-content view-card">
+                    <n-carousel ref="latestMovieCarousel" :show-dots="false" :show-arrow="false" :slides-per-view="per_card" :space-between="20" :loop="false"
+                        draggable>
+                        <div class="view-item" v-for="item in latestMovies" :key="'lm-'+item.id">
+                            <div class="view-item-header">
+                                <div class="view-item-tag-list">
+                                    <div class="view-item-tag rating">
+                                        {{ isNaN(Math.floor(item.vote_average * 100) /
+                                            100) ? "" : Math.floor(item.vote_average * 100) / 100
+                                        }}
+                                    </div>
+                                    <div v-if="item.played" class="view-item-tag count">
+                                        <i class='bx bx-check'></i>
+                                    </div>
+                                </div>
                             </div>
-                        </template>
+                            <router-link :to="{
+                                path: '/video', query: {
+                                    id: item.id,
+                                    gallery_type: 'movie'
+                                }
+                            }">
+                                <img loading="lazy" v-img-fade class="carousel-img"
+                                    :src='COMMON.getPosterUrl(item.poster_path)'>
+                            </router-link>
+                            <div class="view-item-title">
+                                {{ item.title }}
+                            </div>
+                        </div>
+                    </n-carousel>
+                </div>
+            </div>
+            <div v-if="latestTvs && latestTvs.length > 0" class="card-shows">
+                <div class="card-show-title-row">
+                    <div class="card-show-title">
+                        <i class='bx bx-tv'></i> 最新剧集
+                    </div>
+                    <div class="custom-arrow">
+                        <button type="button" class="custom-arrow--left" @click="latestTvPrev">
+                            <i class='bx bx-chevron-left'></i>
+                        </button>
+                        <button type="button" class="custom-arrow--right" @click="latestTvNext">
+                            <i class='bx bx-chevron-right'></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-show-content view-card">
+                    <n-carousel ref="latestTvCarousel" :show-dots="false" :show-arrow="false" :slides-per-view="per_card" :space-between="20" :loop="false"
+                        draggable>
+                        <div class="view-item" v-for="item in latestTvs" :key="'lt-'+item.id">
+                            <div class="view-item-header">
+                                <div class="view-item-tag-list">
+                                    <div class="view-item-tag rating">
+                                        {{ isNaN(Math.floor(item.vote_average * 100) /
+                                            100) ? "" : Math.floor(item.vote_average * 100) / 100
+                                        }}
+                                    </div>
+                                    <div v-if="item.played" class="view-item-tag count">
+                                        <i class='bx bx-check'></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <router-link :to="{
+                                path: '/video', query: {
+                                    id: item.id,
+                                    gallery_type: 'tv'
+                                }
+                            }">
+                                <img loading="lazy" v-img-fade class="carousel-img"
+                                    :src='COMMON.getPosterUrl(item.poster_path)'>
+                            </router-link>
+                            <div class="view-item-title">
+                                {{ item.name }}
+                            </div>
+                        </div>
                     </n-carousel>
                 </div>
             </div>
             <div class="card-shows" v-for="(key, index) in Object.keys(dict_data)" :key="index">
-                <div class="card-show-title">
-                    {{ key }}
+                <div class="card-show-title-row">
+                    <div class="card-show-title">
+                        {{ key }}
+                    </div>
+                    <div class="custom-arrow">
+                        <button type="button" class="custom-arrow--left" @click="carouselPrev(index)">
+                            <i class='bx bx-chevron-left'></i>
+                        </button>
+                        <button type="button" class="custom-arrow--right" @click="carouselNext(index)">
+                            <i class='bx bx-chevron-right'></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="card-show-content view-card">
-                    <n-carousel :show-dots="false" show-arrow :slides-per-view="per_card" :space-between="20" :loop="false"
+                    <n-carousel :ref="el => setCarouselRef(el, index)" :show-dots="false" :show-arrow="false" :slides-per-view="per_card" :space-between="20" :loop="false"
                         draggable>
                         <div class="view-item" v-for="item in dict_data[key]" :key="item.id">
                             <div class="view-item-header">
@@ -53,9 +155,6 @@
                                             100) ? "" : Math.floor(item.vote_average * 100) / 100
                                         }}
                                     </div>
-                                    <!-- <div v-if="item.Type != 'Movie' && item.ChildCount != 0" class="view-item-tag count">
-                                        {{ item.ChildCount }}
-                                    </div> -->
                                     <div v-if="item.played" class="view-item-tag count">
                                         <i class='bx bx-check'></i>
                                     </div>
@@ -77,16 +176,6 @@
                                 {{ item.name }}
                             </div>
                         </div>
-                        <template #arrow="{ prev, next }">
-                            <div class="custom-arrow">
-                                <button type="button" class="custom-arrow--left" @click="prev">
-                                    <i class='bx bx-chevron-left'></i>
-                                </button>
-                                <button type="button" class="custom-arrow--right" @click="next">
-                                    <i class='bx bx-chevron-right'></i>
-                                </button>
-                            </div>
-                        </template>
                     </n-carousel>
                 </div>
             </div>
@@ -95,7 +184,7 @@
 </template>
 
 <script>
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, ref, nextTick } from "vue";
 export default {
     name: 'HelloWorld',
     setup() {
@@ -109,33 +198,132 @@ export default {
         }
         const data = ref(null);
         const dict_data = ref(null);
+        const latestMovies = ref([]);
+        const latestTvs = ref([]);
         var dataDict = new Object();
 
         const size = ref(100);
 
         const loading = ref(true);
         const error = ref(null);
+        
+        const galleryCarousel = ref(null);
+        const carouselRefs = ref([]);
+        const latestMovieCarousel = ref(null);
+        const latestTvCarousel = ref(null);
+        
+        function setCarouselRef(el, index) {
+            if (el) {
+                carouselRefs.value[index] = el;
+            }
+        }
+        
+        function galleryPrev() {
+            if (galleryCarousel.value && galleryCarousel.value.prev) {
+                galleryCarousel.value.prev();
+            }
+        }
+        
+        function galleryNext() {
+            if (galleryCarousel.value && galleryCarousel.value.next) {
+                galleryCarousel.value.next();
+            }
+        }
+        
+        function latestMoviePrev() {
+            if (latestMovieCarousel.value && latestMovieCarousel.value.prev) {
+                latestMovieCarousel.value.prev();
+            }
+        }
+        
+        function latestMovieNext() {
+            if (latestMovieCarousel.value && latestMovieCarousel.value.next) {
+                latestMovieCarousel.value.next();
+            }
+        }
+        
+        function latestTvPrev() {
+            if (latestTvCarousel.value && latestTvCarousel.value.prev) {
+                latestTvCarousel.value.prev();
+            }
+        }
+        
+        function latestTvNext() {
+            if (latestTvCarousel.value && latestTvCarousel.value.next) {
+                latestTvCarousel.value.next();
+            }
+        }
+        
+        function carouselPrev(index) {
+            if (carouselRefs.value[index] && carouselRefs.value[index].prev) {
+                carouselRefs.value[index].prev();
+            }
+        }
+        
+        function carouselNext(index) {
+            if (carouselRefs.value[index] && carouselRefs.value[index].next) {
+                carouselRefs.value[index].next();
+            }
+        }
 
-        function fetchData() {
-            loading.value = true;
-            proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/gallery/list?page=1&size=` + size.value, {}, {
+        function fetchLatestMovies() {
+            return proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/themovie/latest?size=24`, {}, {
                 headers: {
                     'content-type': 'application/json',
                     'Authorization': proxy.$cookies.get("Authorization")
                 }
             }).then(res => {
                 if (res.data.code == 200) {
-                    data.value = res.data.data;
-                    Promise.all(
-                        res.data.data.map(async (gallery) => {
-                            await latestData(gallery)
-                        })
-                    ).then(() => {
-                        loading.value = false;
-                    })
+                    latestMovies.value = res.data.data;
                 }
             }).catch((error) => {
                proxy.COMMON.ShowMsg(error);
+            });
+        }
+        
+        function fetchLatestTvs() {
+            return proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/thetv/latest?size=24`, {}, {
+                headers: {
+                    'content-type': 'application/json',
+                    'Authorization': proxy.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                if (res.data.code == 200) {
+                    latestTvs.value = res.data.data;
+                }
+            }).catch((error) => {
+               proxy.COMMON.ShowMsg(error);
+            });
+        }
+
+        function fetchData() {
+            loading.value = true;
+            Promise.all([
+                fetchLatestMovies(),
+                fetchLatestTvs()
+            ]).then(() => {
+                proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/gallery/list?page=1&size=` + size.value, {}, {
+                    headers: {
+                        'content-type': 'application/json',
+                        'Authorization': proxy.$cookies.get("Authorization")
+                    }
+                }).then(res => {
+                    if (res.data.code == 200) {
+                        data.value = res.data.data;
+                        Promise.all(
+                            res.data.data.map(async (gallery) => {
+                                await latestData(gallery)
+                            })
+                        ).then(() => {
+                            loading.value = false;
+                            nextTick(() => {
+                                setupTvNavigation();
+                            });
+                        })
+                    }
+                }).catch((error) => {
+                   proxy.COMMON.ShowMsg(error);
+                });
             });
         }
 
@@ -158,6 +346,10 @@ export default {
                proxy.COMMON.ShowMsg(error);
             })
         }
+        
+        function setupTvNavigation() {
+            // TV端焦点管理可在此扩展
+        }
 
         onMounted(() => {
             fetchData();
@@ -165,11 +357,26 @@ export default {
         return {
             data,
             dict_data,
+            latestMovies,
+            latestTvs,
             per_view,
             per_card,
             loading,
             error,
             size,
+            galleryCarousel,
+            carouselRefs,
+            latestMovieCarousel,
+            latestTvCarousel,
+            setCarouselRef,
+            galleryPrev,
+            galleryNext,
+            latestMoviePrev,
+            latestMovieNext,
+            latestTvPrev,
+            latestTvNext,
+            carouselPrev,
+            carouselNext,
         }
     },
     methods: {
@@ -179,10 +386,16 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.card-show-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
 .card-show-title {
     font-size: 1.2em;
     font-weight: 400;
-    padding-bottom: 16px;
 }
 
 .card-shows {
@@ -214,34 +427,23 @@ export default {
 
 .custom-arrow {
     display: flex;
-    position: absolute;
-    top: 70%;
-    right: 10px;
-}
-
-@media (max-width: 750px) {
-    .custom-arrow {
-        display: none;
-    }
-}
-
-.view-card .custom-arrow {
-    top: 75%;
+    align-items: center;
+    gap: 8px;
 }
 
 .custom-arrow button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-right: 12px;
+    width: 32px;
+    height: 32px;
     color: #fff;
     background-color: rgba(255, 255, 255, 0.1);
     border-width: 0;
     border-radius: 8px;
     transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
+    font-size: 1.2em;
 }
 
 .custom-arrow button:hover {
@@ -251,6 +453,12 @@ export default {
 .custom-arrow button:active {
     transform: scale(0.95);
     transform-origin: center;
+}
+
+@media (max-width: 750px) {
+    .custom-arrow {
+        display: none;
+    }
 }
 
 img.carousel-img {
@@ -319,10 +527,6 @@ img.carousel-img {
     .view-item-title {
         font-size: 0.5em;
         font-weight: 400;
-    }
-
-    .custom-arrow.next {
-        bottom: 60px;
     }
 }
 </style>

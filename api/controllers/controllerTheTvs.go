@@ -141,6 +141,25 @@ func GetTheTvListByGalleryId(c *gin.Context) {
 	}(repo)
 }
 
+// 获取最新剧集
+func GetLatestTheTvs(c *gin.Context) {
+	size, errSize := strconv.Atoi(c.Query("size"))
+	if errSize != nil {
+		size = 24
+	}
+	db := database.NewDb()
+	repo := crud.NewRepositoryTheTvsCRUD(db)
+	func(thetvRepository repository.TheTvRepository) {
+		thetvs, err := thetvRepository.GetLatest(size)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": thetvs})
+			return
+		}
+		thetvsNew := service.TheTvsService(thetvs, c.GetString("UserId"))
+		c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": thetvsNew})
+	}(repo)
+}
+
 func SearchTheTv(c *gin.Context) {
 	q := c.Query("q")
 	if len(q) == 0 {
