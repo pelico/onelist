@@ -16,15 +16,23 @@
                 <n-form-item label="影视库图标(Favicon URL)" path="faviconico_url">
                     <n-input v-model:value="config.faviconico_url" size="large" placeholder="图标 URL，例如 /favicon.ico" clearable />
                 </n-form-item>
-                <n-form-item label="是否下载刮削图片到本地" path="download_image">
+                <n-form-item label="封面来源" path="img_url">
+                    <n-input v-model:value="config.img_url" size="large" placeholder="留空使用本地缓存；否则使用 https://image.tmdb.org 等远程CDN地址" clearable />
+                    <span class="form-hint">封面即海报图片，留空时会读取本地缓存目录 images/ 下的文件</span>
+                </n-form-item>
+                <n-form-item label="是否下载封面到本地" path="download_image">
                     <n-switch :value="downloadImageBool" @update:value="onDownloadImageChange" size="large">
                         <template #checked>是</template>
                         <template #unchecked>否</template>
                     </n-switch>
-                    <span class="form-hint">开启后将把刮削到的图片保存到本地</span>
+                    <span class="form-hint">开启后将封面下载到本地缓存目录</span>
                 </n-form-item>
-                <n-form-item label="图片来源" path="img_url">
-                    <n-input v-model:value="config.img_url" size="large" placeholder="留空使用本地缓存图片；否则使用 https://image.tmdb.org 等" clearable />
+                <n-form-item label="是否将封面保存到媒体目录" path="download_image_to_media">
+                    <n-switch :value="downloadImageToMediaBool" @update:value="onDownloadImageToMediaChange" size="large">
+                        <template #checked>是</template>
+                        <template #unchecked>否</template>
+                    </n-switch>
+                    <span class="form-hint">开启后封面、描述信息等将保存到影片所在目录，其他媒体软件(如Emby/Jellyfin)扫描时可识别</span>
                 </n-form-item>
                 <n-form-item label="允许刮削的视频文件类型" path="video_types">
                     <n-input v-model:value="config.video_types" size="large" placeholder="例如 mp4,mkv,avi,rmvb" clearable />
@@ -56,6 +64,7 @@ export default {
         const config = ref({
             "title": null,
             "download_image": null,
+            "download_image_to_media": null,
             "img_url": null,
             "themoviedb_api_url": null,
             "key_db": null,
@@ -67,10 +76,9 @@ export default {
         const load = ref(true);
         const saving = ref(false);
 
-        // download_image 字段在后端是字符串 "是"/"否"，前端用 switch 更直观
         const downloadImageBool = computed(() => config.value.download_image === "是");
+        const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
 
-        // log_retention_days 后端是字符串，前端用数字输入框更直观
         const logRetentionDaysNum = computed({
             get: () => {
                 const n = parseInt(config.value.log_retention_days);
@@ -83,6 +91,10 @@ export default {
 
         function onDownloadImageChange(val) {
             config.value.download_image = val ? "是" : "否";
+        }
+
+        function onDownloadImageToMediaChange(val) {
+            config.value.download_image_to_media = val ? "是" : "否";
         }
 
         function getConfig() {
@@ -145,8 +157,10 @@ export default {
             load,
             saving,
             downloadImageBool,
+            downloadImageToMediaBool,
             logRetentionDaysNum,
             onDownloadImageChange,
+            onDownloadImageToMediaChange,
             saveF
         }
     },

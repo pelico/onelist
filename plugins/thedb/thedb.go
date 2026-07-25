@@ -306,7 +306,6 @@ func TheMovieDb(id int, file string, GalleryUid string) (models.TheMovie, error)
 	}
 	data.TheCredit = credit
 	casts := credit.Cast
-	// persons := []models.ThePerson{}
 	db := database.NewDb()
 	for _, cast := range casts {
 		dbPerson := models.ThePerson{}
@@ -345,6 +344,11 @@ func TheMovieDb(id int, file string, GalleryUid string) (models.TheMovie, error)
 	if err != nil {
 		return data, err
 	}
+
+	if config.DownLoadImageToMedia == "是" {
+		go DownloadImageToMedia(file, data.PosterPath, data.BackdropPath)
+	}
+
 	return data, nil
 }
 
@@ -446,6 +450,11 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 	if err != nil {
 		return data, err
 	}
+
+	if config.DownLoadImageToMedia == "是" {
+		go DownloadImageToMedia(file, data.PosterPath, data.BackdropPath)
+	}
+
 	return data, nil
 }
 

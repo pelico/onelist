@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/msterzhang/onelist/api/utils/dir"
 	"github.com/msterzhang/onelist/api/utils/logger"
@@ -166,4 +167,42 @@ func Download(url string, fileName string) error {
 	io.Copy(file, resp.Body)
 	logger.Debug("thedb", "图片下载成功: "+fileName)
 	return nil
+}
+
+func DownloadImageToMedia(mediaPath string, posterUrl string, backdropUrl string) {
+	mediaDir := filepath.Dir(mediaPath)
+	fileName := filepath.Base(mediaPath)
+	ext := filepath.Ext(fileName)
+	nameWithoutExt := fileName[:len(fileName)-len(ext)]
+
+	metadataDir := filepath.Join(mediaDir, nameWithoutExt)
+	if !dir.DirExists(metadataDir) {
+		err := os.MkdirAll(metadataDir, os.ModePerm)
+		if err != nil {
+			logger.Warn("thedb", "创建媒体元数据目录失败: "+metadataDir, err.Error())
+			return
+		}
+	}
+
+	if posterUrl != "" {
+		posterFileName := filepath.Join(metadataDir, "poster.jpg")
+		if !dir.FileExists(posterFileName) {
+			fullUrl := imgcdn + "/t/p/w600_and_h900_bestv2" + posterUrl
+			err := Download(fullUrl, posterFileName)
+			if err != nil {
+				logger.Warn("thedb", "下载封面到媒体目录失败: "+posterFileName, err.Error())
+			}
+		}
+	}
+
+	if backdropUrl != "" {
+		backdropFileName := filepath.Join(metadataDir, "backdrop.jpg")
+		if !dir.FileExists(backdropFileName) {
+			fullUrl := imgcdn + "/t/p/w1920_and_h1080_bestv2" + backdropUrl
+			err := Download(fullUrl, backdropFileName)
+			if err != nil {
+				logger.Warn("thedb", "下载背景图到媒体目录失败: "+backdropFileName, err.Error())
+			}
+		}
+	}
 }

@@ -159,7 +159,7 @@
                             </n-layout>
                         </n-layout>
                         <n-layout-footer position="absolute" style="height: 64px; padding: 24px" bordered class="desktop-footer">
-                            @2023
+                            @2026
                         </n-layout-footer>
 
                         <!-- 移动端底部导航栏 -->

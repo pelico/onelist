@@ -11,26 +11,27 @@ import (
 )
 
 var (
-	EnvFile           = "config.env"
-	PORT              = 0
-	Title             = ""
-	FaviconicoUrl     = ""
-	SECRETKEY         []byte
-	DBDRIVER          = ""
-	DBURL             = ""
-	DBDATAURL         = ""
-	DbName            = ""
-	KeyDb             = ""
-	UserEmail         = ""
-	UserPassword      = ""
-	DownLoadImage     = ""
-	ImgUrl            = ""
-	TheMovieDbApiUrl  = ""
-	VideoTypes        = ""
-	UA                = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-	IsDev             = false
-	LogRetentionDays  = ""
-	Version           = "1.0.0"
+	EnvFile               = "config.env"
+	PORT                  = 0
+	Title                 = ""
+	FaviconicoUrl         = ""
+	SECRETKEY             []byte
+	DBDRIVER              = ""
+	DBURL                 = ""
+	DBDATAURL             = ""
+	DbName                = ""
+	KeyDb                 = ""
+	UserEmail             = ""
+	UserPassword          = ""
+	DownLoadImage         = ""
+	DownLoadImageToMedia  = ""
+	ImgUrl                = ""
+	TheMovieDbApiUrl      = ""
+	VideoTypes            = ""
+	UA                    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+	IsDev                 = false
+	LogRetentionDays      = ""
+	Version               = "1.0.0"
 )
 
 // Load the server PORT
@@ -74,6 +75,7 @@ func Load() {
 	UserEmail = os.Getenv("UserEmail")
 	UserPassword = os.Getenv("UserPassword")
 	DownLoadImage = os.Getenv("DownLoadImage")
+	DownLoadImageToMedia = os.Getenv("DownLoadImageToMedia")
 	ImgUrl = os.Getenv("ImgUrl")
 	TheMovieDbApiUrl = os.Getenv("TheMovieDbApiUrl")
 	if TheMovieDbApiUrl == "" {
@@ -85,14 +87,15 @@ func Load() {
 // 获取配置
 func GetConfig() models.Config {
 	config := models.Config{
-		Title:            Title,
-		DownLoadImage:    DownLoadImage,
-		ImgUrl:           ImgUrl,
-		TheMovieDbApiUrl: TheMovieDbApiUrl,
-		KeyDb:            KeyDb,
-		FaviconicoUrl:    FaviconicoUrl,
-		VideoTypes:       VideoTypes,
-		LogRetentionDays: LogRetentionDays,
+		Title:               Title,
+		DownLoadImage:       DownLoadImage,
+		DownLoadImageToMedia: DownLoadImageToMedia,
+		ImgUrl:              ImgUrl,
+		TheMovieDbApiUrl:    TheMovieDbApiUrl,
+		KeyDb:               KeyDb,
+		FaviconicoUrl:       FaviconicoUrl,
+		VideoTypes:          VideoTypes,
+		LogRetentionDays:    LogRetentionDays,
 	}
 	return config
 }
@@ -101,6 +104,7 @@ func GetConfig() models.Config {
 func SetConfig(config models.Config) {
 	Title = config.Title
 	DownLoadImage = config.DownLoadImage
+	DownLoadImageToMedia = config.DownLoadImageToMedia
 	ImgUrl = config.ImgUrl
 	if config.TheMovieDbApiUrl != "" {
 		TheMovieDbApiUrl = config.TheMovieDbApiUrl
@@ -119,6 +123,7 @@ func SaveConfig(config models.Config) (models.Config, error) {
 	}
 	data := strings.ReplaceAll(string(b), "Title="+Title, "Title="+config.Title)
 	data = strings.ReplaceAll(data, "DownLoadImage="+DownLoadImage, "DownLoadImage="+config.DownLoadImage)
+	data = strings.ReplaceAll(data, "DownLoadImageToMedia="+DownLoadImageToMedia, "DownLoadImageToMedia="+config.DownLoadImageToMedia)
 	data = strings.ReplaceAll(data, "ImgUrl="+ImgUrl, "ImgUrl="+config.ImgUrl)
 	data = strings.ReplaceAll(data, "TheMovieDbApiUrl="+TheMovieDbApiUrl, "TheMovieDbApiUrl="+config.TheMovieDbApiUrl)
 	data = strings.ReplaceAll(data, "FaviconicoUrl="+FaviconicoUrl, "FaviconicoUrl="+config.FaviconicoUrl)
