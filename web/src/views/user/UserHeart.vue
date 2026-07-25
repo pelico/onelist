@@ -169,6 +169,11 @@ export default {
             this.reF();
         },
         NextPage() {
+            const maxPage = Math.ceil(this.num / this.size);
+            if (this.page >= maxPage) {
+                this.COMMON.ShowMsg("已经是最后一页啦!");
+                return;
+            }
             this.page = this.page + 1;
             this.reF();
         },

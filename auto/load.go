@@ -38,6 +38,8 @@ func InitDatabase() {
 		log.Fatal("Gorm初始化数据库失败!报错：" + err.Error())
 	}
 	AutoLoad()
+	config.SetDB(database.NewDb())
+	config.LoadFromDB()
 	InitAmdin()
 	cache.InitCache()
 }
@@ -187,6 +189,11 @@ func AutoLoad() {
 	}
 
 	err = db.AutoMigrate(&models.Log{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = db.AutoMigrate(&models.Setting{})
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/msterzhang/onelist/api/models"
+	"gorm.io/gorm"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 	PORT                  = 0
 	Title                 = ""
 	FaviconicoUrl         = ""
-	SECRETKEY             []byte
+	SECRETKEY             = []byte{}
 	DBDRIVER              = ""
 	DBURL                 = ""
 	DBDATAURL             = ""
@@ -32,6 +32,7 @@ var (
 	IsDev                 = false
 	LogRetentionDays      = ""
 	Version               = "1.0.0"
+	db                    *gorm.DB
 )
 
 // Load the server PORT
@@ -117,25 +118,74 @@ func SetConfig(config models.Config) {
 
 // 保存配置
 func SaveConfig(config models.Config) (models.Config, error) {
-	b, err := os.ReadFile(EnvFile)
-	if err != nil {
-		return models.Config{}, err
-	}
-	data := strings.ReplaceAll(string(b), "Title="+Title, "Title="+config.Title)
-	data = strings.ReplaceAll(data, "DownLoadImage="+DownLoadImage, "DownLoadImage="+config.DownLoadImage)
-	data = strings.ReplaceAll(data, "DownLoadImageToMedia="+DownLoadImageToMedia, "DownLoadImageToMedia="+config.DownLoadImageToMedia)
-	data = strings.ReplaceAll(data, "ImgUrl="+ImgUrl, "ImgUrl="+config.ImgUrl)
-	data = strings.ReplaceAll(data, "TheMovieDbApiUrl="+TheMovieDbApiUrl, "TheMovieDbApiUrl="+config.TheMovieDbApiUrl)
-	data = strings.ReplaceAll(data, "FaviconicoUrl="+FaviconicoUrl, "FaviconicoUrl="+config.FaviconicoUrl)
-	data = strings.ReplaceAll(data, "KeyDb="+KeyDb, "KeyDb="+config.KeyDb)
-	data = strings.ReplaceAll(data, "VideoTypes="+VideoTypes, "VideoTypes="+config.VideoTypes)
-	data = strings.ReplaceAll(data, "LogRetentionDays="+LogRetentionDays, "LogRetentionDays="+config.LogRetentionDays)
-	content := []byte(data)
-	err = os.WriteFile(EnvFile, content, 0644)
-	if err != nil {
-		return models.Config{}, err
+	if db != nil {
+		settings := map[string]string{
+			"Title":                  config.Title,
+			"DownLoadImage":          config.DownLoadImage,
+			"DownLoadImageToMedia":   config.DownLoadImageToMedia,
+			"ImgUrl":                 config.ImgUrl,
+			"TheMovieDbApiUrl":       config.TheMovieDbApiUrl,
+			"FaviconicoUrl":          config.FaviconicoUrl,
+			"KeyDb":                  config.KeyDb,
+			"VideoTypes":             config.VideoTypes,
+			"LogRetentionDays":       config.LogRetentionDays,
+		}
+		for key, value := range settings {
+			setting := models.Setting{}
+			err := db.Where("`key` = ?", key).First(&setting).Error
+			if err != nil {
+				setting.Key = key
+				setting.Value = value
+				db.Create(&setting)
+			} else {
+				setting.Value = value
+				db.Save(&setting)
+			}
+		}
 	}
 	SetConfig(config)
 	return GetConfig(), nil
+}
 
+func SetDB(database *gorm.DB) {
+	db = database
+}
+
+func LoadFromDB() {
+	if db == nil {
+		return
+	}
+	var settings []models.Setting
+	db.Find(&settings)
+	settingMap := make(map[string]string)
+	for _, s := range settings {
+		settingMap[s.Key] = s.Value
+	}
+	if v, ok := settingMap["Title"]; ok {
+		Title = v
+	}
+	if v, ok := settingMap["DownLoadImage"]; ok {
+		DownLoadImage = v
+	}
+	if v, ok := settingMap["DownLoadImageToMedia"]; ok {
+		DownLoadImageToMedia = v
+	}
+	if v, ok := settingMap["ImgUrl"]; ok {
+		ImgUrl = v
+	}
+	if v, ok := settingMap["TheMovieDbApiUrl"]; ok && v != "" {
+		TheMovieDbApiUrl = v
+	}
+	if v, ok := settingMap["FaviconicoUrl"]; ok {
+		FaviconicoUrl = v
+	}
+	if v, ok := settingMap["KeyDb"]; ok {
+		KeyDb = v
+	}
+	if v, ok := settingMap["VideoTypes"]; ok {
+		VideoTypes = v
+	}
+	if v, ok := settingMap["LogRetentionDays"]; ok {
+		LogRetentionDays = v
+	}
 }

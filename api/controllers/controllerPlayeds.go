@@ -13,6 +13,7 @@ import (
 	"github.com/msterzhang/onelist/config"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func CreatePlayed(c *gin.Context) {
@@ -233,7 +234,7 @@ func CleanPlayed(c *gin.Context) {
 	var count int64
 	
 	if cleanAll == "true" {
-		result := db.Model(&models.Played{}).Delete(&models.Played{})
+		result := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Model(&models.Played{}).Delete(&models.Played{})
 		if result.Error != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": "清理失败: " + result.Error.Error(), "data": 0})
 			return

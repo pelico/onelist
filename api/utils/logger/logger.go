@@ -8,6 +8,7 @@ import (
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/config"
+	"gorm.io/gorm"
 )
 
 func Info(module string, message string, detail ...string) {
@@ -76,7 +77,7 @@ func CleanOldLogs(retentionDays int) (int64, error) {
 func CleanAllLogs() (int64, error) {
 	db := database.NewDb()
 	
-	result := db.Model(&models.Log{}).Delete(&models.Log{})
+	result := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Model(&models.Log{}).Delete(&models.Log{})
 	if result.Error != nil {
 		return 0, result.Error
 	}
@@ -84,7 +85,7 @@ func CleanAllLogs() (int64, error) {
 		log.Printf("[INFO][system] 清理了全部 %d 条日志", result.RowsAffected)
 	}
 	
-	errFileResult := db.Model(&models.ErrFile{}).Delete(&models.ErrFile{})
+	errFileResult := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Model(&models.ErrFile{}).Delete(&models.ErrFile{})
 	if errFileResult.Error != nil {
 		return 0, errFileResult.Error
 	}
