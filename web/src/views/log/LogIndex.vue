@@ -17,12 +17,13 @@
                     <i class='bx bx-search'></i>
                 </n-button>
                 <n-button @click="cleanLogs" type="warning" secondary :loading="cleaning">
-                    <i class='bx bx-trash'></i> 清理旧日志
+                    <i class='bx bx-trash'></i> 清理全部日志
                 </n-button>
                 <n-button @click="fetchData" secondary>
                     <i class='bx bx-refresh'></i>
                 </n-button>
             </n-space>
+            <div class="log-total">共 {{ total }} 条日志</div>
         </div>
 
         <div class="log-table-wrap">
@@ -157,13 +158,13 @@ export default {
 
         function cleanLogs() {
             cleaning.value = true;
-            proxy.axios.post(proxy.COMMON.apiUrl + '/v1/api/log/clean?days=7', {}, {
+            proxy.axios.post(proxy.COMMON.apiUrl + '/v1/api/log/clean?all=true', {}, {
                 headers: { 'Authorization': proxy.$cookies.get("Authorization") }
             }).then(res => {
                 cleaning.value = false;
                 if (res.data.code == 200) {
                     const count = res.data.data || 0;
-                    proxy.COMMON.ShowMsg(`清理成功，共删除 ${count} 条旧日志`);
+                    proxy.COMMON.ShowMsg(`清理成功，共删除 ${count} 条日志`);
                     fetchData();
                 } else {
                     proxy.COMMON.ShowMsg(res.data.msg || "清理失败");
@@ -207,6 +208,14 @@ export default {
 
 .log-toolbar {
     margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.log-total {
+    color: #888;
+    font-size: 14px;
 }
 
 .log-table-wrap {

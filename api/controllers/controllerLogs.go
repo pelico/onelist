@@ -32,6 +32,22 @@ func GetLogs(c *gin.Context) {
 
 func CleanLogs(c *gin.Context) {
 	retentionDaysStr := c.Query("days")
+	cleanAll := c.Query("all")
+
+	if cleanAll == "true" {
+		count, err := logger.CleanAllLogs()
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "清理日志失败: " + err.Error(), "data": nil})
+			return
+		}
+		c.JSON(200, gin.H{
+			"code": 200,
+			"msg":  "清理成功",
+			"data": count,
+		})
+		return
+	}
+
 	retentionDays, _ := strconv.Atoi(retentionDaysStr)
 	if retentionDays <= 0 {
 		retentionDays = 7
