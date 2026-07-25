@@ -316,6 +316,7 @@ func Run() {
 	played.POST("/list", controllers.GetPlayedList)
 	played.POST("/search", controllers.SearchPlayed)
 	played.POST("/data/list", controllers.GetPlayedDataList)
+	played.POST("/clean", controllers.CleanPlayed)
 
 	//客户端首屏api
 	app := r.Group("/v1/api/app", auth.JWTAuth())

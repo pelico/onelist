@@ -99,7 +99,8 @@ func AlistList(isRef bool, gallery models.Gallery, path string, Authorization st
 		time.Sleep(500 * time.Millisecond)
 	}
 	if err != nil {
-		return fileList, err
+		logger.Warn("alist", "获取目录文件列表失败，跳过此目录", "路径: "+path+", 错误: "+err.Error())
+		return fileList, nil
 	}
 	for _, file := range fs {
 		// 防止拼接path错误
@@ -107,9 +108,12 @@ func AlistList(isRef bool, gallery models.Gallery, path string, Authorization st
 			path += "/"
 		}
 		if file.IsDir {
-			fileList, err = AlistList(isRef, gallery, path+file.Name+"/", Authorization, fileList)
+			var subFiles []string
+			subFiles, err = AlistList(isRef, gallery, path+file.Name+"/", Authorization, []string{})
 			if err != nil {
-				return fileList, err
+				logger.Warn("alist", "获取子目录文件列表失败，跳过此子目录", "路径: "+path+file.Name+"/")
+			} else {
+				fileList = append(fileList, subFiles...)
 			}
 		} else {
 			// 判断文件格式是否满足刮削条件

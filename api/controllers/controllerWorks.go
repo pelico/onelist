@@ -237,6 +237,7 @@ func CreateWork(c *gin.Context) {
 		if gallery.IsAlist {
 			files, err = alist.GetAlistFilesPath(work.Path, work.IsRef, gallery)
 			if err != nil {
+				logger.Error("work", "获取文件列表失败", "路径: "+work.Path+", 错误: "+err.Error())
 				db.Model(&models.Work{}).Where("id = ?", work.Id).Update("is_ok", true)
 				return
 			}
@@ -244,6 +245,7 @@ func CreateWork(c *gin.Context) {
 			files = dir.GetFilesByPath(work.Path)
 		}
 		if len(files) == 0 {
+			logger.Info("work", "未发现视频文件", "路径: "+work.Path)
 			db.Model(&models.Work{}).Where("id = ?", work.Id).Update("is_ok", true)
 			return
 		}

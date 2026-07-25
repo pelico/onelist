@@ -368,25 +368,25 @@ func ChunkTheMovie(themovie models.TheMovie) error {
 	// 先按 URL 查找（支持基础记录更新）
 	err := db.Model(&models.TheMovie{}).Where("url = ?", themovie.Url).First(&dbThemovie).Error
 	if err == nil {
-		// 找到记录，更新（保留原有的播放状态等）
+		// 找到记录，更新（保留原有的播放状态等，不更新ID）
 		themovie.ID = dbThemovie.ID
 		themovie.CreatedAt = dbThemovie.CreatedAt
 		themovie.Star = dbThemovie.Star
 		themovie.Heart = dbThemovie.Heart
 		themovie.Played = dbThemovie.Played
-		return db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Select("*").Updates(&themovie).Error
+		return db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
 	}
 	// 按 URL 未找到，按 TMDB ID 查找
 	err = db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).First(&dbThemovie).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return db.Debug().Model(&models.TheMovie{}).Create(&themovie).Error
+		return db.Model(&models.TheMovie{}).Create(&themovie).Error
 	}
 	themovie.CreatedAt = dbThemovie.CreatedAt
 	themovie.Star = dbThemovie.Star
 	themovie.Heart = dbThemovie.Heart
 	themovie.Played = dbThemovie.Played
-	themovie.Url = dbThemovie.Url // 保留原有的 URL
-	err = db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Select("*").Updates(&themovie).Error
+	themovie.Url = dbThemovie.Url
+	err = db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
 	return err
 }
 
@@ -562,13 +562,13 @@ func ChunkTheTv(thetv models.TheTv) error {
 	if thetv.Name != "" {
 		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", thetv.Name, thetv.GalleryUid).First(&dbthetv).Error
 		if err == nil {
-			// 找到基础记录，更新（保留原有的状态）
+			// 找到基础记录，更新（保留原有的状态，不更新ID）
 			thetv.ID = dbthetv.ID
 			thetv.CreatedAt = dbthetv.CreatedAt
 			thetv.Star = dbthetv.Star
 			thetv.Heart = dbthetv.Heart
 			thetv.Played = dbthetv.Played
-			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Select("*").Updates(&thetv).Error
+			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
 		}
 	}
 	// 按 TMDB ID 查找
@@ -580,7 +580,7 @@ func ChunkTheTv(thetv models.TheTv) error {
 	thetv.Star = dbthetv.Star
 	thetv.Heart = dbthetv.Heart
 	thetv.Played = dbthetv.Played
-	err = db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Select("*").Updates(&thetv).Error
+	err = db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
 	return err
 }
 

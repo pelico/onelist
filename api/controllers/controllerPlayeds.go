@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
 	"github.com/msterzhang/onelist/api/service"
+	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/config"
 
 	"github.com/gin-gonic/gin"
@@ -221,4 +223,37 @@ func GetPlayedDataList(c *gin.Context) {
 		themovies = append(themovies, themovie)
 	}
 	c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": themovies, "num": int(num)})
+}
+
+func CleanPlayed(c *gin.Context) {
+	cleanAll := c.Query("all")
+	retentionDaysStr := c.Query("days")
+	
+	db := database.NewDb()
+	var count int64
+	
+	if cleanAll == "true" {
+		result := db.Model(&models.Played{}).Delete(&models.Played{})
+		if result.Error != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "清理失败: " + result.Error.Error(), "data": 0})
+			return
+		}
+		count = result.RowsAffected
+		logger.Info("played", "清理全部播放记录", "数量: "+strconv.FormatInt(count, 10))
+	} else {
+		retentionDays, _ := strconv.Atoi(retentionDaysStr)
+		if retentionDays <= 0 {
+			retentionDays = 7
+		}
+		cutoffTime := time.Now().AddDate(0, 0, -retentionDays)
+		result := db.Model(&models.Played{}).Where("updated_at < ?", cutoffTime).Delete(&models.Played{})
+		if result.Error != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "清理失败: " + result.Error.Error(), "data": 0})
+			return
+		}
+		count = result.RowsAffected
+		logger.Info("played", "清理过期播放记录", "保留天数: "+strconv.Itoa(retentionDays)+", 清理数量: "+strconv.FormatInt(count, 10))
+	}
+	
+	c.JSON(200, gin.H{"code": 200, "msg": "清理成功", "data": count})
 }
