@@ -37,6 +37,15 @@ func CreateBasicMovieRecord(file string, galleryUid string) error {
 	fileName := filepath.Base(file)
 	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 	
+	var exist models.TheMovie
+	err := db.Model(&models.TheMovie{}).Where("url = ?", file).First(&exist).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	
 	movie := models.TheMovie{
 		Title:      title,
 		Url:        file,
@@ -50,6 +59,15 @@ func CreateBasicTvRecord(file string, galleryUid string) error {
 	db := database.NewDb()
 	fileName := filepath.Base(file)
 	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	
+	var exist models.TheTv
+	err := db.Model(&models.TheTv{}).Where("url = ?", file).First(&exist).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	
 	tv := models.TheTv{
 		Name:       title,

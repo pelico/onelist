@@ -40,15 +40,59 @@ func CreateGallery(c *gin.Context) {
 func DeleteGalleryById(c *gin.Context) {
 	id := c.Query("id")
 	db := database.NewDb()
+	
+	gallery := models.Gallery{}
+	err := db.Model(&models.Gallery{}).Where("id = ?", id).First(&gallery).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": gallery})
+		return
+	}
+	
+	galleryUid := gallery.GalleryUid
+	
+	tx := db.Begin()
+	
+	tx.Model(&models.Work{}).Where("gallery_uid = ?", galleryUid).Delete(&models.Work{})
+	tx.Model(&models.ErrFile{}).Where("gallery_uid = ?", galleryUid).Delete(&models.ErrFile{})
+	
+	var movies []models.TheMovie
+	tx.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid).Find(&movies)
+	for _, movie := range movies {
+		tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{})
+		tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
+		tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
+	}
+	tx.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheMovie{})
+	
+	var tvs []models.TheTv
+	tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Find(&tvs)
+	for _, tv := range tvs {
+		tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{})
+		tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Star{})
+		tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Heart{})
+		
+		var seasons []models.TheSeason
+		tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Find(&seasons)
+		for _, season := range seasons {
+			tx.Model(&models.Episode{}).Where("the_season_id = ?", season.ID).Delete(&models.Episode{})
+		}
+		tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Delete(&models.TheSeason{})
+		tx.Model(&models.Season{}).Where("the_tv_id = ?", tv.ID).Delete(&models.Season{})
+	}
+	tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheTv{})
+	
 	repo := crud.NewRepositoryGallerysCRUD(db)
 	func(galleryRepository repository.GalleryRepository) {
-		gallery, err := galleryRepository.DeleteByID(id)
+		_, err := galleryRepository.DeleteByID(id)
 		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": gallery})
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除资源失败!", "data": gallery})
 			return
 		}
-		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": gallery})
 	}(repo)
+	
+	tx.Commit()
+	c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": gallery})
 }
 
 func UpdateGalleryById(c *gin.Context) {

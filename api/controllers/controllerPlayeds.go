@@ -8,6 +8,7 @@ import (
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
 	"github.com/msterzhang/onelist/api/service"
+	"github.com/msterzhang/onelist/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -166,39 +167,58 @@ func GetPlayedDataList(c *gin.Context) {
 		size = 8
 	}
 	UserId := c.GetString("UserId")
-	played := models.Played{UserId: UserId, DataType: dataType}
 	db := database.NewDb()
-	repo := crud.NewRepositoryPlayedsCRUD(db)
-	func(playedRepository repository.PlayedRepository) {
-		playeds, num, err := playedRepository.FindAllByUser(played, page, size)
-		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": playeds, "num": num})
-			return
+	
+	if dataType == "tv" {
+		var tvIds []int
+		db.Model(&models.TheTv{}).Select("id").Scan(&tvIds)
+		
+		var playeds []models.Played
+		var num int64
+		subQuery := db.Model(&models.Played{}).Where("user_id = ? AND data_type = ? AND data_id IN ?", UserId, dataType, tvIds)
+		subQuery.Count(&num)
+		if config.DBDRIVER == "sqlite" {
+			subQuery.Order("datetime(updated_at) desc").Limit(size).Offset((page - 1) * size).Scan(&playeds)
+		} else {
+			subQuery.Order("-updated_at").Limit(size).Offset((page - 1) * size).Scan(&playeds)
 		}
-		if dataType == "tv" {
-			thetvs := []models.TheTv{}
-			for _, playedDb := range playeds {
-				thetv := models.TheTv{}
-				err = db.Model(&models.TheTv{}).Where("id = ?", playedDb.DataId).First(&thetv).Error
-				if err != nil {
-					continue
-				}
-				thetv = service.TheTvService(thetv, UserId)
-				thetvs = append(thetvs, thetv)
-			}
-			c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": thetvs, "num": num})
-			return
-		}
-		themovies := []models.TheMovie{}
+		
+		thetvs := []models.TheTv{}
 		for _, playedDb := range playeds {
-			themovie := models.TheMovie{}
-			err = db.Model(&models.TheMovie{}).Where("id = ?", playedDb.DataId).First(&themovie).Error
+			thetv := models.TheTv{}
+			err := db.Model(&models.TheTv{}).Where("id = ?", playedDb.DataId).First(&thetv).Error
 			if err != nil {
 				continue
 			}
-			themovie = service.TheMovieService(themovie, UserId)
-			themovies = append(themovies, themovie)
+			thetv = service.TheTvService(thetv, UserId)
+			thetvs = append(thetvs, thetv)
 		}
-		c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": themovies, "num": num})
-	}(repo)
+		c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": thetvs, "num": int(num)})
+		return
+	}
+	
+	var movieIds []int
+	db.Model(&models.TheMovie{}).Select("id").Scan(&movieIds)
+	
+	var playeds []models.Played
+	var num int64
+	subQuery := db.Model(&models.Played{}).Where("user_id = ? AND data_type = ? AND data_id IN ?", UserId, dataType, movieIds)
+	subQuery.Count(&num)
+	if config.DBDRIVER == "sqlite" {
+		subQuery.Order("datetime(updated_at) desc").Limit(size).Offset((page - 1) * size).Scan(&playeds)
+	} else {
+		subQuery.Order("-updated_at").Limit(size).Offset((page - 1) * size).Scan(&playeds)
+	}
+	
+	themovies := []models.TheMovie{}
+	for _, playedDb := range playeds {
+		themovie := models.TheMovie{}
+		err := db.Model(&models.TheMovie{}).Where("id = ?", playedDb.DataId).First(&themovie).Error
+		if err != nil {
+			continue
+		}
+		themovie = service.TheMovieService(themovie, UserId)
+		themovies = append(themovies, themovie)
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": themovies, "num": int(num)})
 }
