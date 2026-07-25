@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -58,9 +59,10 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	if !tv {
 		key = extract.ExtractMovieName(key)
 	}
-	api := fmt.Sprintf("%s/search/movie?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, key)
+	encodedKey := url.QueryEscape(key)
+	api := fmt.Sprintf("%s/search/movie?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, encodedKey)
 	if tv {
-		api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, key)
+		api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, encodedKey)
 	}
 
 	for retry := 0; retry < maxRetries; retry++ {
