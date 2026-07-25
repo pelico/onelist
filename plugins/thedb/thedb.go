@@ -56,80 +56,107 @@ func TheApi() string {
 
 // 搜索资源
 func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
+	originalKey := key
 	if !tv {
 		key = extract.ExtractMovieName(key)
 	}
-	encodedKey := url.QueryEscape(key)
-	api := fmt.Sprintf("%s/search/movie?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, encodedKey)
-	if tv {
-		api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, encodedKey)
-	}
-
-	for retry := 0; retry < maxRetries; retry++ {
-		req, err := http.NewRequest("GET", api, nil)
-		if err != nil {
-			return ThedbSearchRsp{}, err
+	logger.Info("thedb", "开始搜索TMDB", "原始文件名: "+originalKey+", 提取关键词: "+key)
+	
+	searchKeys := []string{key}
+	
+	if !tv {
+		cleanKey := strings.TrimSpace(key)
+		if cleanKey != key {
+			searchKeys = append(searchKeys, cleanKey)
 		}
-		req.Header.Set("User-Agent", config.UA)
-		req.Header.Set("Accept", "application/json")
-		client := http.Client{
-			Timeout: timeOut,
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			if retry < maxRetries-1 {
-				logger.Warn("thedb", "TMDB搜索请求失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+key, err.Error())
-				time.Sleep(time.Duration(retry+1) * 2 * time.Second)
-				continue
-			}
-			logger.Error("thedb", "TMDB搜索请求失败: "+key, err.Error())
-			return ThedbSearchRsp{}, err
-		}
-		defer resp.Body.Close()
-		
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			if retry < maxRetries-1 {
-				time.Sleep(time.Duration(retry+1) * 2 * time.Second)
-				continue
-			}
-			return ThedbSearchRsp{}, err
-		}
-		
-		if resp.StatusCode != 200 {
-			if retry < maxRetries-1 && (resp.StatusCode == 429 || resp.StatusCode >= 500) {
-				logger.Warn("thedb", "TMDB API 返回错误状态码(重试"+fmt.Sprintf("%d", retry+1)+"): "+key, "状态码: "+fmt.Sprintf("%d", resp.StatusCode))
-				time.Sleep(time.Duration(retry+1) * 3 * time.Second)
-				continue
-			}
-			return ThedbSearchRsp{}, fmt.Errorf("TMDB API 返回错误状态码: %d", resp.StatusCode)
-		}
-		
-		var data = ThedbSearchRsp{}
-		err = json.Unmarshal(body, &data)
-		if err != nil {
-			if retry < maxRetries-1 {
-				bodyPreview := string(body)
-				if len(bodyPreview) > 100 {
-					bodyPreview = bodyPreview[:100] + "..."
-				}
-				logger.Warn("thedb", "TMDB JSON解析失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+key, "响应预览: "+bodyPreview)
-				time.Sleep(time.Duration(retry+1) * 2 * time.Second)
-				continue
-			}
-			bodyPreview := string(body)
-			if len(bodyPreview) > 200 {
-				bodyPreview = bodyPreview[:200] + "..."
-			}
-			logger.Error("thedb", "TMDB JSON解析失败: "+key, "响应内容: "+bodyPreview)
-			return ThedbSearchRsp{}, err
-		}
-		
-		logger.Debug("thedb", "搜索结果: "+key, "找到 "+fmt.Sprintf("%d", len(data.Results))+" 条结果")
-		return data, nil
 	}
 	
-	return ThedbSearchRsp{}, fmt.Errorf("TMDB搜索请求失败，已重试%d次", maxRetries)
+	for attempt, searchKey := range searchKeys {
+		encodedKey := url.QueryEscape(searchKey)
+		api := fmt.Sprintf("%s/search/movie?api_key=%s&language=zh-CN&page=1&query=%s", TheApi(), config.KeyDb, encodedKey)
+		if tv {
+			api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh-CN&page=1&query=%s", TheApi(), config.KeyDb, encodedKey)
+		}
+		
+		logger.Info("thedb", fmt.Sprintf("搜索请求(第%d次尝试)", attempt+1), "关键词: "+searchKey+", API: "+api)
+
+		for retry := 0; retry < maxRetries; retry++ {
+			req, err := http.NewRequest("GET", api, nil)
+			if err != nil {
+				return ThedbSearchRsp{}, err
+			}
+			req.Header.Set("User-Agent", config.UA)
+			req.Header.Set("Accept", "application/json")
+			client := http.Client{
+				Timeout: timeOut,
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				if retry < maxRetries-1 {
+					logger.Warn("thedb", "TMDB搜索请求失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+searchKey, err.Error())
+					time.Sleep(time.Duration(retry+1) * 2 * time.Second)
+					continue
+				}
+				logger.Error("thedb", "TMDB搜索请求失败: "+searchKey, err.Error())
+				return ThedbSearchRsp{}, err
+			}
+			defer resp.Body.Close()
+			
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				if retry < maxRetries-1 {
+					time.Sleep(time.Duration(retry+1) * 2 * time.Second)
+					continue
+				}
+				return ThedbSearchRsp{}, err
+			}
+			
+			if resp.StatusCode != 200 {
+				bodyPreview := string(body)
+				if len(bodyPreview) > 200 {
+					bodyPreview = bodyPreview[:200] + "..."
+				}
+				logger.Warn("thedb", fmt.Sprintf("TMDB搜索返回状态码%d: %s", resp.StatusCode, searchKey), "响应: "+bodyPreview)
+				
+				if retry < maxRetries-1 && (resp.StatusCode == 429 || resp.StatusCode >= 500) {
+					time.Sleep(time.Duration(retry+1) * 3 * time.Second)
+					continue
+				}
+				break
+			}
+			
+			var data = ThedbSearchRsp{}
+			err = json.Unmarshal(body, &data)
+			if err != nil {
+				if retry < maxRetries-1 {
+					bodyPreview := string(body)
+					if len(bodyPreview) > 100 {
+						bodyPreview = bodyPreview[:100] + "..."
+					}
+					logger.Warn("thedb", "TMDB JSON解析失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+searchKey, "响应预览: "+bodyPreview)
+					time.Sleep(time.Duration(retry+1) * 2 * time.Second)
+					continue
+				}
+				bodyPreview := string(body)
+				if len(bodyPreview) > 200 {
+					bodyPreview = bodyPreview[:200] + "..."
+				}
+				logger.Error("thedb", "TMDB JSON解析失败: "+searchKey, "响应内容: "+bodyPreview)
+				return ThedbSearchRsp{}, err
+			}
+			
+			if len(data.Results) > 0 {
+				logger.Info("thedb", "搜索成功: "+searchKey, "找到 "+fmt.Sprintf("%d", len(data.Results))+" 条结果, 首条: "+data.Results[0].Title+data.Results[0].Name)
+				return data, nil
+			}
+			
+			logger.Info("thedb", "搜索无结果: "+searchKey, "尝试下一个关键词")
+			break
+		}
+	}
+	
+	logger.Warn("thedb", "所有搜索策略均失败", "原始文件名: "+originalKey+", 提取关键词: "+key)
+	return ThedbSearchRsp{}, fmt.Errorf("movie not found: %s", key)
 }
 
 // 获取整个剧组人员
@@ -175,7 +202,8 @@ func GetCredits(id int, tv bool) (models.TheCredit, error) {
 
 // 获取电影数据
 func GetMovieData(id int) (models.TheMovie, error) {
-	api := fmt.Sprintf("%s/movie/%d?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
+	api := fmt.Sprintf("%s/movie/%d?api_key=%s&language=zh-CN", TheApi(), id, config.KeyDb)
+	logger.Info("thedb", "获取电影详情", "ID: "+fmt.Sprintf("%d", id)+", API: "+api)
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
 		return models.TheMovie{}, err
@@ -186,12 +214,21 @@ func GetMovieData(id int) (models.TheMovie, error) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.Error("thedb", "获取电影详情请求失败", "ID: "+fmt.Sprintf("%d", id)+", 错误: "+err.Error())
 		return models.TheMovie{}, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return models.TheMovie{}, err
+	}
+	if resp.StatusCode != 200 {
+		bodyPreview := string(body)
+		if len(bodyPreview) > 200 {
+			bodyPreview = bodyPreview[:200] + "..."
+		}
+		logger.Warn("thedb", fmt.Sprintf("获取电影详情返回状态码%d", resp.StatusCode), "ID: "+fmt.Sprintf("%d", id)+", 响应: "+bodyPreview)
+		return models.TheMovie{}, fmt.Errorf("status code: %d", resp.StatusCode)
 	}
 	var data = models.TheMovie{}
 	err = json.Unmarshal(body, &data)
@@ -207,7 +244,8 @@ func GetMovieData(id int) (models.TheMovie, error) {
 
 // 获取电视节目数据
 func GetTvData(id int) (models.TheTv, error) {
-	api := fmt.Sprintf("%s/tv/%d?api_key=%s&language=zh", TheApi(), id, config.KeyDb)
+	api := fmt.Sprintf("%s/tv/%d?api_key=%s&language=zh-CN", TheApi(), id, config.KeyDb)
+	logger.Info("thedb", "获取电视详情", "ID: "+fmt.Sprintf("%d", id)+", API: "+api)
 	req, err := http.NewRequest("GET", api, nil)
 	if err != nil {
 		return models.TheTv{}, err
@@ -218,12 +256,21 @@ func GetTvData(id int) (models.TheTv, error) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		logger.Error("thedb", "获取电视详情请求失败", "ID: "+fmt.Sprintf("%d", id)+", 错误: "+err.Error())
 		return models.TheTv{}, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return models.TheTv{}, err
+	}
+	if resp.StatusCode != 200 {
+		bodyPreview := string(body)
+		if len(bodyPreview) > 200 {
+			bodyPreview = bodyPreview[:200] + "..."
+		}
+		logger.Warn("thedb", fmt.Sprintf("获取电视详情返回状态码%d", resp.StatusCode), "ID: "+fmt.Sprintf("%d", id)+", 响应: "+bodyPreview)
+		return models.TheTv{}, fmt.Errorf("status code: %d", resp.StatusCode)
 	}
 	var data = models.TheTv{}
 	err = json.Unmarshal(body, &data)
