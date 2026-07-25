@@ -34,9 +34,9 @@ import (
 
 var (
 	ImageHost = "http://image.tmdb.org/"
-	// 取0-24，共计24人
 	personNumber = 24
-	timeOut      = 30 * time.Second
+	timeOut      = 60 * time.Second
+	maxRetries   = 3
 )
 
 // TheApi 返回当前配置中的 TMDB API 地址
@@ -62,40 +62,72 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	if tv {
 		api = fmt.Sprintf("%s/search/tv?api_key=%s&language=zh&page=1&query=%s", TheApi(), config.KeyDb, key)
 	}
-	req, err := http.NewRequest("GET", api, nil)
-	if err != nil {
-		return ThedbSearchRsp{}, err
-	}
-	req.Header.Set("User-Agent", config.UA)
-	req.Header.Set("Accept", "application/json")
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Error("thedb", "TMDB搜索请求失败: "+key, err.Error())
-		return ThedbSearchRsp{}, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return ThedbSearchRsp{}, fmt.Errorf("TMDB API 返回错误状态码: %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return ThedbSearchRsp{}, err
-	}
-	var data = ThedbSearchRsp{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		bodyPreview := string(body)
-		if len(bodyPreview) > 200 {
-			bodyPreview = bodyPreview[:200] + "..."
+
+	for retry := 0; retry < maxRetries; retry++ {
+		req, err := http.NewRequest("GET", api, nil)
+		if err != nil {
+			return ThedbSearchRsp{}, err
 		}
-		logger.Error("thedb", "TMDB JSON解析失败: "+key, "响应内容: "+bodyPreview)
-		return ThedbSearchRsp{}, err
+		req.Header.Set("User-Agent", config.UA)
+		req.Header.Set("Accept", "application/json")
+		client := http.Client{
+			Timeout: timeOut,
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			if retry < maxRetries-1 {
+				logger.Warn("thedb", "TMDB搜索请求失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+key, err.Error())
+				time.Sleep(time.Duration(retry+1) * 2 * time.Second)
+				continue
+			}
+			logger.Error("thedb", "TMDB搜索请求失败: "+key, err.Error())
+			return ThedbSearchRsp{}, err
+		}
+		defer resp.Body.Close()
+		
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			if retry < maxRetries-1 {
+				time.Sleep(time.Duration(retry+1) * 2 * time.Second)
+				continue
+			}
+			return ThedbSearchRsp{}, err
+		}
+		
+		if resp.StatusCode != 200 {
+			if retry < maxRetries-1 && (resp.StatusCode == 429 || resp.StatusCode >= 500) {
+				logger.Warn("thedb", "TMDB API 返回错误状态码(重试"+fmt.Sprintf("%d", retry+1)+"): "+key, "状态码: "+fmt.Sprintf("%d", resp.StatusCode))
+				time.Sleep(time.Duration(retry+1) * 3 * time.Second)
+				continue
+			}
+			return ThedbSearchRsp{}, fmt.Errorf("TMDB API 返回错误状态码: %d", resp.StatusCode)
+		}
+		
+		var data = ThedbSearchRsp{}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			if retry < maxRetries-1 {
+				bodyPreview := string(body)
+				if len(bodyPreview) > 100 {
+					bodyPreview = bodyPreview[:100] + "..."
+				}
+				logger.Warn("thedb", "TMDB JSON解析失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+key, "响应预览: "+bodyPreview)
+				time.Sleep(time.Duration(retry+1) * 2 * time.Second)
+				continue
+			}
+			bodyPreview := string(body)
+			if len(bodyPreview) > 200 {
+				bodyPreview = bodyPreview[:200] + "..."
+			}
+			logger.Error("thedb", "TMDB JSON解析失败: "+key, "响应内容: "+bodyPreview)
+			return ThedbSearchRsp{}, err
+		}
+		
+		logger.Debug("thedb", "搜索结果: "+key, "找到 "+fmt.Sprintf("%d", len(data.Results))+" 条结果")
+		return data, nil
 	}
-	logger.Debug("thedb", "搜索结果: "+key, "找到 "+fmt.Sprintf("%d", len(data.Results))+" 条结果")
-	return data, nil
+	
+	return ThedbSearchRsp{}, fmt.Errorf("TMDB搜索请求失败，已重试%d次", maxRetries)
 }
 
 // 获取整个剧组人员
