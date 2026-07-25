@@ -122,6 +122,9 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	}
 	pool.Wait()
 
+	// 清理不在当前文件列表中的旧记录
+	cleanupStaleRecords(db, files, work, gallery)
+
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 	logger.Info("work", "刮削任务完成", "路径: "+work.Path+", 成功: "+strconv.FormatInt(successCount, 10)+", 失败: "+strconv.FormatInt(errCount, 10))
@@ -300,15 +303,61 @@ func ReNewWork(c *gin.Context) {
 func DeleteWorkById(c *gin.Context) {
 	id := c.Query("id")
 	db := database.NewDb()
-	repo := crud.NewRepositoryWorksCRUD(db)
-	func(workRepository repository.WorkRepository) {
-		work, err := workRepository.DeleteByID(id)
-		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": work})
-			return
+
+	work := models.Work{}
+	err := db.Model(&models.Work{}).Where("id = ?", id).First(&work).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": work})
+		return
+	}
+
+	gallery := models.Gallery{}
+	db.Model(&models.Gallery{}).Where("gallery_uid = ?", work.GalleryUid).First(&gallery)
+
+	tx := db.Begin()
+
+	tx.Model(&models.ErrFile{}).Where("work_id = ?", work.Id).Delete(&models.ErrFile{})
+
+	if gallery.GalleryType == "tv" {
+		var episodes []models.Episode
+		tx.Model(&models.Episode{}).Where("url LIKE ?", work.Path+"%").Find(&episodes)
+		for _, ep := range episodes {
+			tx.Model(&models.Episode{}).Where("id = ?", ep.ID).Delete(&models.Episode{})
 		}
-		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": work})
-	}(repo)
+		var tvs []models.TheTv
+		tx.Model(&models.TheTv{}).Where("gallery_uid = ?", work.GalleryUid).Find(&tvs)
+		for _, tv := range tvs {
+			var remainingEps int64
+			tx.Model(&models.Episode{}).
+				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
+				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
+				Where("the_tvs.id = ?", tv.ID).
+				Count(&remainingEps)
+			if remainingEps == 0 {
+				tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{})
+				tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Star{})
+				tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Heart{})
+				tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Delete(&models.TheSeason{})
+				tx.Model(&models.Season{}).Where("the_tv_id = ?", tv.ID).Delete(&models.Season{})
+				tx.Model(&models.TheTv{}).Where("id = ?", tv.ID).Delete(&models.TheTv{})
+			}
+		}
+	} else {
+		var movies []models.TheMovie
+		tx.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, work.Path+"%").Find(&movies)
+		for _, movie := range movies {
+			tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{})
+			tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
+			tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
+			tx.Model(&models.TheMovie{}).Where("id = ?", movie.ID).Delete(&models.TheMovie{})
+		}
+	}
+
+	tx.Model(&models.Work{}).Where("id = ?", id).Delete(&models.Work{})
+	tx.Commit()
+
+	logger.Info("work", "删除挂载目录，已清理关联记录", "路径: "+work.Path)
+	c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": work})
 }
 
 func UpdateWorkById(c *gin.Context) {
@@ -459,5 +508,63 @@ func ResumePendingWorks() {
 		// 异步重新执行刮削
 		go RunWork(files, work, gallery)
 		logger.Info("work", "已恢复刮削任务", "路径: "+work.Path)
+	}
+}
+
+func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, gallery models.Gallery) {
+	fileSet := make(map[string]bool)
+	for _, f := range currentFiles {
+		fileSet[f] = true
+	}
+
+	if gallery.GalleryType == "tv" {
+		var episodes []models.Episode
+		db.Model(&models.Episode{}).Where("url LIKE ?", work.Path+"%").Find(&episodes)
+		deletedCount := 0
+		for _, ep := range episodes {
+			if !fileSet[ep.Url] {
+				db.Model(&models.Episode{}).Where("id = ?", ep.ID).Delete(&models.Episode{})
+				deletedCount++
+			}
+		}
+		if deletedCount > 0 {
+			logger.Info("work", "清理失效剧集记录", "路径: "+work.Path+", 清理数: "+strconv.Itoa(deletedCount))
+		}
+
+		var tvs []models.TheTv
+		db.Model(&models.TheTv{}).Where("gallery_uid = ?", work.GalleryUid).Find(&tvs)
+		for _, tv := range tvs {
+			var remainingEps int64
+			db.Model(&models.Episode{}).
+				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
+				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
+				Where("the_tvs.id = ?", tv.ID).
+				Count(&remainingEps)
+			if remainingEps == 0 {
+				db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{})
+				db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Star{})
+				db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Heart{})
+				db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Delete(&models.TheSeason{})
+				db.Model(&models.Season{}).Where("the_tv_id = ?", tv.ID).Delete(&models.Season{})
+				db.Model(&models.TheTv{}).Where("id = ?", tv.ID).Delete(&models.TheTv{})
+				logger.Info("work", "清理无剧集的电视记录", "名称: "+tv.Name)
+			}
+		}
+	} else {
+		var movies []models.TheMovie
+		db.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, work.Path+"%").Find(&movies)
+		deletedCount := 0
+		for _, movie := range movies {
+			if !fileSet[movie.Url] {
+				db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{})
+				db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
+				db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
+				db.Model(&models.TheMovie{}).Where("id = ?", movie.ID).Delete(&models.TheMovie{})
+				deletedCount++
+			}
+		}
+		if deletedCount > 0 {
+			logger.Info("work", "清理失效电影记录", "路径: "+work.Path+", 清理数: "+strconv.Itoa(deletedCount))
+		}
 	}
 }
