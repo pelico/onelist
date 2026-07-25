@@ -257,6 +257,7 @@ export default defineComponent({
         const showIcon = ref(false);
         const showSaerch = ref(false);
         const title = ref(null);
+        const q = ref(null);
         const { proxy } = getCurrentInstance();
         title.value = proxy.COMMON.title;
         document.title = title.value;
@@ -451,7 +452,7 @@ export default defineComponent({
             showSaerch,
             searchOptions,
             onSearchSelect,
-            q: ref(null),
+            q,
             reF,
             reFApp,
             options: [
