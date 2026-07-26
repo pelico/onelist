@@ -41,11 +41,10 @@
                                 </n-space>
                             </div>
                         </n-layout-header>
-                        <n-layout position="absolute" style="top: 60px; bottom: 60px" has-sider>
+                        <n-layout position="absolute" style="top: 60px; bottom: 0" has-sider>
                             <n-layout-sider :collapsed="collapsed" collapse-mode="width" :collapsed-width="0" :width="240"
                                 :native-scrollbar="false" bordered>
                                 <div class="sider-item">
-                                    <div class="sider-item-title">个人中心</div>
                                     <div class="navigation">
                                         <ul class="nav-links">
                                             <li>
@@ -62,15 +61,6 @@
                                                         <i class='bx bx-heart'></i>
                                                     </span>
                                                     <span class="title">最爱</span>
-                                                </router-link>
-                                            </li>
-                                            <li>
-                                                <router-link to="/star">
-                                                    <span class="icon">
-                                                        <i class='bx bx-star'></i>
-
-                                                    </span>
-                                                    <span class="title">收藏</span>
                                                 </router-link>
                                             </li>
                                             <li>
@@ -151,10 +141,6 @@
                                 <router-view v-on:refApp="RefAppData()" />
                             </n-layout>
                         </n-layout>
-                        <n-layout-footer position="absolute" style="height: 64px; padding: 24px" bordered class="desktop-footer">
-                            @2026
-                        </n-layout-footer>
-
                         <!-- 移动端底部导航栏 -->
                         <div class="mobile-bottom-nav">
                             <router-link to="/" class="bottom-nav-item">
@@ -176,10 +162,6 @@
                             <router-link v-if="is_admin" to="/setting" class="bottom-nav-item">
                                 <i class='bx bx-cog'></i>
                                 <span>设置</span>
-                            </router-link>
-                            <router-link v-else to="/star" class="bottom-nav-item">
-                                <i class='bx bx-star'></i>
-                                <span>收藏</span>
                             </router-link>
                         </div>
 

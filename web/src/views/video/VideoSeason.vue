@@ -59,12 +59,6 @@
                                         <i class='bx bxs-heart'></i>
                                     </span>
                                 </button>
-                                <button @click="ReNewStar()"
-                                    :class="[data.star ? 'active' : '', 'detailButton', 'circleButton']">
-                                    <span class="button-icon">
-                                        <i class='bx bxs-star'></i>
-                                    </span>
-                                </button>
                             </n-space>
                             <div class="overview-text">
                                 {{ data.overview }}
