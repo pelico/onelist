@@ -288,7 +288,7 @@ import Artplayer from "./ArtPlayer.vue";
 
 import flvjs from 'flv.js';
 import Hls from 'hls.js';
-import { getCurrentInstance, onMounted, onUnmounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onUnmounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 import tvNavigation from '@/plugins/tvNavigation';
 export default {
@@ -319,6 +319,95 @@ export default {
         const left = ref(null);
         left.value = 6 * 170 + 50;
         const { proxy } = getCurrentInstance();
+
+        // 列表播放状态
+        const playlist = ref([]);
+        const playlistIndex = ref(0);
+
+        // 视频加载完成后，等待5秒自动全屏（适用于安卓TV浏览器场景）
+        let fullscreenTimer = null;
+        function scheduleAutoFullscreen() {
+            if (fullscreenTimer) clearTimeout(fullscreenTimer);
+            fullscreenTimer = setTimeout(() => {
+                if (art && !art.fullscreen) {
+                    art.fullscreen = true;
+                }
+            }, 5000);
+        }
+        // 当 loading 变为 false 且 art 实例已就绪时，启动自动全屏
+        watch(loading, (newVal) => {
+            if (!newVal && art) {
+                scheduleAutoFullscreen();
+            }
+        });
+
+        // 加载同目录视频列表（用于列表播放）
+        function loadPlaylist() {
+            if (!data.value || !data.value.url || !data.value.gallery_uid) return;
+            let api = `${proxy.COMMON.apiUrl}/v1/api/playlist?gallery_uid=${encodeURIComponent(data.value.gallery_uid)}&url=${encodeURIComponent(data.value.url)}`;
+            proxy.axios.get(api, {
+                headers: {
+                    'Authorization': proxy.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                if (res.data.code === 200 && res.data.data && res.data.data.length > 1) {
+                    playlist.value = res.data.data;
+                    // 找到当前视频在列表中的位置
+                    let currentUrl = data.value.url;
+                    let idx = playlist.value.indexOf(currentUrl);
+                    if (idx === -1) {
+                        // 对于本地文件，尝试带 /file/ 前缀匹配
+                        idx = playlist.value.indexOf('/file/' + currentUrl.replace(/^\//, ''));
+                    }
+                    playlistIndex.value = idx >= 0 ? idx : 0;
+                }
+            }).catch(() => {});
+        }
+
+        // 播放列表中的下一个视频
+        function playNextInPlaylist() {
+            if (!playlist.value || playlist.value.length === 0) return;
+            if (playlistIndex.value >= playlist.value.length - 1) return; // 最后一个，停止播放
+
+            playlistIndex.value++;
+            let nextUrl = playlist.value[playlistIndex.value];
+            let fileName = nextUrl.split('/').pop();
+            let title = fileName.replace(/\.[^/.]+$/, "");
+            document.title = title;
+
+            // 重置自动全屏计时器
+            if (fullscreenTimer) clearTimeout(fullscreenTimer);
+
+            if (is_ali_open.value) {
+                urlBase.value = encodeURI(alist_host.value + nextUrl);
+                OpenVideo(nextUrl);
+            } else {
+                let playUrl;
+                if (nextUrl.startsWith('/file/')) {
+                    // 本地文件路径
+                    let base = alist_host.value;
+                    playUrl = base + nextUrl.replace('/file/', '');
+                } else {
+                    // Alist 路径
+                    playUrl = alist_host.value + nextUrl;
+                }
+                url.value = playUrl;
+                urlBase.value = encodeURI(playUrl);
+                art.switchUrl(playUrl, title);
+                art.on('ready', () => {
+                    art.play();
+                });
+            }
+        }
+
+        // 当播放列表加载完成且 art 实例已就绪时，绑定 ended 事件
+        watch(playlist, (newVal) => {
+            if (newVal && newVal.length > 1 && art) {
+                art.on('ended', () => {
+                    playNextInPlaylist();
+                });
+            }
+        });
         gallery_type.value = proxy.$route.query.gallery_type;
         season_id.value = proxy.$route.query.season_id;
         id.value = proxy.$route.query.id;
@@ -678,14 +767,14 @@ export default {
                 volume: 0.5,
                 isLive: false,
                 muted: false,
-                autoplay: false,
+                autoplay: true,
                 lock: true,
                 pip: false,
                 autoSize: false,
                 autoMini: false,
                 screenshot: false,
                 setting: true,
-                loop: true,
+                loop: false,
                 flip: true,
                 playbackRate: true,
                 aspectRatio: true,
@@ -829,6 +918,8 @@ export default {
                             chunkSubtitles(data.value.url);
                             loading.value = false;
                         }
+                        // 加载同目录视频列表，用于列表连续播放
+                        loadPlaylist();
 
                     } else {
                         fetchSeason();
@@ -846,6 +937,16 @@ export default {
             art.on('restart', () => {
                 url.value = encodeURI(art.url);
             });
+            // art 实例就绪后，如果视频已加载则启动自动全屏计时
+            if (!loading.value) {
+                scheduleAutoFullscreen();
+            }
+            // 如果播放列表已加载，绑定 ended 事件实现列表连播
+            if (playlist.value && playlist.value.length > 1) {
+                art.on('ended', () => {
+                    playNextInPlaylist();
+                });
+            }
         }
 
         onBeforeRouteUpdate((to, from) => {
@@ -1018,6 +1119,8 @@ export default {
         });
 
         onUnmounted(() => {
+            // 清理自动全屏计时器
+            if (fullscreenTimer) clearTimeout(fullscreenTimer);
             // 清理键盘事件监听
             if (window._tvPlayerKeyHandler) {
                 window.removeEventListener('keydown', window._tvPlayerKeyHandler, true);

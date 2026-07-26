@@ -342,6 +342,7 @@ func Run() {
 	r.GET("/gallery/*path", controllers.GalleryImgServer)
 	r.GET("/file/*path", controllers.FileServer)
 	r.GET("/alist/proxy/:gallery_uid/*path", controllers.AlistProxy)
+	r.GET("/v1/api/playlist", controllers.GetPlaylist)
 	r.POST("/file/gallery/upload", controllers.FileUpload, auth.JWTAuthAdmin())
 
 	// 日志
