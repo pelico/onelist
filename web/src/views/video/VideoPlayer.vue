@@ -324,22 +324,28 @@ export default {
         const playlist = ref([]);
         const playlistIndex = ref(0);
 
-        // 视频加载完成后，等待5秒自动全屏（适用于安卓TV浏览器场景）
+        // 自动全屏：在视频开始播放后尝试全屏（hook playing 事件，此时浏览器更可能允许）
         let fullscreenTimer = null;
-        function scheduleAutoFullscreen() {
-            if (fullscreenTimer) clearTimeout(fullscreenTimer);
-            fullscreenTimer = setTimeout(() => {
+        let fullscreenAttempted = false;
+        function tryAutoFullscreen() {
+            if (fullscreenAttempted) return;
+            fullscreenAttempted = true;
+            if (fullscreenTimer) { clearTimeout(fullscreenTimer); fullscreenTimer = null; }
+            if (!art) return;
+            setTimeout(() => {
                 if (art && !art.fullscreen) {
-                    art.fullscreen = true;
+                    try { art.fullscreen = true; } catch(e) {}
                 }
-            }, 5000);
+            }, 500);
         }
-        // 当 loading 变为 false 且 art 实例已就绪时，启动自动全屏
-        watch(loading, (newVal) => {
-            if (!newVal && art) {
-                scheduleAutoFullscreen();
-            }
-        });
+        function scheduleAutoFullscreen() {
+            if (fullscreenAttempted) return;
+            if (fullscreenTimer) clearTimeout(fullscreenTimer);
+            // 主策略：监听 playing 事件（视频真正开始播放时触发）
+            art.once('playing', () => { tryAutoFullscreen(); });
+            // 兜底：若 playing 事件未触发，8 秒后尝试
+            fullscreenTimer = setTimeout(() => { tryAutoFullscreen(); }, 8000);
+        }
 
         // 加载同目录视频列表（用于列表播放）
         function loadPlaylist() {
@@ -360,6 +366,8 @@ export default {
                         idx = playlist.value.indexOf('/file/' + currentUrl.replace(/^\//, ''));
                     }
                     playlistIndex.value = idx >= 0 ? idx : 0;
+                    // 播放列表加载后，尝试绑定 ended 事件
+                    bindPlaylistEnded();
                 }
             }).catch(() => {});
         }
@@ -375,8 +383,10 @@ export default {
             let title = fileName.replace(/\.[^/.]+$/, "");
             document.title = title;
 
-            // 重置自动全屏计时器
+            // 重置自动全屏状态，让下一个视频也能自动全屏
+            fullscreenAttempted = false;
             if (fullscreenTimer) clearTimeout(fullscreenTimer);
+            scheduleAutoFullscreen();
 
             if (is_ali_open.value) {
                 urlBase.value = encodeURI(alist_host.value + nextUrl);
@@ -400,14 +410,17 @@ export default {
             }
         }
 
-        // 当播放列表加载完成且 art 实例已就绪时，绑定 ended 事件
-        watch(playlist, (newVal) => {
-            if (newVal && newVal.length > 1 && art) {
+        // 播放列表 ended 事件只绑定一次（避免重复绑定导致连播失效）
+        let playlistEndedBound = false;
+        function bindPlaylistEnded() {
+            if (playlistEndedBound || !art) return;
+            if (playlist.value && playlist.value.length > 1) {
+                playlistEndedBound = true;
                 art.on('ended', () => {
                     playNextInPlaylist();
                 });
             }
-        });
+        }
         gallery_type.value = proxy.$route.query.gallery_type;
         season_id.value = proxy.$route.query.season_id;
         id.value = proxy.$route.query.id;
@@ -937,16 +950,12 @@ export default {
             art.on('restart', () => {
                 url.value = encodeURI(art.url);
             });
-            // art 实例就绪后，如果视频已加载则启动自动全屏计时
+            // art 实例就绪后，如果视频已加载则启动自动全屏
             if (!loading.value) {
                 scheduleAutoFullscreen();
             }
-            // 如果播放列表已加载，绑定 ended 事件实现列表连播
-            if (playlist.value && playlist.value.length > 1) {
-                art.on('ended', () => {
-                    playNextInPlaylist();
-                });
-            }
+            // 绑定播放列表 ended 事件（只绑定一次）
+            bindPlaylistEnded();
         }
 
         onBeforeRouteUpdate((to, from) => {

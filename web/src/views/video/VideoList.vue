@@ -170,13 +170,36 @@ export default {
 
         // 无限滚动哨兵
         const sentinelRef = ref(null);
-        let observer = null;
         // 软上限：超过该数量后停止自动加载，提示用户使用筛选缩小范围
         const MAX_LOADED = 480;
 
         const hasMore = computed(() => {
             return data.value != null && num.value != null && data.value.length < num.value && data.value.length < MAX_LOADED;
         });
+
+        // 滚动加载：用 scroll 事件替代 IntersectionObserver（Naive UI 滚动容器兼容性问题）
+        let scrollCooldown = false;
+        let scrollContainer = null;
+        function getScrollContainer() {
+            if (scrollContainer) return scrollContainer;
+            scrollContainer = document.querySelector('.n-layout-scroll-container')
+                || document.querySelector('.n-scrollbar-container');
+            return scrollContainer;
+        }
+        function handleScroll() {
+            if (scrollCooldown || !hasMore.value || loadingMore.value) return;
+            const scroller = getScrollContainer();
+            let scrollBottom;
+            if (scroller) {
+                scrollBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+            } else {
+                scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+            }
+            if (scrollBottom < 600) {
+                scrollCooldown = true;
+                fetchMore();
+            }
+        }
 
         let page_str = localStorage.getItem("page")
         if (page_str != null) {
@@ -255,6 +278,8 @@ export default {
                 loadingMore.value = true;
             } else {
                 page.value = 1;
+                scrollContainer = null; // 重新查找滚动容器
+                scrollCooldown = false;
             }
             const api = buildApi(page.value);
             proxy.axios.post(api, {}, {
@@ -292,8 +317,8 @@ export default {
                     // 注册视频网格到电视导航系统
                     nextTick(() => {
                         setupTvNavigation();
-                        // 数据更新后重新绑定观察器（v-for 可能导致哨兵 DOM 节点被替换）
-                        setupObserver();
+                        // 数据加载后重置滚动冷却，允许继续加载
+                        scrollCooldown = false;
                         // 若内容不足以撑满视口，继续加载下一页
                         if (append && hasMore.value && sentinelRef.value) {
                             const rect = sentinelRef.value.getBoundingClientRect();
@@ -346,25 +371,6 @@ export default {
             }
         }
 
-        // 无限滚动观察器
-        function setupObserver() {
-            if (observer) observer.disconnect();
-            if (!sentinelRef.value) return;
-            // 尝试多种选择器定位滚动容器（Naive UI 不同版本类名可能不同）
-            const scrollContainer = document.querySelector('.n-layout-scroll-container')
-                || document.querySelector('.n-layout .n-scrollbar-container')
-                || null; // null 表示使用视口作为 root
-            observer = new IntersectionObserver((entries) => {
-                if (entries[0] && entries[0].isIntersecting) {
-                    fetchMore();
-                }
-            }, {
-                root: scrollContainer,
-                rootMargin: '300px'
-            });
-            observer.observe(sentinelRef.value);
-        }
-
         onBeforeRouteUpdate((to, from) => {
             gallery_uid.value = to.query.gallery_uid;
             gallery_type.value = to.query.gallery_type;
@@ -379,12 +385,22 @@ export default {
 
         onMounted(() => {
             fetchData(false);
-            nextTick(() => setupObserver());
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            // Naive UI 可能使用内部滚动容器，也需要监听
+            nextTick(() => {
+                const scroller = getScrollContainer();
+                if (scroller) {
+                    scroller.addEventListener('scroll', handleScroll, { passive: true });
+                }
+            });
         });
 
         onUnmounted(() => {
-            // 清理观察器与导航组
-            if (observer) observer.disconnect();
+            window.removeEventListener('scroll', handleScroll);
+            const scroller = getScrollContainer();
+            if (scroller) {
+                scroller.removeEventListener('scroll', handleScroll);
+            }
             if (tvNavigation) {
                 tvNavigation.unregisterGroup('videoGrid');
                 tvNavigation.unregisterGroup('videoTools');

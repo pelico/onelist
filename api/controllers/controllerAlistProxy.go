@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,16 @@ import (
 	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/plugins/alist"
 )
+
+// isSubtitleFile 判断是否为字幕文件（前端播放时会主动探测字幕，不存在属正常情况）
+func isSubtitleFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".srt", ".ass", ".ssa", ".vtt", ".sub", ".idx":
+		return true
+	}
+	return false
+}
 
 func AlistProxy(c *gin.Context) {
 	galleryUid := c.Param("gallery_uid")
@@ -53,7 +64,12 @@ func AlistProxy(c *gin.Context) {
 
 	fsData, err := alist.AlistFsGet(gallery, filePath)
 	if err != nil {
-		logger.Warn("play", "获取文件信息失败", "路径: "+filePath+", 错误: "+err.Error())
+		if isSubtitleFile(filePath) {
+			// 字幕文件不存在属正常情况（前端会主动探测多种字幕格式）
+			logger.Info("play", "字幕文件不存在，跳过", "路径: "+filePath)
+		} else {
+			logger.Warn("play", "获取文件信息失败", "路径: "+filePath+", 错误: "+err.Error())
+		}
 		c.String(http.StatusNotFound, "文件不存在: "+err.Error())
 		return
 	}
