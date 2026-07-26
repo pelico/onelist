@@ -3,6 +3,7 @@ package controllers
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,11 @@ func AlistProxy(c *gin.Context) {
 	if galleryUid == "" || filePath == "" {
 		c.String(http.StatusBadRequest, "参数错误")
 		return
+	}
+
+	// URL 解码：浏览器请求含中文/特殊字符的路径时会自动编码
+	if decoded, err := url.QueryUnescape(filePath); err == nil {
+		filePath = decoded
 	}
 
 	// data.value.url 存储时带有 Alist 下载路由前缀 /d，

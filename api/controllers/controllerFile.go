@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -39,6 +40,12 @@ func FileServer(c *gin.Context) {
 	if len(file) < 1 {
 		c.String(http.StatusBadRequest, "文件不存在!")
 		return
+	}
+	// URL 解码：浏览器请求含中文/特殊字符的路径时会自动编码
+	file, err := url.QueryUnescape(file)
+	if err != nil {
+		// 解码失败时使用原始路径
+		file = c.Param("path")
 	}
 	file = file[1:]
 	if !dir.FileExists(file) {

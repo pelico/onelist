@@ -36,15 +36,47 @@ func CreateTheMovie(c *gin.Context) {
 func DeleteTheMovieById(c *gin.Context) {
 	id := c.Query("id")
 	db := database.NewDb()
-	repo := crud.NewRepositoryTheMoviesCRUD(db)
-	func(themovieRepository repository.TheMovieRepository) {
-		themovie, err := themovieRepository.DeleteByID(id)
-		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": themovie})
-			return
-		}
-		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": themovie})
-	}(repo)
+
+	// 先查询记录，获取关联信息
+	themovie := models.TheMovie{}
+	err := db.Model(&models.TheMovie{}).Where("id = ?", id).First(&themovie).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": themovie})
+		return
+	}
+
+	tx := db.Begin()
+
+	// 清理关联的 Heart、Played、Star 记录
+	if err := tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", themovie.ID).Delete(&models.Heart{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除最爱记录失败!", "data": themovie})
+		return
+	}
+	if err := tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", themovie.ID).Delete(&models.Played{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除播放记录失败!", "data": themovie})
+		return
+	}
+	if err := tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", themovie.ID).Delete(&models.Star{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除收藏记录失败!", "data": themovie})
+		return
+	}
+
+	// 删除电影记录
+	if err := tx.Model(&models.TheMovie{}).Where("id = ?", id).Delete(&models.TheMovie{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除资源失败!", "data": themovie})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "提交事务失败!", "data": themovie})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": themovie})
 }
 
 func UpdateTheMovieById(c *gin.Context) {

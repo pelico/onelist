@@ -348,11 +348,16 @@ export default {
         function setupObserver() {
             if (observer) observer.disconnect();
             if (!sentinelRef.value) return;
+            // 使用 Naive UI 的自定义滚动容器作为 root（页面不是 window 滚动）
+            const scrollContainer = document.querySelector('.n-layout .n-layout-scroll-container');
             observer = new IntersectionObserver((entries) => {
                 if (entries[0] && entries[0].isIntersecting) {
                     fetchMore();
                 }
-            }, { rootMargin: '300px' });
+            }, {
+                root: scrollContainer,
+                rootMargin: '300px'
+            });
             observer.observe(sentinelRef.value);
         }
 

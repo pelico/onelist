@@ -39,15 +39,72 @@ func CreateTheTv(c *gin.Context) {
 func DeleteTheTvById(c *gin.Context) {
 	id := c.Query("id")
 	db := database.NewDb()
-	repo := crud.NewRepositoryTheTvsCRUD(db)
-	func(thetvRepository repository.TheTvRepository) {
-		thetv, err := thetvRepository.DeleteByID(id)
-		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": thetv})
+
+	// 先查询记录
+	thetv := models.TheTv{}
+	err := db.Model(&models.TheTv{}).Where("id = ?", id).First(&thetv).Error
+	if err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": thetv})
+		return
+	}
+
+	tx := db.Begin()
+
+	// 清理关联的 Heart、Played、Star 记录
+	if err := tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", thetv.ID).Delete(&models.Heart{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除最爱记录失败!", "data": thetv})
+		return
+	}
+	if err := tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", thetv.ID).Delete(&models.Played{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除播放记录失败!", "data": thetv})
+		return
+	}
+	if err := tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", thetv.ID).Delete(&models.Star{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除收藏记录失败!", "data": thetv})
+		return
+	}
+
+	// 清理关联的季和剧集
+	var seasons []models.TheSeason
+	if err := tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", thetv.ID).Find(&seasons).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "查询季记录失败!", "data": thetv})
+		return
+	}
+	for _, season := range seasons {
+		if err := tx.Model(&models.Episode{}).Where("the_season_id = ?", season.ID).Delete(&models.Episode{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除剧集记录失败!", "data": thetv})
 			return
 		}
-		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": thetv})
-	}(repo)
+	}
+	if err := tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", thetv.ID).Delete(&models.TheSeason{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除季记录失败!", "data": thetv})
+		return
+	}
+	if err := tx.Model(&models.Season{}).Where("the_tv_id = ?", thetv.ID).Delete(&models.Season{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除 Season 记录失败!", "data": thetv})
+		return
+	}
+
+	// 删除电视剧记录
+	if err := tx.Model(&models.TheTv{}).Where("id = ?", id).Delete(&models.TheTv{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除资源失败!", "data": thetv})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "提交事务失败!", "data": thetv})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": thetv})
 }
 
 func UpdateTheTvById(c *gin.Context) {
