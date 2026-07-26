@@ -18,6 +18,7 @@ type Work struct {
 	IsOk       bool      `json:"is_ok" gorm:"index"`                //是否刮削完毕
 	Watching   bool      `json:"watching"`             //是否监控目录，每天晚上2点自动扫描
 	IsRef      bool      `json:"is_ref"`               //是否强制获取alist刷新后的文件列表，不走alist缓存，速度较慢
+	UseDefaultCover bool `json:"use_default_cover"`    //是否使用默认封面(不刮削封面图片)
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }

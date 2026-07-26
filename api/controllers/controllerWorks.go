@@ -124,6 +124,31 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	}
 	pool.Wait()
 
+	// 如果使用默认封面，刮削完成后清除海报和背景图路径
+	if work.UseDefaultCover {
+		if gallery.GalleryType == "tv" {
+			var tvIds []uint
+			db.Model(&models.Episode{}).
+				Select("DISTINCT the_tvs.id").
+				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
+				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
+				Where("episodes.url LIKE ? AND the_tvs.gallery_uid = ?", work.Path+"%", work.GalleryUid).
+				Pluck("the_tvs.id", &tvIds)
+			if len(tvIds) > 0 {
+				db.Model(&models.TheTv{}).Where("id IN ?", tvIds).Updates(map[string]interface{}{
+					"poster_path":   "",
+					"backdrop_path": "",
+				})
+			}
+		} else {
+			db.Model(&models.TheMovie{}).Where("url IN ? AND gallery_uid = ?", files, work.GalleryUid).Updates(map[string]interface{}{
+				"poster_path":   "",
+				"backdrop_path": "",
+			})
+		}
+		logger.Info("work", "已清除封面图片路径(使用默认封面)", "路径: "+work.Path)
+	}
+
 	// 清理不在当前文件列表中的旧记录
 	cleanupStaleRecords(db, files, work, gallery)
 
@@ -175,7 +200,32 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 		}(file)
 	}
 	pool.Wait()
-	
+
+	// 如果使用默认封面，刮削完成后清除海报和背景图路径
+	if work.UseDefaultCover {
+		if gallery.GalleryType == "tv" {
+			var tvIds []uint
+			db.Model(&models.Episode{}).
+				Select("DISTINCT the_tvs.id").
+				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
+				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
+				Where("episodes.url LIKE ? AND the_tvs.gallery_uid = ?", work.Path+"%", work.GalleryUid).
+				Pluck("the_tvs.id", &tvIds)
+			if len(tvIds) > 0 {
+				db.Model(&models.TheTv{}).Where("id IN ?", tvIds).Updates(map[string]interface{}{
+					"poster_path":   "",
+					"backdrop_path": "",
+				})
+			}
+		} else {
+			db.Model(&models.TheMovie{}).Where("url IN ? AND gallery_uid = ?", files, work.GalleryUid).Updates(map[string]interface{}{
+				"poster_path":   "",
+				"backdrop_path": "",
+			})
+		}
+		logger.Info("work", "已清除封面图片路径(使用默认封面)", "路径: "+work.Path)
+	}
+
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 }

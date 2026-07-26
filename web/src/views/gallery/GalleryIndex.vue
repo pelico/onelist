@@ -64,12 +64,6 @@
                                             </template>
                                             添加资源
                                         </n-button>
-                                        <n-button v-if="item.is_alist" @click="browseDir(item)" type="success">
-                                            <template #icon>
-                                                <i class='bx bx-folder-open'></i>
-                                            </template>
-                                            浏览目录
-                                        </n-button>
                                         <n-button @click="addPath(item)" type="info">
                                             <template #icon>
                                                 <i class='bx bx-folder-plus'></i>
@@ -267,59 +261,6 @@
         </n-modal>
         <input type="file" id="file">
 
-        <!-- Alist 目录浏览弹窗 -->
-        <n-modal class="dir-browser" v-model:show="dirModal" transform-origin="center">
-            <n-card style="width: 700px; max-height: 80vh;" title="Alist 目录浏览" :bordered="false" size="huge" role="dialog" aria-modal="true">
-                <template #header-extra>
-                    <n-button @click="dirModal = false" strong secondary circle>
-                        <i class='bx bx-x'></i>
-                    </n-button>
-                </template>
-                <n-spin :show="dirLoading">
-                    <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <n-breadcrumb>
-                            <n-breadcrumb-item v-for="(seg, i) in breadcrumb" :key="i" @click="loadDirByPath(seg.path)">
-                                {{ seg.name }}
-                            </n-breadcrumb-item>
-                        </n-breadcrumb>
-                        <n-space>
-                            <n-button v-if="selectedDirs.length > 0" @click="batchScan" type="warning" size="small">
-                                批量刮削({{ selectedDirs.length }})
-                            </n-button>
-                            <n-button @click="scanCurrentDir" type="success" size="small">
-                                扫描当前目录
-                            </n-button>
-                            <n-button @click="goToWorks" type="info" size="small">
-                                <template #icon>
-                                    <i class='bx bx-list-check'></i>
-                                </template>
-                                查看进度
-                            </n-button>
-                        </n-space>
-                    </div>
-                    <div class="dir-list" style="max-height: 50vh; overflow-y: auto;">
-                        <div v-if="dirList.length === 0 && !dirLoading" style="text-align: center; padding: 20px; color: #999;">
-                            该目录下没有子目录
-                        </div>
-                        <div v-for="(dir, index) in dirList" :key="index" class="dir-item">
-                            <n-checkbox v-model:checked="dir.checked" @update:checked="updateSelected" />
-                            <span class="dir-icon" @click="enterDir(dir)">
-                                <i class='bx bx-folder'></i>
-                            </span>
-                            <span class="dir-name" @click="enterDir(dir)">{{ dir.name }}</span>
-                            <n-button @click="scanDir(dir)" type="success" size="tiny" style="margin-left: auto;">
-                                刮削此目录
-                            </n-button>
-                        </div>
-                    </div>
-                </n-spin>
-                <template #footer>
-                    <n-space justify="end">
-                        <n-button @click="dirModal = false">关闭</n-button>
-                    </n-space>
-                </template>
-            </n-card>
-        </n-modal>
     </div>
 </template>
 <script>
@@ -364,13 +305,6 @@ export default {
             "file": null,
             "gallery_uid": null,
         })
-        const dirModal = ref(false);
-        const dirLoading = ref(false);
-        const dirList = ref([]);
-        const selectedDirs = ref([]);
-        const currentGallery = ref(null);
-        const currentPath = ref('/');
-        const breadcrumb = ref([{ name: '根目录', path: '/' }]);
 
         function fetchData() {
             proxy.axios.post(proxy.COMMON.apiUrl + '/v1/api/gallery/admin/list?page=' + page.value + '&size=' + size.value, {}, {
@@ -415,13 +349,6 @@ export default {
             addModal,
             searchData,
             message,
-            dirModal,
-            dirLoading,
-            dirList,
-            selectedDirs,
-            currentGallery,
-            currentPath,
-            breadcrumb,
             typeOptions: ["movie", "tv"].map(
                 (v) => ({
                     label: v,
@@ -584,135 +511,6 @@ export default {
                 this.COMMON.ShowMsg(error);
             });
         },
-        // 浏览Alist目录
-        browseDir(item) {
-            this.currentGallery = item;
-            this.currentPath = '/';
-            this.breadcrumb = [{ name: '根目录', path: '/' }];
-            this.selectedDirs = [];
-            this.dirModal = true;
-            this.loadDir('/');
-        },
-        // 加载目录列表
-        loadDir(path) {
-            this.dirLoading = true;
-            this.currentPath = path;
-            let api = `${this.COMMON.apiUrl}/v1/api/gallery/alist_dir?id=${this.currentGallery.gallery_uid}&path=${encodeURIComponent(path)}`;
-            this.axios.get(api, {
-                headers: {
-                    'Authorization': this.$cookies.get("Authorization")
-                }
-            }).then(res => {
-                if (res.data.code == 200) {
-                    this.dirList = (res.data.data || []).map(d => ({
-                        name: d.name,
-                        path: d.path,
-                        checked: this.selectedDirs.some(s => s.path === d.path)
-                    }));
-                } else {
-                    this.COMMON.ShowMsg(res.data.msg);
-                    this.dirList = [];
-                }
-                this.dirLoading = false;
-            }).catch((error) => {
-                this.COMMON.ShowMsg("加载目录失败: " + error);
-                this.dirList = [];
-                this.dirLoading = false;
-            });
-        },
-        // 通过面包屑加载目录
-        loadDirByPath(path) {
-            let idx = this.breadcrumb.findIndex(b => b.path === path);
-            if (idx >= 0) {
-                this.breadcrumb = this.breadcrumb.slice(0, idx + 1);
-            }
-            this.loadDir(path);
-        },
-        // 进入子目录
-        enterDir(dir) {
-            this.breadcrumb.push({ name: dir.name, path: dir.path });
-            this.loadDir(dir.path);
-        },
-        // 更新选中的目录
-        updateSelected() {
-            this.selectedDirs = this.dirList.filter(d => d.checked);
-        },
-        // 扫描单个目录
-        scanDir(dir) {
-          this.scanAlistDir(dir.path);
-        },
-        // 扫描当前目录
-        scanCurrentDir() {
-          this.scanAlistDir(this.currentPath);
-        },
-        // 批量扫描
-        batchScan() {
-          if (this.selectedDirs.length === 0) return;
-          let count = 0;
-          let failed = 0;
-          this.selectedDirs.forEach(dir => {
-            let api = `${this.COMMON.apiUrl}/v1/api/work/create`;
-            this.axios.post(api, {
-              gallery_uid: this.currentGallery.gallery_uid,
-              path: dir.path,
-              is_ref: false,
-              watching: true
-            }, {
-              headers: {
-                'content-type': 'application/json',
-                'Authorization': this.$cookies.get("Authorization")
-              }
-            }).then(res => {
-              count++;
-              if (count + failed === this.selectedDirs.length) {
-                this.selectedDirs = [];
-                this.dirList.forEach(d => d.checked = false);
-                this.$message.info(`批量挂载完成! 成功 ${count} 个, 失败 ${failed} 个`, { duration: 5000 });
-              }
-            }).catch(() => {
-              failed++;
-              if (count + failed === this.selectedDirs.length) {
-                this.COMMON.ShowMsg(`批量挂载完成! 成功 ${count} 个, 失败 ${failed} 个`);
-              }
-            });
-          });
-        },
-        // 调用挂载API（创建挂载目录并开始扫描）
-        scanAlistDir(path) {
-          let api = `${this.COMMON.apiUrl}/v1/api/work/create`;
-          this.dirLoading = true;
-          this.axios.post(api, {
-            gallery_uid: this.currentGallery.gallery_uid,
-            path: path,
-            is_ref: false,
-            watching: true
-          }, {
-            headers: {
-              'content-type': 'application/json',
-              'Authorization': this.$cookies.get("Authorization")
-            }
-          }).then(res => {
-            if (res.data.code == 200) {
-              this.$message.success("挂载成功！可点击「查看进度」跟踪刮削进度", { duration: 4000 });
-            } else {
-              this.COMMON.ShowMsg(res.data.msg);
-            }
-            this.dirLoading = false;
-          }).catch((error) => {
-            this.COMMON.ShowMsg("挂载失败: " + error);
-            this.dirLoading = false;
-          });
-        },
-        // 跳转到挂载目录页面查看进度
-        goToWorks() {
-            this.dirModal = false;
-            this.$router.push({
-                path: "/gallerys/works",
-                query: {
-                    gallery_uid: this.currentGallery.gallery_uid
-                }
-            });
-        },
     }
 }
 </script >
@@ -762,29 +560,5 @@ export default {
 
 input#file {
     display: none;
-}
-
-.dir-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.dir-item:hover {
-    background: #f5f7fa;
-}
-
-.dir-icon {
-    font-size: 20px;
-    color: #e6a23c;
-}
-
-.dir-name {
-    flex: 1;
-    font-size: 14px;
 }
 </style>

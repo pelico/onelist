@@ -68,7 +68,7 @@
                                         <template #icon>
                                             <i class='bx bx-plus-circle'></i>
                                         </template>
-                                        重新刮削
+                                        刷新目录
                                     </n-button>
                                 </n-space>
                             </div>
@@ -104,6 +104,9 @@
                         <n-form-item label="是否监控目录,每天晚上2点自动扫描?">
                             <n-switch size="large" v-model:value="work.watching" placeholder="" clearable />
                         </n-form-item>
+                        <n-form-item label="是否使用默认封面(不刮削封面图片)?">
+                            <n-switch size="large" v-model:value="work.use_default_cover" placeholder="" clearable />
+                        </n-form-item>
                     </n-form>
                 </n-spin>
                 <template #footer>
@@ -138,6 +141,9 @@
                     <n-form-item label="是否监控目录，每天晚上2点自动扫描?">
                         <n-switch size="large" v-model:value="work.watching" placeholder="" clearable />
                     </n-form-item>
+                    <n-form-item label="是否使用默认封面(不刮削封面图片)?">
+                        <n-switch size="large" v-model:value="work.use_default_cover" placeholder="" clearable />
+                    </n-form-item>
                 </n-form>
 
                 <template #footer>
@@ -165,8 +171,8 @@
                         <i class='bx bx-x'></i>
                     </n-button>
                 </template>
-                <h3>确定重新刮削此挂载目录吗？</h3>
-                <n-form-item label="是否全部重新刮削(默认只刮削挂载目录中新增文件)?">
+                <h3>确定刷新此挂载目录吗？</h3>
+                <n-form-item label="是否全部重新扫描(默认只扫描挂载目录中新增文件)?">
                     <n-switch size="large" v-model:value="allFile" placeholder="" clearable />
                 </n-form-item>
                 <template #footer>
@@ -264,6 +270,7 @@ export default {
             "is_ok": false,
             "watching": false,
             "is_ref": false,
+            "use_default_cover": false,
         })
 
         function fetchData() {
@@ -372,6 +379,7 @@ export default {
                 "is_ok": false,
                 "watching": false,
                 "is_ref": false,
+                "use_default_cover": false,
             };
             this.work.gallery_uid = this.gallery_uid
             this.checkAlist();
