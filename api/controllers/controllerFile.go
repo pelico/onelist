@@ -14,6 +14,7 @@ import (
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/utils/dir"
+	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/api/utils/tools"
 	"github.com/msterzhang/onelist/plugins/alist"
 )
@@ -54,6 +55,7 @@ func FileServer(c *gin.Context) {
 	}
 	file = file[1:]
 	if !dir.FileExists(file) {
+		logger.Warn("play", "本地文件不存在", "路径: "+file)
 		c.String(http.StatusBadRequest, "文件不存在!")
 		return
 	}
@@ -113,6 +115,7 @@ func GetPlaylist(c *gin.Context) {
 	gallery := models.Gallery{}
 	err := db.Model(&models.Gallery{}).Where("gallery_uid = ?", galleryUid).First(&gallery).Error
 	if err != nil {
+		logger.Warn("play", "播放列表: 媒体库不存在", "UID: "+galleryUid)
 		c.JSON(200, gin.H{"code": 201, "msg": "媒体库不存在", "data": []string{}})
 		return
 	}
@@ -127,6 +130,7 @@ func GetPlaylist(c *gin.Context) {
 		files = getLocalPlaylist(parentDir)
 	}
 
+	logger.Info("play", "播放列表加载", "媒体库: "+galleryUid+", 文件数: "+fmt.Sprintf("%d", len(files)))
 	c.JSON(200, gin.H{"code": 200, "data": files})
 }
 

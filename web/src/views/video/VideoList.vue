@@ -292,6 +292,8 @@ export default {
                     // 注册视频网格到电视导航系统
                     nextTick(() => {
                         setupTvNavigation();
+                        // 数据更新后重新绑定观察器（v-for 可能导致哨兵 DOM 节点被替换）
+                        setupObserver();
                         // 若内容不足以撑满视口，继续加载下一页
                         if (append && hasMore.value && sentinelRef.value) {
                             const rect = sentinelRef.value.getBoundingClientRect();
@@ -348,8 +350,10 @@ export default {
         function setupObserver() {
             if (observer) observer.disconnect();
             if (!sentinelRef.value) return;
-            // 使用 Naive UI 的自定义滚动容器作为 root（页面不是 window 滚动）
-            const scrollContainer = document.querySelector('.n-layout .n-layout-scroll-container');
+            // 尝试多种选择器定位滚动容器（Naive UI 不同版本类名可能不同）
+            const scrollContainer = document.querySelector('.n-layout-scroll-container')
+                || document.querySelector('.n-layout .n-scrollbar-container')
+                || null; // null 表示使用视口作为 root
             observer = new IntersectionObserver((entries) => {
                 if (entries[0] && entries[0].isIntersecting) {
                     fetchMore();

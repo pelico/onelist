@@ -538,6 +538,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 	}
 
 	if gallery.GalleryType == "tv" {
+		// 只清理本任务路径范围内的剧集，避免影响同一影库下其他任务的记录
 		var episodes []models.Episode
 		db.Model(&models.Episode{}).Where("url LIKE ?", work.Path+"%").Find(&episodes)
 		deletedCount := 0
@@ -551,9 +552,21 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 			logger.Info("work", "清理失效剧集记录", "路径: "+work.Path+", 清理数: "+strconv.Itoa(deletedCount))
 		}
 
+		// 只检查本任务路径范围内有剧集的电视节目
 		var tvs []models.TheTv
 		db.Model(&models.TheTv{}).Where("gallery_uid = ?", work.GalleryUid).Find(&tvs)
 		for _, tv := range tvs {
+			// 检查该节目在本任务路径范围内是否还有剧集
+			var scopedEps int64
+			db.Model(&models.Episode{}).
+				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
+				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
+				Where("the_tvs.id = ? AND episodes.url LIKE ?", tv.ID, work.Path+"%").
+				Count(&scopedEps)
+			if scopedEps > 0 {
+				continue // 本任务范围内仍有剧集，跳过
+			}
+			// 本任务范围内无剧集，再检查全局是否也无剧集
 			var remainingEps int64
 			db.Model(&models.Episode{}).
 				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
@@ -571,8 +584,9 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 			}
 		}
 	} else {
+		// 只清理本任务路径范围内的电影，避免影响同一影库下其他任务的记录
 		var movies []models.TheMovie
-		db.Model(&models.TheMovie{}).Where("gallery_uid = ?", work.GalleryUid).Find(&movies)
+		db.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, work.Path+"%").Find(&movies)
 		deletedCount := 0
 		for _, movie := range movies {
 			if !fileSet[movie.Url] {
