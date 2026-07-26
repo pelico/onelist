@@ -81,15 +81,11 @@ func DeleteGalleryById(c *gin.Context) {
 	}
 	tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheTv{})
 	
-	repo := crud.NewRepositoryGallerysCRUD(db)
-	func(galleryRepository repository.GalleryRepository) {
-		_, err := galleryRepository.DeleteByID(id)
-		if err != nil {
-			tx.Rollback()
-			c.JSON(200, gin.H{"code": 201, "msg": "删除资源失败!", "data": gallery})
-			return
-		}
-	}(repo)
+	if err := tx.Model(&models.Gallery{}).Where("id = ?", id).Delete(&models.Gallery{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除资源失败!", "data": gallery})
+		return
+	}
 	
 	tx.Commit()
 	c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": gallery})

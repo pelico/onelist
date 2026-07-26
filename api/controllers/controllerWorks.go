@@ -99,54 +99,34 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	work.Speed = len(files)
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 
-	// 并发刮削（限制并发数）
-	pool := gpool.New(scrapeConcurrency)
+	// 并发刮削（限制并发数）—— 使用默认封面时跳过刮削
 	var successCount int64 = 0
 	var errCount int64 = 0
-	for _, file := range files {
-		pool.Add(1)
-		go func(f string) {
-			defer pool.Done()
-			var scrapeErr error
-			if gallery.GalleryType == "tv" {
-				_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
-			} else {
-				_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
-			}
-			if scrapeErr != nil {
-				atomic.AddInt64(&errCount, 1)
-				logger.Warn("work", "刮削失败: "+f, scrapeErr.Error())
-				SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
-			} else {
-				atomic.AddInt64(&successCount, 1)
-			}
-		}(file)
-	}
-	pool.Wait()
-
-	// 如果使用默认封面，刮削完成后清除海报和背景图路径
-	if work.UseDefaultCover {
-		if gallery.GalleryType == "tv" {
-			var tvIds []uint
-			db.Model(&models.Episode{}).
-				Select("DISTINCT the_tvs.id").
-				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
-				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
-				Where("episodes.url LIKE ? AND the_tvs.gallery_uid = ?", work.Path+"%", work.GalleryUid).
-				Pluck("the_tvs.id", &tvIds)
-			if len(tvIds) > 0 {
-				db.Model(&models.TheTv{}).Where("id IN ?", tvIds).Updates(map[string]interface{}{
-					"poster_path":   "",
-					"backdrop_path": "",
-				})
-			}
-		} else {
-			db.Model(&models.TheMovie{}).Where("url IN ? AND gallery_uid = ?", files, work.GalleryUid).Updates(map[string]interface{}{
-				"poster_path":   "",
-				"backdrop_path": "",
-			})
+	if !work.UseDefaultCover {
+		pool := gpool.New(scrapeConcurrency)
+		for _, file := range files {
+			pool.Add(1)
+			go func(f string) {
+				defer pool.Done()
+				var scrapeErr error
+				if gallery.GalleryType == "tv" {
+					_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
+				} else {
+					_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
+				}
+				if scrapeErr != nil {
+					atomic.AddInt64(&errCount, 1)
+					logger.Warn("work", "刮削失败: "+f, scrapeErr.Error())
+					SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
+				} else {
+					atomic.AddInt64(&successCount, 1)
+				}
+			}(file)
 		}
-		logger.Info("work", "已清除封面图片路径(使用默认封面)", "路径: "+work.Path)
+		pool.Wait()
+	} else {
+		successCount = int64(len(files))
+		logger.Info("work", "使用默认封面,跳过刮削", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
 	}
 
 	// 清理不在当前文件列表中的旧记录
@@ -182,48 +162,27 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 	work.Speed = len(files)
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 	
-	// 并发刮削
-	pool := gpool.New(scrapeConcurrency)
-	for _, file := range files {
-		pool.Add(1)
-		go func(f string) {
-			defer pool.Done()
-			var scrapeErr error
-			if gallery.GalleryType == "tv" {
-				_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
-			} else {
-				_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
-			}
-			if scrapeErr != nil {
-				SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
-			}
-		}(file)
-	}
-	pool.Wait()
-
-	// 如果使用默认封面，刮削完成后清除海报和背景图路径
-	if work.UseDefaultCover {
-		if gallery.GalleryType == "tv" {
-			var tvIds []uint
-			db.Model(&models.Episode{}).
-				Select("DISTINCT the_tvs.id").
-				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
-				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
-				Where("episodes.url LIKE ? AND the_tvs.gallery_uid = ?", work.Path+"%", work.GalleryUid).
-				Pluck("the_tvs.id", &tvIds)
-			if len(tvIds) > 0 {
-				db.Model(&models.TheTv{}).Where("id IN ?", tvIds).Updates(map[string]interface{}{
-					"poster_path":   "",
-					"backdrop_path": "",
-				})
-			}
-		} else {
-			db.Model(&models.TheMovie{}).Where("url IN ? AND gallery_uid = ?", files, work.GalleryUid).Updates(map[string]interface{}{
-				"poster_path":   "",
-				"backdrop_path": "",
-			})
+	// 并发刮削 —— 使用默认封面时跳过刮削
+	if !work.UseDefaultCover {
+		pool := gpool.New(scrapeConcurrency)
+		for _, file := range files {
+			pool.Add(1)
+			go func(f string) {
+				defer pool.Done()
+				var scrapeErr error
+				if gallery.GalleryType == "tv" {
+					_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
+				} else {
+					_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
+				}
+				if scrapeErr != nil {
+					SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
+				}
+			}(file)
 		}
-		logger.Info("work", "已清除封面图片路径(使用默认封面)", "路径: "+work.Path)
+		pool.Wait()
+	} else {
+		logger.Info("work", "使用默认封面,跳过刮削", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
 	}
 
 	work.IsOk = true

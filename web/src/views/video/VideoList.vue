@@ -269,7 +269,16 @@ export default {
                         proxy.COMMON.ShowMsg("未查询到相关内容!");
                     }
                     if (append) {
-                        data.value = (data.value || []).concat(items);
+                        if (items.length === 0) {
+                            // 后端返回空页，回退页码避免后续请求全部落空
+                            page.value--;
+                            // 用后端实际 count 校正总数，防止 hasMore 永远为 true
+                            if (res.data.num != null) {
+                                num.value = res.data.num;
+                            }
+                        } else {
+                            data.value = data.value.concat(items);
+                        }
                     } else {
                         data.value = items;
                     }
