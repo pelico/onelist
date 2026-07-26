@@ -95,10 +95,6 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 		}
 	}
 
-	// 更新进度为已创建基础记录
-	work.Speed = len(files)
-	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
-
 	// 并发刮削（限制并发数）—— 使用默认封面时跳过刮削
 	var successCount int64 = 0
 	var errCount int64 = 0
@@ -121,12 +117,17 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 				} else {
 					atomic.AddInt64(&successCount, 1)
 				}
+				// 实时更新进度
+				currentSpeed := atomic.LoadInt64(&successCount) + atomic.LoadInt64(&errCount)
+				db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", currentSpeed)
 			}(file)
 		}
 		pool.Wait()
 	} else {
 		successCount = int64(len(files))
 		logger.Info("work", "使用默认封面,跳过刮削", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
+		// 使用默认封面时直接设置进度为完成
+		db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", len(files))
 	}
 
 	// 清理不在当前文件列表中的旧记录
@@ -158,11 +159,9 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 		}
 	}
 	
-	// 更新进度
-	work.Speed = len(files)
-	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
-	
 	// 并发刮削 —— 使用默认封面时跳过刮削
+	var successCount int64 = 0
+	var errCount int64 = 0
 	if !work.UseDefaultCover {
 		pool := gpool.New(scrapeConcurrency)
 		for _, file := range files {
@@ -176,13 +175,21 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 					_, scrapeErr = thedb.RunTheMovieWork(f, gallery.GalleryUid)
 				}
 				if scrapeErr != nil {
+					atomic.AddInt64(&errCount, 1)
 					SaveErrFile(f, scrapeErr.Error(), gallery.GalleryUid, work.Id, gallery.GalleryType == "tv")
+				} else {
+					atomic.AddInt64(&successCount, 1)
 				}
+				// 实时更新进度
+				currentSpeed := atomic.LoadInt64(&successCount) + atomic.LoadInt64(&errCount)
+				db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", currentSpeed)
 			}(file)
 		}
 		pool.Wait()
 	} else {
 		logger.Info("work", "使用默认封面,跳过刮削", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
+		// 使用默认封面时直接设置进度为完成
+		db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", len(files))
 	}
 
 	work.IsOk = true

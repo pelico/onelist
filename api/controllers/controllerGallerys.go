@@ -52,34 +52,103 @@ func DeleteGalleryById(c *gin.Context) {
 	
 	tx := db.Begin()
 	
-	tx.Model(&models.Work{}).Where("gallery_uid = ?", galleryUid).Delete(&models.Work{})
-	tx.Model(&models.ErrFile{}).Where("gallery_uid = ?", galleryUid).Delete(&models.ErrFile{})
-	
-	var movies []models.TheMovie
-	tx.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid).Find(&movies)
-	for _, movie := range movies {
-		tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{})
-		tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
-		tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
+	// 删除关联的 Work 记录
+	if err := tx.Model(&models.Work{}).Where("gallery_uid = ?", galleryUid).Delete(&models.Work{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除 Work 记录失败!", "data": gallery})
+		return
 	}
-	tx.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheMovie{})
 	
+	// 删除关联的 ErrFile 记录
+	if err := tx.Model(&models.ErrFile{}).Where("gallery_uid = ?", galleryUid).Delete(&models.ErrFile{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除 ErrFile 记录失败!", "data": gallery})
+		return
+	}
+	
+	// 删除电影相关记录
+	var movies []models.TheMovie
+	if err := tx.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid).Find(&movies).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "查询电影记录失败!", "data": gallery})
+		return
+	}
+	for _, movie := range movies {
+		if err := tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除电影播放记录失败!", "data": gallery})
+			return
+		}
+		if err := tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除电影收藏记录失败!", "data": gallery})
+			return
+		}
+		if err := tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除电影最爱记录失败!", "data": gallery})
+			return
+		}
+	}
+	if err := tx.Model(&models.TheMovie{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheMovie{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除电影记录失败!", "data": gallery})
+		return
+	}
+	
+	// 删除电视剧相关记录
 	var tvs []models.TheTv
-	tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Find(&tvs)
+	if err := tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Find(&tvs).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "查询电视剧记录失败!", "data": gallery})
+		return
+	}
 	for _, tv := range tvs {
-		tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{})
-		tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Star{})
-		tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Heart{})
+		if err := tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除电视剧播放记录失败!", "data": gallery})
+			return
+		}
+		if err := tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Star{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除电视剧收藏记录失败!", "data": gallery})
+			return
+		}
+		if err := tx.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Heart{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除电视剧最爱记录失败!", "data": gallery})
+			return
+		}
 		
 		var seasons []models.TheSeason
-		tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Find(&seasons)
-		for _, season := range seasons {
-			tx.Model(&models.Episode{}).Where("the_season_id = ?", season.ID).Delete(&models.Episode{})
+		if err := tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Find(&seasons).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "查询季记录失败!", "data": gallery})
+			return
 		}
-		tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Delete(&models.TheSeason{})
-		tx.Model(&models.Season{}).Where("the_tv_id = ?", tv.ID).Delete(&models.Season{})
+		for _, season := range seasons {
+			if err := tx.Model(&models.Episode{}).Where("the_season_id = ?", season.ID).Delete(&models.Episode{}).Error; err != nil {
+				tx.Rollback()
+				c.JSON(200, gin.H{"code": 201, "msg": "删除剧集记录失败!", "data": gallery})
+				return
+			}
+		}
+		if err := tx.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Delete(&models.TheSeason{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除季记录失败!", "data": gallery})
+			return
+		}
+		if err := tx.Model(&models.Season{}).Where("the_tv_id = ?", tv.ID).Delete(&models.Season{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(200, gin.H{"code": 201, "msg": "删除 Season 记录失败!", "data": gallery})
+			return
+		}
 	}
-	tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheTv{})
+	if err := tx.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Delete(&models.TheTv{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "删除电视剧记录失败!", "data": gallery})
+		return
+	}
 	
 	if err := tx.Model(&models.Gallery{}).Where("id = ?", id).Delete(&models.Gallery{}).Error; err != nil {
 		tx.Rollback()
@@ -87,7 +156,11 @@ func DeleteGalleryById(c *gin.Context) {
 		return
 	}
 	
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		c.JSON(200, gin.H{"code": 201, "msg": "提交事务失败!", "data": gallery})
+		return
+	}
 	c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": gallery})
 }
 
