@@ -950,6 +950,30 @@ export default {
             art.on('restart', () => {
                 url.value = encodeURI(art.url);
             });
+            // 播放错误时自动重试：加时间戳破坏浏览器缓存，强制重新请求
+            let errorRetryCount = 0;
+            const MAX_ERROR_RETRIES = 2;
+            art.on('error', () => {
+                if (errorRetryCount >= MAX_ERROR_RETRIES) {
+                    proxy.COMMON.ShowMsg('视频加载失败，请检查网络或文件是否存在');
+                    return;
+                }
+                errorRetryCount++;
+                console.warn('播放出错，第', errorRetryCount, '次重试');
+                setTimeout(() => {
+                    if (art && url.value) {
+                        // 加时间戳参数破坏浏览器缓存，确保重新请求后端获取直链
+                        let retryUrl = url.value;
+                        retryUrl += (retryUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
+                        art.switchUrl(retryUrl, '');
+                        art.once('ready', () => { art.play(); });
+                    }
+                }, 1500);
+            });
+            // 视频成功播放后重置错误计数
+            art.on('playing', () => {
+                errorRetryCount = 0;
+            });
             // art 实例就绪后，如果视频已加载则启动自动全屏
             if (!loading.value) {
                 scheduleAutoFullscreen();

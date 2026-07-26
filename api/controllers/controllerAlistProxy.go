@@ -70,6 +70,8 @@ func AlistProxy(c *gin.Context) {
 		} else {
 			logger.Warn("play", "获取文件信息失败", "路径: "+filePath+", 错误: "+err.Error())
 		}
+		// 错误响应禁止浏览器缓存，确保重试时能重新请求后端
+		c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
 		c.String(http.StatusNotFound, "文件不存在: "+err.Error())
 		return
 	}
@@ -99,14 +101,9 @@ func AlistProxy(c *gin.Context) {
 	if rangeHeader != "" {
 		proxyReq.Header.Set("Range", rangeHeader)
 	}
-	ifNoneMatch := c.GetHeader("If-None-Match")
-	if ifNoneMatch != "" {
-		proxyReq.Header.Set("If-None-Match", ifNoneMatch)
-	}
-	ifModifiedSince := c.GetHeader("If-Modified-Since")
-	if ifModifiedSince != "" {
-		proxyReq.Header.Set("If-Modified-Since", ifModifiedSince)
-	}
+	// 不转发 If-None-Match / If-Modified-Since 给上游：
+	// 这些是浏览器缓存验证头，代理应始终从上游获取最新内容，
+	// 否则上游返回 304 时代理会透传给浏览器，但浏览器并无实际缓存内容，导致播放失败。
 
 	client := &http.Client{
 		Timeout: 0,
