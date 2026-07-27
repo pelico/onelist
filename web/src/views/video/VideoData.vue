@@ -308,13 +308,43 @@
                     <n-input @keyup.enter="UpdateVideo()" v-model:value="title" type="text" size="large" placeholder="">
                     </n-input>
                 </n-form-item>
+                <div class="search-list">
+                    <div class="search-itme" v-for="(item, index) in titleSearchData" :key="index">
+                        <div class="search-img">
+                            <img loading="lazy"
+                                :src='"https://tmdb-image-prod.b-cdn.net/t/p/w220_and_h330_face/" + item.poster_path'>
+                        </div>
+                        <div class="search-content">
+                            <div class="search-title">
+                                {{ gallery_type == "tv" ? item.name : item.title }}
+                            </div>
+                            <div class="search-id">
+                                ID:{{ item.id }}
+                            </div>
+                            <div class="search-overview">
+                                简介:{{ item.overview }}
+                            </div>
+                            <n-space justify="end" size="medium">
+                                <n-button @click="TitleRefVideo(item.id)" type="info">
+                                    选中并重新刮削
+                                </n-button>
+                            </n-space>
+                        </div>
+                    </div>
+                </div>
                 <template #footer>
                     <n-space justify="end" size="medium">
-                        <n-button @click="UpdateVideo()" type="info">
+                        <n-button @click="SearchForTitle()" type="info">
+                            <template #icon>
+                                  <i class='bx bx-search'></i>
+                            </template>
+                            搜索新标题
+                        </n-button>
+                        <n-button @click="UpdateVideo()" type="warning">
                             <template #icon>
                                 <i class='bx bx-save'></i>
                             </template>
-                            确定
+                            仅修改标题
                         </n-button>
                     </n-space>
                 </template>
@@ -350,6 +380,7 @@ export default {
         const seasonRef = ref(null);
         const boxsetRef = ref(null);
         const searchData = ref(null);
+        const titleSearchData = ref(null);
         const left = ref(null);
         const seasonId = ref(null);
         const tvPath = ref(null);
@@ -469,6 +500,7 @@ export default {
             reF,
             q,
             searchData,
+            titleSearchData,
             goBack() {
                 if (window.history.length > 1) {
                     proxy.$router.back();
@@ -497,6 +529,7 @@ export default {
                     } else {
                          title.value = data.value.title;
                     }
+                    titleSearchData.value = null;
                     titleModal.value = true;
                 }
             }
@@ -654,6 +687,38 @@ export default {
                 this.COMMON.ShowMsg(error);
             });
 
+        },
+        // 修改标题后搜索 TMDB
+        SearchForTitle() {
+            if (!this.title || this.title.trim() === "") {
+                this.COMMON.ShowMsg("请输入新标题");
+                return;
+            }
+            this.show = true;
+            let api = `${this.COMMON.apiUrl}/v1/api/errfile/ref/file/search?name=${encodeURIComponent(this.title.trim())}&type=${this.gallery_type}`;
+            this.axios.post(api, {}, {
+                headers: {
+                    'content-type': 'application/json',
+                    'Authorization': this.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                if (res.data.code == 200) {
+                    this.titleSearchData = res.data.data.results;
+                    if (!this.titleSearchData || this.titleSearchData.length === 0) {
+                        this.COMMON.ShowMsg("未找到匹配结果，请检查标题或使用「重新刮削」");
+                    }
+                } else {
+                    this.COMMON.ShowMsg(res.data.msg)
+                }
+                this.show = false;
+            }).catch((error) => {
+                this.COMMON.ShowMsg(error);
+            });
+        },
+        // 选中搜索结果后用新 TMDB ID 重新刮削（复用 errfile 流程）
+        TitleRefVideo(tmdbId) {
+            this.titleModal = false;
+            this.RefVideo(tmdbId);
         },
     }
 }
