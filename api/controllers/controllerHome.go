@@ -44,6 +44,12 @@ func GetHomeData(c *gin.Context) {
 	db.Model(&models.Gallery{}).Order("id desc").Find(&galleries)
 	homeData.Galleries = galleries
 
+	// 收集所有有效 GalleryUid，用于过滤掉孤儿记录
+	validGalleryUids := make([]string, 0, len(galleries))
+	for _, g := range galleries {
+		validGalleryUids = append(validGalleryUids, g.GalleryUid)
+	}
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -52,7 +58,7 @@ func GetHomeData(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 		themovies := []models.TheMovie{}
-		subQuery := db.Model(&models.TheMovie{}).Select("MAX(id)").Group("url")
+		subQuery := db.Model(&models.TheMovie{}).Select("MAX(id)").Where("gallery_uid IN (?)", validGalleryUids).Group("url")
 		result := db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
 		var err error
 		if config.DBDRIVER == "sqlite" {
@@ -72,7 +78,7 @@ func GetHomeData(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 		thetvs := []models.TheTv{}
-		subQuery := db.Model(&models.TheTv{}).Select("MAX(id)").Group("name")
+		subQuery := db.Model(&models.TheTv{}).Select("MAX(id)").Where("gallery_uid IN (?)", validGalleryUids).Group("name")
 		result := db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
 		var err error
 		if config.DBDRIVER == "sqlite" {

@@ -395,13 +395,12 @@ func ChunkTheMovie(themovie models.TheMovie) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.Model(&models.TheMovie{}).Create(&themovie).Error
 	}
-	// 其他媒体库存在同部电影，保留原记录的 gallery_uid 和 url
+	// 其他媒体库存在同部电影，更新时使用新媒体库的 gallery_uid 和 url
+	// 保留原记录的播放状态等用户数据（避免重置已看/收藏/最爱）
 	themovie.CreatedAt = dbThemovie.CreatedAt
 	themovie.Star = dbThemovie.Star
 	themovie.Heart = dbThemovie.Heart
 	themovie.Played = dbThemovie.Played
-	themovie.GalleryUid = dbThemovie.GalleryUid
-	themovie.Url = dbThemovie.Url
 	err = db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
 	return err
 }
@@ -606,12 +605,12 @@ func ChunkTheTv(thetv models.TheTv) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.Model(&models.TheTv{}).Create(&thetv).Error
 	}
-	// 其他媒体库存在同部电视剧，保留原记录的 gallery_uid
+	// 其他媒体库存在同部电视剧，更新时使用新媒体库的 gallery_uid
+	// 保留原记录的播放状态等用户数据
 	thetv.CreatedAt = dbthetv.CreatedAt
 	thetv.Star = dbthetv.Star
 	thetv.Heart = dbthetv.Heart
 	thetv.Played = dbthetv.Played
-	thetv.GalleryUid = dbthetv.GalleryUid
 	err = db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
 	return err
 }
