@@ -6,6 +6,7 @@ import (
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
+	"github.com/msterzhang/onelist/api/service"
 	"github.com/msterzhang/onelist/config"
 
 	"github.com/gin-gonic/gin"
@@ -51,7 +52,7 @@ func GetHomeData(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 		themovies := []models.TheMovie{}
-		subQuery := db.Model(&models.TheMovie{}).Select("MIN(id)").Group("url")
+		subQuery := db.Model(&models.TheMovie{}).Select("MAX(id)").Group("url")
 		result := db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
 		var err error
 		if config.DBDRIVER == "sqlite" {
@@ -60,6 +61,8 @@ func GetHomeData(c *gin.Context) {
 			err = result.Limit(size).Order("-created_at").Scan(&themovies).Error
 		}
 		if err == nil {
+			userId := c.GetString("UserId")
+			themovies = service.TheMoviesService(themovies, userId)
 			mu.Lock()
 			homeData.LatestMovies = themovies
 			mu.Unlock()
@@ -69,7 +72,7 @@ func GetHomeData(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 		thetvs := []models.TheTv{}
-		subQuery := db.Model(&models.TheTv{}).Select("MIN(id)").Group("name")
+		subQuery := db.Model(&models.TheTv{}).Select("MAX(id)").Group("name")
 		result := db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
 		var err error
 		if config.DBDRIVER == "sqlite" {
@@ -78,6 +81,8 @@ func GetHomeData(c *gin.Context) {
 			err = result.Limit(size).Order("-created_at").Scan(&thetvs).Error
 		}
 		if err == nil {
+			userId := c.GetString("UserId")
+			thetvs = service.TheTvsService(thetvs, userId)
 			mu.Lock()
 			homeData.LatestTvs = thetvs
 			mu.Unlock()
@@ -89,7 +94,7 @@ func GetHomeData(c *gin.Context) {
 	for _, gallery := range galleries {
 		if gallery.GalleryType == "movie" {
 			themovies := []models.TheMovie{}
-			subQuery := db.Model(&models.TheMovie{}).Select("MIN(id)").Where("gallery_uid = ?", gallery.GalleryUid).Group("url")
+			subQuery := db.Model(&models.TheMovie{}).Select("MAX(id)").Where("gallery_uid = ?", gallery.GalleryUid).Group("url")
 			var err error
 			if config.DBDRIVER == "sqlite" {
 				err = db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery).
@@ -103,7 +108,7 @@ func GetHomeData(c *gin.Context) {
 			}
 		} else {
 			thetvs := []models.TheTv{}
-			subQuery := db.Model(&models.TheTv{}).Select("MIN(id)").Where("gallery_uid = ?", gallery.GalleryUid).Group("name")
+			subQuery := db.Model(&models.TheTv{}).Select("MAX(id)").Where("gallery_uid = ?", gallery.GalleryUid).Group("name")
 			var err error
 			if config.DBDRIVER == "sqlite" {
 				err = db.Model(&models.TheTv{}).Where("id IN (?)", subQuery).
