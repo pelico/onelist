@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"image/png"
 	"strconv"
 
 	"github.com/msterzhang/onelist/api/auth"
@@ -8,6 +9,7 @@ import (
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
+	"github.com/msterzhang/onelist/api/utils/captcha"
 
 	"github.com/gin-gonic/gin"
 )
@@ -128,17 +130,30 @@ func SearchUser(c *gin.Context) {
 
 func LoginUser(c *gin.Context) {
 	user := models.User{}
+	captchaCode := c.PostForm("captcha")
+	requireCaptcha := c.PostForm("require_captcha") == "true"
+
 	err := c.ShouldBind(&user)
 	if err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": "解析表单解析出错!", "data": user})
 		return
 	}
-	user, token, err := auth.Login(user.UserEmail, user.UserPassword)
+
+	user, token, needCaptcha, err := auth.Login(user.UserEmail, user.UserPassword, captchaCode, requireCaptcha)
 	if err != nil {
-		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
+		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": "", "need_captcha": needCaptcha})
 		return
 	}
-	c.JSON(200, gin.H{"code": 200, "msg": "登录成功!", "data": token, "user": user})
+	c.JSON(200, gin.H{"code": 200, "msg": "登录成功!", "data": token, "user": user, "need_captcha": false})
+}
+
+func GetCaptcha(c *gin.Context) {
+	_, img := captcha.GenerateCaptcha()
+	c.Writer.Header().Set("Content-Type", "image/png")
+	c.Writer.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Writer.Header().Set("Pragma", "no-cache")
+	c.Writer.Header().Set("Expires", "0")
+	png.Encode(c.Writer, img)
 }
 
 func UserData(c *gin.Context) {

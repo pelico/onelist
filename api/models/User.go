@@ -10,15 +10,17 @@ import (
 )
 
 type User struct {
-	Id           uint      `json:"id" gorm:"primaryKey"`
-	UserName     string    `json:"user_name"`
-	UserId       string    `json:"user_id"`
-	UserEmail    string    `json:"user_email" gorm:"not null;unique"`
-	UserPassword string    `json:"user_password"`
-	IsAdmin      bool      `json:"is_admin"`
-	IsLock       bool      `json:"is_lock"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	Id                  uint      `json:"id" gorm:"primaryKey"`
+	UserName            string    `json:"user_name"`
+	UserId              string    `json:"user_id"`
+	UserEmail           string    `json:"user_email" gorm:"not null;unique"`
+	UserPassword        string    `json:"user_password"`
+	IsAdmin             bool      `json:"is_admin"`
+	IsLock              bool      `json:"is_lock"`
+	FailedAttempts      int       `json:"failed_attempts" gorm:"default:0"`
+	LastFailedAttempt   time.Time `json:"last_failed_attempt"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {

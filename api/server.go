@@ -86,6 +86,7 @@ func Run() {
 	user := r.Group("/v1/api/user")
 	user.POST("/create", controllers.CreateUser)
 	user.POST("/login", controllers.LoginUser)
+	user.GET("/captcha", controllers.GetCaptcha)
 	user.GET("/data", auth.JWTAuth(), controllers.UserData)
 	user.POST("/update", auth.JWTAuth(), controllers.UpdateUserById)
 	user.POST("/delete", auth.JWTAuthAdmin(), controllers.DeleteUserById)

@@ -26,6 +26,10 @@
                             <input v-model.trim="user.user_password" type="password" name="password" placeholder="密码" required=""
                                 autocomplete="off" @keyup.enter="LoginUser()">
                         </div>
+                        <div v-if="needCaptcha" class="form-control captcha-control">
+                            <input v-model="captcha" type="text" name="captcha" placeholder="验证码" maxlength="4">
+                            <img :src="captchaUrl" @click="refreshCaptcha" class="captcha-img" alt="验证码">
+                        </div>
                         <div class="form-control">
                             <button class="btn login-btn" @click="LoginUser()">登录</button>
                         </div>
@@ -49,7 +53,10 @@ export default {
             user: {
                 "user_email": "",
                 "user_password": "",
-            }
+            },
+            captcha: "",
+            captchaUrl: "",
+            needCaptcha: false
         }
     },
     props: {
@@ -82,7 +89,9 @@ export default {
             let that = this;
             let loginData = {
                 user_email: this.user.user_email.replace(/\s+/g, ''),
-                user_password: this.user.user_password.replace(/\s+/g, '')
+                user_password: this.user.user_password.replace(/\s+/g, ''),
+                captcha: this.captcha,
+                require_captcha: this.needCaptcha
             };
             this.axios.post(this.COMMON.apiUrl + "/v1/api/user/login", loginData, {
                 headers: {
@@ -93,14 +102,23 @@ export default {
                     that.$cookies.set('Authorization', res.data.data, 60 * 60 * 24 * 7);
                     that.$cookies.set('UserId', res.data.user.user_id, 60 * 60 * 24 * 7);
                     that.COMMON.ShowMsg('登录成功！')
+                    that.needCaptcha = false;
+                    that.captcha = "";
                     setTimeout(function () {
                         that.$emit('is-login');
                     }, 2000)
                 } else {
                     that.COMMON.ShowMsg(res.data.msg)
+                    if (res.data.need_captcha) {
+                        that.needCaptcha = true;
+                        that.refreshCaptcha();
+                    }
                 }
             });
         },
+        refreshCaptcha() {
+            this.captchaUrl = this.COMMON.apiUrl + "/v1/api/user/captcha?" + Date.now();
+        }
     }
 }
 
@@ -225,6 +243,21 @@ input:focus {
     padding: 3px;
     font-size: 16px;
     outline: none;
+}
+
+.captcha-control {
+    justify-content: space-between;
+}
+
+.captcha-control input {
+    width: 60%;
+}
+
+.captcha-img {
+    width: 35%;
+    height: 40px;
+    cursor: pointer;
+    border-radius: 4px;
 }
 
 
