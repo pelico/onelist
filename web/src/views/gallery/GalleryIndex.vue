@@ -434,10 +434,22 @@ export default {
             if (this.gallery.gallery_type == "tv") {
                 this.gallery.is_tv = true;
             }
-            this.Request(this.COMMON.apiUrl + '/v1/api/gallery/create', this.gallery)
+            let galleryData = {
+                ...this.gallery,
+                alist_host: (this.gallery.alist_host || '').replace(/\s+/g, ''),
+                alist_user: (this.gallery.alist_user || '').replace(/\s+/g, ''),
+                alist_pwd: (this.gallery.alist_pwd || '').replace(/\s+/g, ''),
+            };
+            this.Request(this.COMMON.apiUrl + '/v1/api/gallery/create', galleryData)
         },
         Update() {
-            this.Request(this.COMMON.apiUrl + '/v1/api/gallery/update?id=' + this.gallery.id, this.gallery)
+            let galleryData = {
+                ...this.gallery,
+                alist_host: (this.gallery.alist_host || '').replace(/\s+/g, ''),
+                alist_user: (this.gallery.alist_user || '').replace(/\s+/g, ''),
+                alist_pwd: (this.gallery.alist_pwd || '').replace(/\s+/g, ''),
+            };
+            this.Request(this.COMMON.apiUrl + '/v1/api/gallery/update?id=' + this.gallery.id, galleryData)
         },
         Delete() {
             this.Request(this.COMMON.apiUrl + '/v1/api/gallery/delete?id=' + this.gallery.id, {})

@@ -24,7 +24,7 @@
                                 <i class='bx bx-key'></i>
                             </div>
                             <input v-model.trim="user.user_password" type="password" name="password" placeholder="密码" required=""
-                                autocomplete="off">
+                                autocomplete="off" @keyup.enter="LoginUser()">
                         </div>
                         <div class="form-control">
                             <button class="btn login-btn" @click="LoginUser()">登录</button>
@@ -80,7 +80,11 @@ export default {
 
         LoginUser() {
             let that = this;
-            this.axios.post(this.COMMON.apiUrl + "/v1/api/user/login", this.user, {
+            let loginData = {
+                user_email: this.user.user_email.replace(/\s+/g, ''),
+                user_password: this.user.user_password.replace(/\s+/g, '')
+            };
+            this.axios.post(this.COMMON.apiUrl + "/v1/api/user/login", loginData, {
                 headers: {
                     'content-type': 'application/json',
                 }
