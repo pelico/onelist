@@ -197,4 +197,9 @@ func AutoLoad() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// 手动创建联合唯一索引（GORM AutoMigrate 对 SQLite 联合索引处理有兼容性问题）
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_star_user_data ON star (user_id, data_type, data_id)")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_played_user_data ON played (user_id, data_type, data_id)")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_heart_user_data ON heart (user_id, data_type, data_id)")
 }
