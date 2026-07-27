@@ -417,37 +417,49 @@ func TheMovieDb(id int, file string, GalleryUid string) (models.TheMovie, error)
 	}
 	data.TheCredit = credit
 	casts := credit.Cast
-	db := database.NewDb()
-	for _, cast := range casts {
-		dbPerson := models.ThePerson{}
-		err := db.Model(&models.ThePerson{}).Where("id = ?", cast.ID).First(&dbPerson).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			porson, err := GetThePersonData(cast.ID)
-			if err != nil {
-				continue
-			}
-			porson.TheMovies = append(porson.TheMovies, data)
-			err = ChunkPerson(porson)
-			if err != nil {
-				continue
-			}
-		}
-	}
 	crews := credit.Crew
+
+	// 收集所有演职人员 ID
+	allPersonIds := make([]int, 0, len(casts)+len(crews))
+	for _, cast := range casts {
+		allPersonIds = append(allPersonIds, cast.ID)
+	}
 	for _, crew := range crews {
-		dbPerson := models.ThePerson{}
-		err := db.Model(&models.ThePerson{}).Where("id = ?", crew.ID).First(&dbPerson).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			porson, err := GetThePersonData(crew.ID)
-			if err != nil {
-				continue
-			}
-			porson.TheMovies = append(porson.TheMovies, data)
-			err = ChunkPerson(porson)
-			if err != nil {
-				continue
-			}
+		allPersonIds = append(allPersonIds, crew.ID)
+	}
+
+	// 批量查询已存在的人员
+	db := database.NewDb()
+	var existingPersons []models.ThePerson
+	db.Model(&models.ThePerson{}).Where("id IN (?)", allPersonIds).Find(&existingPersons)
+	existingIds := make(map[int]bool)
+	for _, p := range existingPersons {
+		existingIds[p.ID] = true
+	}
+
+	// 处理未存在的人员
+	for _, cast := range casts {
+		if existingIds[cast.ID] {
+			continue
 		}
+		porson, err := GetThePersonData(cast.ID)
+		if err != nil {
+			continue
+		}
+		porson.TheMovies = append(porson.TheMovies, data)
+		_ = ChunkPerson(porson)
+	}
+
+	for _, crew := range crews {
+		if existingIds[crew.ID] {
+			continue
+		}
+		porson, err := GetThePersonData(crew.ID)
+		if err != nil {
+			continue
+		}
+		porson.TheMovies = append(porson.TheMovies, data)
+		_ = ChunkPerson(porson)
 	}
 	data.Url = file
 	data.GalleryUid = GalleryUid

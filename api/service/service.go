@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// 处理电视用户是否已点赞，收藏及点了最爱
 func TheTvService(theTv models.TheTv, userId string) models.TheTv {
 	star := models.Star{}
 	played := models.Played{}
@@ -30,16 +29,47 @@ func TheTvService(theTv models.TheTv, userId string) models.TheTv {
 	return theTv
 }
 
-// 处理电视用户是否已点赞，收藏及点了最爱
 func TheTvsService(theTvs []models.TheTv, userId string) []models.TheTv {
-	var newTheTvs []models.TheTv
-	for _, theTv := range theTvs {
-		newTheTvs = append(newTheTvs, TheTvService(theTv, userId))
+	if len(theTvs) == 0 || userId == "" {
+		return theTvs
 	}
-	return newTheTvs
+
+	db := database.NewDb()
+	ids := make([]int, 0, len(theTvs))
+	for _, tv := range theTvs {
+		ids = append(ids, tv.ID)
+	}
+
+	starMap := make(map[int]bool)
+	var stars []models.Star
+	db.Model(&models.Star{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "tv", ids).Find(&stars)
+	for _, s := range stars {
+		starMap[s.DataId] = true
+	}
+
+	playedMap := make(map[int]bool)
+	var playeds []models.Played
+	db.Model(&models.Played{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "tv", ids).Find(&playeds)
+	for _, p := range playeds {
+		playedMap[p.DataId] = true
+	}
+
+	heartMap := make(map[int]bool)
+	var hearts []models.Heart
+	db.Model(&models.Heart{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "tv", ids).Find(&hearts)
+	for _, h := range hearts {
+		heartMap[h.DataId] = true
+	}
+
+	for i := range theTvs {
+		theTvs[i].Star = starMap[theTvs[i].ID]
+		theTvs[i].Played = playedMap[theTvs[i].ID]
+		theTvs[i].Heart = heartMap[theTvs[i].ID]
+	}
+
+	return theTvs
 }
 
-// 处理电影用户是否已点赞，收藏及点了最爱
 func TheMovieService(theMovie models.TheMovie, userId string) models.TheMovie {
 	star := models.Star{}
 	played := models.Played{}
@@ -60,11 +90,43 @@ func TheMovieService(theMovie models.TheMovie, userId string) models.TheMovie {
 	return theMovie
 }
 
-// 处理电影用户是否已点赞，收藏及点了最爱
 func TheMoviesService(theMovies []models.TheMovie, userId string) []models.TheMovie {
-	var newTheMovies []models.TheMovie
-	for _, theMovie := range theMovies {
-		newTheMovies = append(newTheMovies, TheMovieService(theMovie, userId))
+	if len(theMovies) == 0 || userId == "" {
+		return theMovies
 	}
-	return newTheMovies
+
+	db := database.NewDb()
+	ids := make([]int, 0, len(theMovies))
+	for _, movie := range theMovies {
+		ids = append(ids, movie.ID)
+	}
+
+	starMap := make(map[int]bool)
+	var stars []models.Star
+	db.Model(&models.Star{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "movie", ids).Find(&stars)
+	for _, s := range stars {
+		starMap[s.DataId] = true
+	}
+
+	playedMap := make(map[int]bool)
+	var playeds []models.Played
+	db.Model(&models.Played{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "movie", ids).Find(&playeds)
+	for _, p := range playeds {
+		playedMap[p.DataId] = true
+	}
+
+	heartMap := make(map[int]bool)
+	var hearts []models.Heart
+	db.Model(&models.Heart{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "movie", ids).Find(&hearts)
+	for _, h := range hearts {
+		heartMap[h.DataId] = true
+	}
+
+	for i := range theMovies {
+		theMovies[i].Star = starMap[theMovies[i].ID]
+		theMovies[i].Played = playedMap[theMovies[i].ID]
+		theMovies[i].Heart = heartMap[theMovies[i].ID]
+	}
+
+	return theMovies
 }

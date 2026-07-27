@@ -9,9 +9,9 @@ import (
 // 已播放
 type Played struct {
 	Id        uint      `json:"id" gorm:"primaryKey"`
-	UserId    string    `json:"user_id" gorm:"index"`
-	DataType  string    `json:"data_type" gorm:"index"`
-	DataId    int       `json:"data_id" gorm:"index"`
+	UserId    string    `json:"user_id" gorm:"uniqueIndex:idx_user_data"`
+	DataType  string    `json:"data_type" gorm:"uniqueIndex:idx_user_data"`
+	DataId    int       `json:"data_id" gorm:"uniqueIndex:idx_user_data"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

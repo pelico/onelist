@@ -47,11 +47,16 @@ func InitDb() error {
 	if err != nil {
 		log.Fatal("连接数据库失败!")
 	}
-	// SetMaxIdleConns 设置空闲连接池中连接的最大数量
-	sqlDB.SetMaxIdleConns(10)
-
-	// SetMaxOpenConns 设置打开数据库连接的最大数量。
-	sqlDB.SetMaxOpenConns(100)
+	if config.DBDRIVER == "sqlite" {
+		db.Exec("PRAGMA journal_mode=WAL;")
+		db.Exec("PRAGMA busy_timeout=5000;")
+		db.Exec("PRAGMA synchronous=NORMAL;")
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
+	} else {
+		sqlDB.SetMaxIdleConns(10)
+		sqlDB.SetMaxOpenConns(100)
+	}
 
 	// SetConnMaxLifetime 设置了连接可复用的最大时间。
 	sqlDB.SetConnMaxLifetime(time.Hour)

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/msterzhang/onelist/api/database"
@@ -78,8 +79,8 @@ func CreateBasicTvRecord(file string, galleryUid string) error {
 	return db.Model(&models.TheTv{}).Create(&tv).Error
 }
 
-// 并发刮削配置
-var scrapeConcurrency = 3
+// 全局刮削并发池，所有刮削任务共用，避免多目录扫描时并发数爆炸
+var scrapePool = gpool.New(3)
 
 // 开始刮削任务（先创建基础记录，再并发刮削更新）
 func RunWork(files []string, work models.Work, gallery models.Gallery) {
@@ -99,11 +100,13 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	var successCount int64 = 0
 	var errCount int64 = 0
 	if !work.UseDefaultCover {
-		pool := gpool.New(scrapeConcurrency)
+		var wg sync.WaitGroup
 		for _, file := range files {
-			pool.Add(1)
+			wg.Add(1)
+			scrapePool.Add(1)
 			go func(f string) {
-				defer pool.Done()
+				defer wg.Done()
+				defer scrapePool.Done()
 				var scrapeErr error
 				if gallery.GalleryType == "tv" {
 					_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
@@ -122,7 +125,7 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 				db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", currentSpeed)
 			}(file)
 		}
-		pool.Wait()
+		wg.Wait()
 	} else {
 		successCount = int64(len(files))
 		logger.Info("work", "使用默认封面,跳过刮削", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
@@ -163,11 +166,13 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 	var successCount int64 = 0
 	var errCount int64 = 0
 	if !work.UseDefaultCover {
-		pool := gpool.New(scrapeConcurrency)
+		var wg sync.WaitGroup
 		for _, file := range files {
-			pool.Add(1)
+			wg.Add(1)
+			scrapePool.Add(1)
 			go func(f string) {
-				defer pool.Done()
+				defer wg.Done()
+				defer scrapePool.Done()
 				var scrapeErr error
 				if gallery.GalleryType == "tv" {
 					_, scrapeErr = thedb.RunTheTvWork(f, gallery.GalleryUid)
@@ -185,7 +190,7 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 				db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", currentSpeed)
 			}(file)
 		}
-		pool.Wait()
+		wg.Wait()
 	} else {
 		logger.Info("work", "使用默认封面,跳过刮削", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
 		// 使用默认封面时直接设置进度为完成

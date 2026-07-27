@@ -67,7 +67,9 @@ func Run() {
 	// Logging to a file.
 	//f, _ := os.Create("gin.log")
 	//gin.DefaultWriter = io.MultiWriter(f)
-	//gin.SetMode(gin.ReleaseMode)
+
+	// 启用 Release 模式，减少调试日志和路由匹配开销
+	gin.SetMode(gin.ReleaseMode)
 
 	//系统初始化
 	r := gin.Default()
