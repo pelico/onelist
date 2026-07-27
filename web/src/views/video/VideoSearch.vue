@@ -8,12 +8,12 @@
                     {{ pageText }}
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="BackPage()" strong secondary circle>
+                    <n-button @click="BackPage()" class="page-nav-btn">
                         <i class='bx bx-left-arrow-alt'></i>
                     </n-button>
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="NextPage()" strong secondary circle>
+                    <n-button @click="NextPage()" class="page-nav-btn">
                         <i class='bx bx-right-arrow-alt'></i>
                     </n-button>
                 </div>
@@ -304,6 +304,27 @@ export default {
 
 .project .n-pagination {
     float: right;
+}
+
+.page-nav-btn {
+    border-radius: 50%;
+    background-color: #1890ff;
+    color: #fff;
+    border: none;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-nav-btn:hover {
+    background-color: #40a9ff;
+}
+
+.page-nav-btn:disabled {
+    background-color: #91d5ff;
+    cursor: not-allowed;
 }
 
 @media (max-width: 767px) {

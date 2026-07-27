@@ -8,10 +8,10 @@
                     {{ pageText }}
                 </div>
                 <div class="seriesTab-item action-buttons">
-                    <n-button @click="BackPage()" strong secondary circle size="medium">
+                    <n-button @click="BackPage()" size="medium" class="page-nav-btn">
                         <i class='bx bx-up-arrow-alt'></i>
                     </n-button>
-                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" strong secondary circle size="medium">
+                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" size="medium" class="page-nav-btn">
                         <i class='bx bx-down-arrow-alt'></i>
                     </n-button>
                     <n-button @click="showSort = !showSort" type="primary" size="medium" class="oval-btn">
@@ -548,6 +548,27 @@ export default {
     border-radius: 9999px;
     padding: 0 16px;
     white-space: nowrap;
+}
+
+.page-nav-btn {
+    border-radius: 50%;
+    background-color: #1890ff;
+    color: #fff;
+    border: none;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-nav-btn:hover {
+    background-color: #40a9ff;
+}
+
+.page-nav-btn:disabled {
+    background-color: #91d5ff;
+    cursor: not-allowed;
 }
 
 .sort-title {
