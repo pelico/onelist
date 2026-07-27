@@ -934,11 +934,10 @@ export default {
             art.on('playing', () => {
                 errorRetryCount = 0;
             });
-            if (!loading.value) {
-                art.once('playing', () => {
-                    fullscreenTimer = setTimeout(triggerTheaterMode, 500);
-                });
-            }
+            // 首次播放时触发假全屏（始终绑定，不依赖 loading 状态）
+            art.once('playing', () => {
+                fullscreenTimer = setTimeout(triggerTheaterMode, 500);
+            });
             bindPlaylistEnded();
         }
 
