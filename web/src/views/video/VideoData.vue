@@ -622,6 +622,8 @@ export default {
             }).then(res => {
                 if (res.data.code == 200) {
                     this.titleModal = !this.titleModal;
+                    this.titleSearchData = null;
+                    this.reF();
                     this.COMMON.ShowMsg(res.data.msg)
                 } else {
                     this.COMMON.ShowMsg(res.data.msg)

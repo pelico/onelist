@@ -295,7 +295,8 @@ func RefErrTheMovieById(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": err})
 		return
 	}
-	if themovieNew.ID != 0 {
+	// 只有新旧 ID 不同时才删除旧记录；同一 ID 时 TheMovieDb 内部已做更新，无需删除
+	if themovieNew.ID != 0 && themovieNew.ID != oldId {
 		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&themovieDb)
 	}
 	c.JSON(200, gin.H{"code": 200, "msg": "刮削电影成功!", "data": themovieNew.ID})
@@ -354,9 +355,12 @@ func RunRefTv(id int, oldId int, files []string, gallery models.Gallery) {
 			continue
 		}
 	}
-	thetvDb := models.TheTv{}
-	err := db.Model(&models.TheTv{}).Where("id = ?", oldId).Delete(&thetvDb).Error
-	if err != nil {
-		return
+	// 只有新旧 ID 不同时才删除旧记录；同一 ID 时 TheTvDb 内部已做更新，无需删除
+	if id != oldId {
+		thetvDb := models.TheTv{}
+		err := db.Model(&models.TheTv{}).Where("id = ?", oldId).Delete(&thetvDb).Error
+		if err != nil {
+			return
+		}
 	}
 }
