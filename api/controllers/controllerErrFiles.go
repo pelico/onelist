@@ -291,45 +291,41 @@ func RefErrTheMovieById(c *gin.Context) {
 		return
 	}
 
-	// 新旧 ID 不同时，先删除旧记录再刮削，避免 ChunkTheMovie 按 URL 更新旧记录后又被删除导致记录消失
-	if id != oldId {
-		star := themovieDb.Star
-		heart := themovieDb.Heart
-		played := themovieDb.Played
-		createdAt := themovieDb.CreatedAt
-		url := themovieDb.Url
-		galleryUid := themovieDb.GalleryUid
+	star := themovieDb.Star
+	heart := themovieDb.Heart
+	played := themovieDb.Played
+	createdAt := themovieDb.CreatedAt
+	url := themovieDb.Url
+	galleryUid := themovieDb.GalleryUid
 
-		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&themovieDb)
-
-		themovieNew, err := thedb.TheMovieDb(id, url, galleryUid)
-		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": err})
-			return
-		}
-
-		if themovieNew.ID != 0 {
-			db.Model(&models.TheMovie{}).Where("id = ?", themovieNew.ID).Updates(map[string]interface{}{
-				"star":       star,
-				"heart":      heart,
-				"played":     played,
-				"created_at": createdAt,
-			})
-			db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
-			db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
-			db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
-		}
-
-		c.JSON(200, gin.H{"code": 200, "msg": "刮削电影成功!", "data": themovieNew.ID})
-		return
-	}
-
-	// 同一 ID，直接更新（ChunkTheMovie 会按 URL 找到并更新旧记录）
-	themovieNew, err := thedb.TheMovieDb(id, themovieDb.Url, themovieDb.GalleryUid)
+	// 先尝试创建新记录，成功后再删除旧记录
+	themovieNew, err := thedb.TheMovieDb(id, url, galleryUid)
 	if err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": err})
 		return
 	}
+
+	if themovieNew.ID == 0 {
+		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": err})
+		return
+	}
+
+	// 新记录创建成功，恢复用户状态
+	db.Model(&models.TheMovie{}).Where("id = ?", themovieNew.ID).Updates(map[string]interface{}{
+		"star":       star,
+		"heart":      heart,
+		"played":     played,
+		"created_at": createdAt,
+	})
+
+	// 只有新旧 ID 不同时才删除旧记录并迁移关联数据
+	if id != oldId {
+		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
+		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
+		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
+		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&themovieDb)
+	}
+
 	c.JSON(200, gin.H{"code": 200, "msg": "刮削电影成功!", "data": themovieNew.ID})
 }
 
@@ -387,45 +383,37 @@ func RunRefTv(id int, oldId int, files []string, gallery models.Gallery) {
 		return
 	}
 
-	// 新旧 ID 不同时，先删除旧记录再刮削，避免 ChunkTheTv 按 name 更新旧记录后又被删除导致记录消失
-	if id != oldId {
-		star := thetvDb.Star
-		heart := thetvDb.Heart
-		played := thetvDb.Played
-		createdAt := thetvDb.CreatedAt
-		galleryUid := thetvDb.GalleryUid
+	star := thetvDb.Star
+	heart := thetvDb.Heart
+	played := thetvDb.Played
+	createdAt := thetvDb.CreatedAt
+	galleryUid := thetvDb.GalleryUid
 
-		db.Model(&models.TheTv{}).Where("id = ?", oldId).Delete(&thetvDb)
-
-		for _, file := range files {
-			_, err := thedb.TheTvDb(id, file, galleryUid)
-			if err != nil {
-				continue
-			}
-		}
-
-		// 恢复用户状态到新记录
-		var newTv models.TheTv
-		err = db.Model(&models.TheTv{}).Where("id = ?", id).First(&newTv).Error
-		if err == nil {
-			db.Model(&models.TheTv{}).Where("id = ?", id).Updates(map[string]interface{}{
-				"star":       star,
-				"heart":      heart,
-				"played":     played,
-				"created_at": createdAt,
-			})
-			db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
-			db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
-			db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
-		}
-		return
-	}
-
-	// 同一 ID，直接更新
+	// 先创建新记录
 	for _, file := range files {
-		_, err := thedb.TheTvDb(id, file, gallery.GalleryUid)
+		_, err := thedb.TheTvDb(id, file, galleryUid)
 		if err != nil {
 			continue
 		}
+	}
+
+	// 恢复用户状态到新记录
+	var newTv models.TheTv
+	err = db.Model(&models.TheTv{}).Where("id = ?", id).First(&newTv).Error
+	if err == nil {
+		db.Model(&models.TheTv{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"star":       star,
+			"heart":      heart,
+			"played":     played,
+			"created_at": createdAt,
+		})
+	}
+
+	// 只有新旧 ID 不同时才删除旧记录并迁移关联数据
+	if id != oldId {
+		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
+		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
+		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
+		db.Model(&models.TheTv{}).Where("id = ?", oldId).Delete(&thetvDb)
 	}
 }
