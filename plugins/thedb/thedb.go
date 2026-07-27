@@ -63,8 +63,15 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 	logger.Info("thedb", "开始搜索TMDB", "原始文件名: "+originalKey+", 提取关键词: "+key)
 	
 	searchKeys := []string{key}
-	
+
+	// 如果关键词末尾是 2-9 的数字，先尝试去掉这个数字（保留更长的"系列名"搜一次）
+	// 例：鹿鼎记2 → 也试试搜 鹿鼎记，避免搜出错误的"鹿鼎记2"电影
 	if !tv {
+		last := key[len(key)-1]
+		if last >= '2' && last <= '9' {
+			searchKeys = append(searchKeys, key[:len(key)-1])
+		}
+		// 始终把去空格的版本加入备选
 		cleanKey := strings.TrimSpace(key)
 		if cleanKey != key {
 			searchKeys = append(searchKeys, cleanKey)

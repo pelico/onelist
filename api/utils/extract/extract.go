@@ -5,11 +5,24 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 func removeEndingOne(s string) string {
 	if len(s) > 0 && s[len(s)-1] == '1' {
 		return s[:len(s)-1]
+	}
+	return s
+}
+
+// 罗马数字转阿拉伯数字
+func romanToArabic(s string) string {
+	romanMap := map[string]string{
+		"I": "1", "II": "2", "III": "3", "IV": "4", "V": "5",
+		"VI": "6", "VII": "7", "VIII": "8", "IX": "9", "X": "10",
+	}
+	if val, ok := romanMap[strings.ToUpper(s)]; ok {
+		return val
 	}
 	return s
 }
@@ -32,7 +45,23 @@ func ExtractMovieName(s string) string {
 	re = regexp.MustCompile(`\s*\([^)]+\)`)
 	s = re.ReplaceAllString(s, "")
 
-	// 提取中文名称
+	// 清理末尾的点号（年份被删后可能残留：鹿鼎记.II. → 鹿鼎记.II）
+	s = strings.TrimRight(s, ".")
+
+	// 处理罗马数字后缀（多种形式）：
+	// 鹿鼎记.II → 鹿鼎记2
+	// 鹿鼎记II → 鹿鼎记2
+	// 鹿鼎记.III → 鹿鼎记3
+	reRoman := regexp.MustCompile(`(?i)([\p{Han}]+)\.?(I{1,3}|IV|V|VI|VII|VIII|IX|X)$`)
+	if match := reRoman.FindStringSubmatch(s); len(match) == 3 {
+		romanPart := strings.ToUpper(match[2])
+		// 仅当识别为有效罗马数字时替换，避免误伤"陆I"等普通中文含"I"
+		if _, ok := map[string]bool{"I":true,"II":true,"III":true,"IV":true,"V":true,"VI":true,"VII":true,"VIII":true,"IX":true,"X":true}[romanPart]; ok {
+			s = match[1] + romanToArabic(match[2])
+		}
+	}
+
+	// 提取中文名称 + 阿拉伯数字
 	re = regexp.MustCompile(`[\p{Han}\d{1,2}]+`)
 	matches := re.FindAllString(s, -1)
 	if len(matches) > 0 {
