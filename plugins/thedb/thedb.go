@@ -376,15 +376,31 @@ func ChunkTheMovie(themovie models.TheMovie) error {
 		themovie.Played = dbThemovie.Played
 		return db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
 	}
-	// 按 URL 未找到，按 TMDB ID 查找
+	// 按 URL 未找到，先在同一媒体库内按 TMDB ID 查找
+	err = db.Model(&models.TheMovie{}).Where("id = ? AND gallery_uid = ?", themovie.ID, themovie.GalleryUid).First(&dbThemovie).Error
+	if err == nil {
+		// 同一媒体库内找到，更新（保留播放状态和创建时间）
+		themovie.ID = dbThemovie.ID
+		themovie.CreatedAt = dbThemovie.CreatedAt
+		themovie.Star = dbThemovie.Star
+		themovie.Heart = dbThemovie.Heart
+		themovie.Played = dbThemovie.Played
+		return db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	// 同一媒体库内未找到，按 TMDB ID 查找（其他媒体库的同部电影）
 	err = db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).First(&dbThemovie).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.Model(&models.TheMovie{}).Create(&themovie).Error
 	}
+	// 其他媒体库存在同部电影，保留原记录的 gallery_uid 和 url
 	themovie.CreatedAt = dbThemovie.CreatedAt
 	themovie.Star = dbThemovie.Star
 	themovie.Heart = dbThemovie.Heart
 	themovie.Played = dbThemovie.Played
+	themovie.GalleryUid = dbThemovie.GalleryUid
 	themovie.Url = dbThemovie.Url
 	err = db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
 	return err
@@ -571,15 +587,31 @@ func ChunkTheTv(thetv models.TheTv) error {
 			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
 		}
 	}
-	// 按 TMDB ID 查找
-	err := db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).First(&dbthetv).Error
+	// 按名字未找到，先在同一媒体库内按 TMDB ID 查找
+	err := db.Model(&models.TheTv{}).Where("id = ? AND gallery_uid = ?", thetv.ID, thetv.GalleryUid).First(&dbthetv).Error
+	if err == nil {
+		// 同一媒体库内找到，更新（保留播放状态和创建时间）
+		thetv.ID = dbthetv.ID
+		thetv.CreatedAt = dbthetv.CreatedAt
+		thetv.Star = dbthetv.Star
+		thetv.Heart = dbthetv.Heart
+		thetv.Played = dbthetv.Played
+		return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	// 同一媒体库内未找到，按 TMDB ID 查找（其他媒体库的同部电视剧）
+	err = db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).First(&dbthetv).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return db.Model(&models.TheTv{}).Create(&thetv).Error
 	}
+	// 其他媒体库存在同部电视剧，保留原记录的 gallery_uid
 	thetv.CreatedAt = dbthetv.CreatedAt
 	thetv.Star = dbthetv.Star
 	thetv.Heart = dbthetv.Heart
 	thetv.Played = dbthetv.Played
+	thetv.GalleryUid = dbthetv.GalleryUid
 	err = db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
 	return err
 }
