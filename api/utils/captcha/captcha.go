@@ -5,17 +5,14 @@ import (
 	"image/color"
 	"image/draw"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
-	"golang.org/x/image/math/fixed"
 )
 
 var (
 	captchaCache sync.Map
-	letters      = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	letters      = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 )
 
 type CaptchaData struct {
@@ -23,6 +20,7 @@ type CaptchaData struct {
 	ExpireAt time.Time
 }
 
+// GenerateCaptcha 生成4位验证码图片
 func GenerateCaptcha() (string, image.Image) {
 	rand.Seed(time.Now().UnixNano())
 	code := make([]byte, 4)
@@ -34,19 +32,22 @@ func GenerateCaptcha() (string, image.Image) {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
 
-	for i := 0; i < 10; i++ {
+	// 干扰线
+	for i := 0; i < 8; i++ {
 		drawLine(img, randomColor(100, 200),
 			rand.Intn(width), rand.Intn(height),
 			rand.Intn(width), rand.Intn(height))
 	}
 
+	// 用内置7x13点阵字模绘制字符
 	for i, ch := range code {
-		x := 10 + i*28 + rand.Intn(6)
-		y := height/2 + 6 + rand.Intn(6)
-		drawChar(img, string(ch), x, y, randomColor(50, 150))
+		x := 8 + i*28
+		y := 8 + rand.Intn(8)
+		drawChar7x13(img, string(ch), x, y, randomColor(20, 120))
 	}
 
-	for i := 0; i < 50; i++ {
+	// 干扰点
+	for i := 0; i < 60; i++ {
 		img.Set(rand.Intn(width), rand.Intn(height), randomColor(150, 200))
 	}
 
@@ -56,6 +57,68 @@ func GenerateCaptcha() (string, image.Image) {
 	})
 
 	return string(code), img
+}
+
+// drawChar7x13 用点阵方式绘制单个字符
+func drawChar7x13(img *image.RGBA, ch string, ox, oy int, c color.Color) {
+	glyph := getGlyph(ch)
+	for row, line := range glyph {
+		for col, bit := range line {
+			if bit == 1 {
+				for dy := 0; dy < 2; dy++ {
+					for dx := 0; dx < 2; dx++ {
+						px := ox + col*2 + dx
+						py := oy + row*2 + dy
+						if px < img.Bounds().Dx() && py < img.Bounds().Dy() {
+							img.Set(px, py, c)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// getGlyph 返回5x7点阵字符（放大2倍显示为10x14）
+func getGlyph(ch string) [7][5]int {
+	glyphs := map[string][7][5]int{
+		"A": {{0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}},
+		"B": {{1, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 0}},
+		"C": {{0, 1, 1, 1, 1}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {0, 1, 1, 1, 1}},
+		"D": {{1, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 0}},
+		"E": {{1, 1, 1, 1, 1}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 1}},
+		"F": {{1, 1, 1, 1, 1}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}},
+		"G": {{0, 1, 1, 1, 1}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 1, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 1}},
+		"H": {{1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}},
+		"J": {{0, 0, 1, 1, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}},
+		"K": {{1, 0, 0, 0, 1}, {1, 0, 0, 1, 0}, {1, 0, 1, 0, 0}, {1, 1, 0, 0, 0}, {1, 0, 1, 0, 0}, {1, 0, 0, 1, 0}, {1, 0, 0, 0, 1}},
+		"L": {{1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 1}},
+		"M": {{1, 0, 0, 0, 1}, {1, 1, 0, 1, 1}, {1, 0, 1, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}},
+		"N": {{1, 0, 0, 0, 1}, {1, 1, 0, 0, 1}, {1, 0, 1, 0, 1}, {1, 0, 0, 1, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}},
+		"P": {{1, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}},
+		"Q": {{0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 1, 0, 1}, {1, 0, 0, 1, 0}, {0, 1, 1, 0, 1}},
+		"R": {{1, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 1, 1, 1, 0}, {1, 0, 1, 0, 0}, {1, 0, 0, 1, 0}, {1, 0, 0, 0, 1}},
+		"S": {{0, 1, 1, 1, 1}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {0, 1, 1, 1, 0}, {0, 0, 0, 0, 1}, {0, 0, 0, 0, 1}, {1, 1, 1, 1, 0}},
+		"T": {{1, 1, 1, 1, 1}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}},
+		"U": {{1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}},
+		"V": {{1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 0, 1, 0}, {0, 0, 1, 0, 0}},
+		"W": {{1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {1, 0, 1, 0, 1}, {1, 0, 1, 0, 1}, {1, 1, 0, 1, 1}, {1, 0, 0, 0, 1}},
+		"X": {{1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 0, 1, 0}, {0, 0, 1, 0, 0}, {0, 1, 0, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}},
+		"Y": {{1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 0, 1, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 1, 0, 0}},
+		"Z": {{1, 1, 1, 1, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}, {0, 0, 1, 0, 0}, {0, 1, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 1}},
+		"2": {{0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}, {0, 0, 1, 0, 0}, {0, 1, 0, 0, 0}, {1, 1, 1, 1, 1}},
+		"3": {{0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {0, 0, 0, 0, 1}, {0, 0, 1, 1, 0}, {0, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}},
+		"4": {{0, 0, 0, 1, 0}, {0, 0, 1, 1, 0}, {0, 1, 0, 1, 0}, {1, 0, 0, 1, 0}, {1, 1, 1, 1, 1}, {0, 0, 0, 1, 0}, {0, 0, 0, 1, 0}},
+		"5": {{1, 1, 1, 1, 1}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 0}, {0, 0, 0, 0, 1}, {0, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}},
+		"6": {{0, 0, 1, 1, 0}, {0, 1, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}},
+		"7": {{1, 1, 1, 1, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}, {0, 0, 1, 0, 0}, {0, 1, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 1, 0, 0, 0}},
+		"8": {{0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 0}},
+		"9": {{0, 1, 1, 1, 0}, {1, 0, 0, 0, 1}, {1, 0, 0, 0, 1}, {0, 1, 1, 1, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}, {0, 1, 1, 0, 0}},
+	}
+	if g, ok := glyphs[ch]; ok {
+		return g
+	}
+	return [7][5]int{{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}}
 }
 
 func drawLine(img *image.RGBA, c color.Color, x1, y1, x2, y2 int) {
@@ -70,7 +133,9 @@ func drawLine(img *image.RGBA, c color.Color, x1, y1, x2, y2 int) {
 	}
 	err := dx - dy
 	for {
-		img.Set(x1, y1, c)
+		if x1 >= 0 && x1 < img.Bounds().Dx() && y1 >= 0 && y1 < img.Bounds().Dy() {
+			img.Set(x1, y1, c)
+		}
 		if x1 == x2 && y1 == y2 {
 			break
 		}
@@ -86,14 +151,13 @@ func drawLine(img *image.RGBA, c color.Color, x1, y1, x2, y2 int) {
 	}
 }
 
-func drawChar(img *image.RGBA, ch string, x, y int, c color.Color) {
-	d := &font.Drawer{
-		Dst:  img,
-		Src:  image.NewUniform(c),
-		Face: basicfont.Face7x13,
-		Dot:  fixed.P(x, y),
+func randomColor(min, max int) color.RGBA {
+	return color.RGBA{
+		R: uint8(min + rand.Intn(max-min)),
+		G: uint8(min + rand.Intn(max-min)),
+		B: uint8(min + rand.Intn(max-min)),
+		A: 255,
 	}
-	d.DrawString(ch)
 }
 
 func abs(x int) int {
@@ -103,23 +167,18 @@ func abs(x int) int {
 	return x
 }
 
+// VerifyCaptcha 验证验证码（不区分大小写）
 func VerifyCaptcha(code string) bool {
-	if v, ok := captchaCache.Load(code); ok {
+	if code == "" {
+		return false
+	}
+	// 尝试大写匹配
+	if v, ok := captchaCache.Load(strings.ToUpper(code)); ok {
 		data := v.(CaptchaData)
+		captchaCache.Delete(strings.ToUpper(code))
 		if time.Now().Before(data.ExpireAt) {
-			captchaCache.Delete(code)
 			return true
 		}
-		captchaCache.Delete(code)
 	}
 	return false
-}
-
-func randomColor(min, max int) color.RGBA {
-	return color.RGBA{
-		R: uint8(min + rand.Intn(max-min)),
-		G: uint8(min + rand.Intn(max-min)),
-		B: uint8(min + rand.Intn(max-min)),
-		A: 255,
-	}
 }
