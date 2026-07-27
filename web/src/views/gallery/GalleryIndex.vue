@@ -288,8 +288,8 @@ export default {
         const gallery = ref({
             "id": null,
             "title": "",
-            "gallery_type": "",
-            "is_tv": true,
+            "gallery_type": "movie",
+            "is_tv": false,
             "is_ali_open":false,
             "gallery_uid": "",
             "image": "",
