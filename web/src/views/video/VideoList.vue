@@ -180,10 +180,28 @@ export default {
         // 滚动加载：用 scroll 事件替代 IntersectionObserver（Naive UI 滚动容器兼容性问题）
         let scrollCooldown = false;
         let scrollContainer = null;
+
+        function findScrollAncestor(el) {
+            let node = el?.parentElement;
+            while (node && node !== document.body) {
+                const style = getComputedStyle(node);
+                if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) {
+                    return node;
+                }
+                node = node.parentElement;
+            }
+            return null;
+        }
+
         function getScrollContainer() {
             if (scrollContainer) return scrollContainer;
-            scrollContainer = document.querySelector('.n-layout-scroll-container')
-                || document.querySelector('.n-scrollbar-container');
+            if (sentinelRef.value) {
+                scrollContainer = findScrollAncestor(sentinelRef.value);
+            }
+            if (!scrollContainer) {
+                scrollContainer = document.querySelector('.n-layout-scroll-container')
+                    || document.querySelector('.n-scrollbar-container');
+            }
             return scrollContainer;
         }
         function handleScroll() {
