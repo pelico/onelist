@@ -202,4 +202,8 @@ func AutoLoad() {
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_star_user_data ON star (user_id, data_type, data_id)")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_played_user_data ON played (user_id, data_type, data_id)")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_heart_user_data ON heart (user_id, data_type, data_id)")
+
+	// 手动添加登录失败计数字段（旧版本升级兼容，SQLite 不支持 IF NOT EXISTS ADD COLUMN，忽略重复添加错误）
+	db.Exec("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
+	db.Exec("ALTER TABLE users ADD COLUMN last_failed_attempt DATETIME")
 }

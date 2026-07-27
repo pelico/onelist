@@ -73,8 +73,9 @@ func Login(email, password string, captcha string, requireCaptcha bool) (models.
 		return user, err, false, token
 	}
 
+	var newAttempts int
 	if user.Id != 0 {
-		newAttempts := user.FailedAttempts + 1
+		newAttempts = user.FailedAttempts + 1
 		isLock := newAttempts >= MaxFailedAttempts
 		db.Model(&models.User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{
 			"failed_attempts":     newAttempts,
@@ -83,7 +84,7 @@ func Login(email, password string, captcha string, requireCaptcha bool) (models.
 		})
 	}
 
-	requireCaptcha = user.FailedAttempts >= MaxFailedAttempts-1
+	requireCaptcha = newAttempts >= MaxFailedAttempts-1
 	return models.User{}, "", requireCaptcha, errors.New("用户名或密码错误")
 }
 
