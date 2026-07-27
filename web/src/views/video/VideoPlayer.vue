@@ -3,7 +3,7 @@
     <div v-else class="content">
         <n-grid cols="12" x-gap="16" item-responsive responsive="screen">
             <n-grid-item span="12 m:12 l:9 xl:9 2xl:9">
-                <div class="player">
+                <div class="player" :class="{ 'theater-mode': isTheaterMode }">
                     <Artplayer class="art-player" @get-instance="getInstance" :option="setting" />
                 </div>
                 <div class="showContainer">
@@ -324,15 +324,12 @@ export default {
         const playlist = ref([]);
         const playlistIndex = ref(0);
 
-        // 强化版全屏触发
-        function triggerFullscreen() {
-            if (art && !art.fullscreen) {
-                try {
-                    art.fullscreen = true;
-                } catch (e) {
-                    console.warn("全屏请求被拦截，请使用遥控器确认键操作", e);
-                }
-            }
+        // TV 假全屏模式（用 CSS 撑满视口，绕过浏览器用户手势限制）
+        const isTheaterMode = ref(false);
+        let fullscreenTimer = null;
+
+        function triggerTheaterMode() {
+            isTheaterMode.value = true;
         }
 
         // 重新实现加载逻辑，适配 TV
@@ -360,8 +357,8 @@ export default {
             let title = nextUrl.split('/').pop().replace(/\.[^/.]+$/, "");
             document.title = title;
 
-            // 自动触发全屏（尝试在切换后立即请求）
-            setTimeout(triggerFullscreen, 500);
+            // 自动触发假全屏（CSS 撑满视口，绕过浏览器手势限制）
+            fullscreenTimer = setTimeout(triggerTheaterMode, 500);
 
             if (is_ali_open.value) {
                 OpenVideo(nextUrl);
@@ -376,8 +373,8 @@ export default {
 
         function bindPlaylistEnded() {
             if (!art) return;
-            art.off('ended');
-            art.on('ended', () => {
+            art.off('video:ended');
+            art.on('video:ended', () => {
                 if (playlist.value.length > 0 && playlistIndex.value < playlist.value.length - 1) {
                     playNextInPlaylist();
                 }
@@ -939,7 +936,7 @@ export default {
             });
             if (!loading.value) {
                 art.once('playing', () => {
-                    setTimeout(triggerFullscreen, 500);
+                    fullscreenTimer = setTimeout(triggerTheaterMode, 500);
                 });
             }
             bindPlaylistEnded();
@@ -968,16 +965,18 @@ export default {
 
                 // 播放器全屏时处理遥控器按键
                 const keyActions = {
-                    // 确认键 - 播放/暂停/并尝试全屏
+                    // 确认键 - 播放/暂停/并触发假全屏
                 'Enter': () => {
                     art.toggle();
                     if (art.playing) {
-                        triggerFullscreen();
+                        triggerTheaterMode();
                     }
                 },
-                    // 返回键 - 退出全屏
+                    // 返回键 - 退出全屏（包括假全屏）
                     'Escape': () => {
-                        if (art.fullscreen) {
+                        if (isTheaterMode.value) {
+                            isTheaterMode.value = false;
+                        } else if (art.fullscreen) {
                             art.fullscreen = false;
                         }
                     },
@@ -1143,7 +1142,8 @@ export default {
             siderRef,
             videoRef,
             left,
-            season
+            season,
+            isTheaterMode
         }
     },
     methods: {
@@ -1179,6 +1179,23 @@ h1 {
     background-color: black;
     width: 100%;
     aspect-ratio: 16/9;
+}
+
+/* TV 假全屏：用 CSS 撑满视口，绕过浏览器 Fullscreen API 的用户手势限制 */
+.player.theater-mode {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background: black;
+}
+
+.player.theater-mode .art-player {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
 }
 
 .data-content {
