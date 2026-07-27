@@ -338,9 +338,19 @@ func DeleteWorkById(c *gin.Context) {
 
 	tx.Model(&models.ErrFile{}).Where("work_id = ?", work.Id).Delete(&models.ErrFile{})
 
+	// 构建路径前缀用于匹配数据库中的 url
+	// Alist 返回的文件路径带 /d 前缀（如 /d/movies/file.mp4），需要与 work.Path 对齐
+	pathPrefix := work.Path
+	if gallery.IsAlist {
+		pathPrefix = "/d" + pathPrefix
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix += "/"
+	}
+
 	if gallery.GalleryType == "tv" {
 		var episodes []models.Episode
-		tx.Model(&models.Episode{}).Where("url LIKE ?", work.Path+"%").Find(&episodes)
+		tx.Model(&models.Episode{}).Where("url LIKE ?", pathPrefix+"%").Find(&episodes)
 		for _, ep := range episodes {
 			tx.Model(&models.Episode{}).Where("id = ?", ep.ID).Delete(&models.Episode{})
 		}
@@ -364,7 +374,7 @@ func DeleteWorkById(c *gin.Context) {
 		}
 	} else {
 		var movies []models.TheMovie
-		tx.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, work.Path+"%").Find(&movies)
+		tx.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, pathPrefix+"%").Find(&movies)
 		for _, movie := range movies {
 			tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{})
 			tx.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
