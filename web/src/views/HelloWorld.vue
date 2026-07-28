@@ -10,12 +10,12 @@
                         我的媒体
                     </div>
                     <div class="custom-arrow">
-                        <button type="button" class="custom-arrow--left" @click="galleryPrev">
+                        <n-button @click="galleryPrev" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-left'></i>
-                        </button>
-                        <button type="button" class="custom-arrow--right" @click="galleryNext">
+                        </n-button>
+                        <n-button @click="galleryNext" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-right'></i>
-                        </button>
+                        </n-button>
                     </div>
                 </div>
                 <div class="card-show-content gallery-card">
@@ -45,12 +45,12 @@
                         <i class='bx bx-film'></i> 最新电影
                     </div>
                     <div class="custom-arrow">
-                        <button type="button" class="custom-arrow--left" @click="latestMoviePrev">
+                        <n-button @click="latestMoviePrev" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-left'></i>
-                        </button>
-                        <button type="button" class="custom-arrow--right" @click="latestMovieNext">
+                        </n-button>
+                        <n-button @click="latestMovieNext" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-right'></i>
-                        </button>
+                        </n-button>
                     </div>
                 </div>
                 <div class="card-show-content view-card">
@@ -91,12 +91,12 @@
                         <i class='bx bx-tv'></i> 最新剧集
                     </div>
                     <div class="custom-arrow">
-                        <button type="button" class="custom-arrow--left" @click="latestTvPrev">
+                        <n-button @click="latestTvPrev" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-left'></i>
-                        </button>
-                        <button type="button" class="custom-arrow--right" @click="latestTvNext">
+                        </n-button>
+                        <n-button @click="latestTvNext" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-right'></i>
-                        </button>
+                        </n-button>
                     </div>
                 </div>
                 <div class="card-show-content view-card">
@@ -137,12 +137,12 @@
                         {{ key }}
                     </div>
                     <div class="custom-arrow">
-                        <button type="button" class="custom-arrow--left" @click="carouselPrev(index)">
+                        <n-button @click="carouselPrev(index)" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-left'></i>
-                        </button>
-                        <button type="button" class="custom-arrow--right" @click="carouselNext(index)">
+                        </n-button>
+                        <n-button @click="carouselNext(index)" color="#1890ff" text-color="#fff" circle size="small">
                             <i class='bx bx-chevron-right'></i>
-                        </button>
+                        </n-button>
                     </div>
                 </div>
                 <div class="card-show-content view-card">
@@ -340,6 +340,9 @@ export default {
 .card-show-title {
     font-size: 1.2em;
     font-weight: 400;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .card-shows {
@@ -373,30 +376,7 @@ export default {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.custom-arrow button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-width: 0;
-    border-radius: 8px;
-    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    font-size: 1.2em;
-}
-
-.custom-arrow button:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-}
-
-.custom-arrow button:active {
-    transform: scale(0.95);
-    transform-origin: center;
+    flex-shrink: 0;
 }
 
 .skeleton-gallery {
@@ -425,7 +405,7 @@ export default {
 
 @media (max-width: 750px) {
     .custom-arrow {
-        display: none;
+        display: flex;
     }
 }
 

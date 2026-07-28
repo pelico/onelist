@@ -87,9 +87,23 @@ export default {
 
         LoginUser() {
             let that = this;
+            let email = this.user.user_email.replace(/\s+/g, '');
+            let password = this.user.user_password.replace(/\s+/g, '');
+            if (!email) {
+                this.COMMON.ShowMsg("请输入账号");
+                return;
+            }
+            if (!password) {
+                this.COMMON.ShowMsg("请输入密码");
+                return;
+            }
+            if (this.needCaptcha && !this.captcha) {
+                this.COMMON.ShowMsg("请输入验证码");
+                return;
+            }
             let loginData = {
-                user_email: this.user.user_email.replace(/\s+/g, ''),
-                user_password: this.user.user_password.replace(/\s+/g, ''),
+                user_email: email,
+                user_password: password,
                 captcha: this.captcha,
                 require_captcha: this.needCaptcha
             };
