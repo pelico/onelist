@@ -31,7 +31,7 @@
                             <img :src="captchaUrl" @click="refreshCaptcha" class="captcha-img" alt="验证码">
                         </div>
                         <div class="form-control">
-                            <button class="btn login-btn" @click="LoginUser()">登录</button>
+                            <button class="btn login-btn" :disabled="submitting" @click="LoginUser()">{{ submitting ? '提交中...' : '登录' }}</button>
                         </div>
                         <!-- <div class="tool">
                             <h4></h4>
@@ -56,7 +56,8 @@ export default {
             },
             captcha: "",
             captchaUrl: "",
-            needCaptcha: false
+            needCaptcha: false,
+            submitting: false
         }
     },
     props: {
@@ -86,6 +87,9 @@ export default {
         },
 
         LoginUser() {
+            if (this.submitting) {
+                return;
+            }
             let that = this;
             let email = this.user.user_email.replace(/\s+/g, '');
             let password = this.user.user_password.replace(/\s+/g, '');
@@ -101,6 +105,7 @@ export default {
                 this.COMMON.ShowMsg("请输入验证码");
                 return;
             }
+            this.submitting = true;
             let loginData = {
                 user_email: email,
                 user_password: password,
@@ -112,6 +117,7 @@ export default {
                     'content-type': 'application/json',
                 }
             }).then(function (res) {
+                that.submitting = false;
                 if (res.data.code == 200) {
                     that.$cookies.set('Authorization', res.data.data, 60 * 60 * 24 * 7);
                     that.$cookies.set('UserId', res.data.user.user_id, 60 * 60 * 24 * 7);
@@ -126,8 +132,11 @@ export default {
                     if (res.data.need_captcha) {
                         that.needCaptcha = true;
                         that.refreshCaptcha();
+                        that.captcha = "";
                     }
                 }
+            }).catch(function () {
+                that.submitting = false;
             });
         },
         refreshCaptcha() {

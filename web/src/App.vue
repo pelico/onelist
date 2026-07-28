@@ -213,6 +213,8 @@ const MessageBridge = defineComponent({
     setup() {
         const message = useMessage();
         global.setMsgHandler((msg) => {
+            // 弹新消息前先清掉旧的，避免错误消息堆叠成截图里那种长条
+            try { message.destroyAll(); } catch (e) { /* ignore */ }
             message.info(msg, { duration: 3000 });
         });
         return () => null;
