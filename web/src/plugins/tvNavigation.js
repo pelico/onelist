@@ -315,14 +315,15 @@ class TvNavigation {
 
   // 找到指定方向上最近的元素（网格对齐优先算法）
   findNearestInDirection(current, direction, candidates) {
-    const currentRect = current.getBoundingClientRect();
+    const currentRect = this.getFocusNavElement(current).getBoundingClientRect();
     const isVertical = direction === 'up' || direction === 'down';
     let best = null;
     let bestScore = Infinity;
 
     candidates.forEach(el => {
       if (el === current) return;
-      const rect = el.getBoundingClientRect();
+      const navEl = this.getFocusNavElement(el);
+      const rect = navEl.getBoundingClientRect();
 
       // 方向过滤：候选元素必须整体在目标方向一侧（边界判断）
       switch (direction) {
@@ -364,6 +365,20 @@ class TvNavigation {
     return best;
   }
 
+  // 获取焦点显示目标元素（优先找外层容器，比如 .view-item / li 等）
+  getFocusVisualElement(element) {
+    if (!element) return null;
+    const container = element.closest('.view-item, .tab-item, .dir-item, .show-card-item, .season-card, .episode-card-item, .gallery-card');
+    return container || element;
+  }
+
+  // 获取导航定位用的元素（计算位置用外层容器，避免 scale 偏移影响方向判断）
+  getFocusNavElement(element) {
+    if (!element) return null;
+    const container = element.closest('.view-item, .tab-item, .dir-item, .show-card-item, .season-card, .episode-card-item, .gallery-card');
+    return container || element;
+  }
+
   // 设置焦点
   setFocus(element, scroll = true) {
     if (!element || !this.isFocusable(element)) return;
@@ -371,18 +386,19 @@ class TvNavigation {
     this.clearFocus();
 
     this.currentFocus = element;
-    element.classList.add(this.config.focusVisibleClass);
+    const visualEl = this.getFocusVisualElement(element);
+    visualEl.classList.add(this.config.focusVisibleClass);
     element.focus({ preventScroll: true });
 
     if (scroll && this.config.scrollIntoView) {
-      element.scrollIntoView({
+      visualEl.scrollIntoView({
         behavior: this.config.scrollBehavior,
         block: this.config.scrollBlock,
         inline: 'center'
       });
     }
 
-    this.updateFocusIndicator(element);
+    this.updateFocusIndicator(visualEl);
     this.emit('focus', { element });
   }
 
@@ -403,8 +419,9 @@ class TvNavigation {
       return;
     }
 
-    const rect = element.getBoundingClientRect();
-    const padding = 4;
+    const visualEl = this.getFocusVisualElement(element);
+    const rect = visualEl.getBoundingClientRect();
+    const padding = 2;
 
     this._indicator.style.display = 'block';
     this._indicator.style.left = (rect.left - padding) + 'px';
