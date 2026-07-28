@@ -55,14 +55,24 @@
   border-left-color: #63e2b7;
 }
 
-/* 视频卡片焦点 */
+/* 视频卡片焦点 — 放大高亮，比 hover 更明显 */
 .tv-mode .view-item.tv-focus-visible {
-  transform: translateY(-8px) scale(1.05);
+  transform: translateY(-8px) scale(1.12) !important;
   z-index: 20;
+  filter: brightness(1.15);
 }
 
 .tv-mode .view-item.tv-focus-visible img {
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px #23ade5,
+              0 12px 36px rgba(35, 173, 229, 0.45),
+              0 8px 24px rgba(0, 0, 0, 0.4);
+  border-radius: 5px;
+}
+
+.dark.tv-mode .view-item.tv-focus-visible img {
+  box-shadow: 0 0 0 3px #63e2b7,
+              0 12px 36px rgba(99, 226, 183, 0.45),
+              0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* 按钮焦点 */
