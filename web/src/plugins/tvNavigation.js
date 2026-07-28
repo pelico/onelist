@@ -313,69 +313,50 @@ class TvNavigation {
     }
   }
 
-  // 找到指定方向上最近的元素
+  // 找到指定方向上最近的元素（网格对齐优先算法）
   findNearestInDirection(current, direction, candidates) {
     const currentRect = current.getBoundingClientRect();
-    const currentCenter = {
-      x: currentRect.left + currentRect.width / 2,
-      y: currentRect.top + currentRect.height / 2
-    };
-
+    const isVertical = direction === 'up' || direction === 'down';
     let best = null;
-    let bestWeight = Infinity;
-
-    const directionAngles = {
-      right: 0,
-      left: Math.PI,
-      down: Math.PI / 2,
-      up: -Math.PI / 2
-    };
-    const targetAngle = directionAngles[direction];
+    let bestScore = Infinity;
 
     candidates.forEach(el => {
       if (el === current) return;
-
       const rect = el.getBoundingClientRect();
-      const center = {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2
-      };
 
-      const dx = center.x - currentCenter.x;
-      const dy = center.y - currentCenter.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < 2) return;
-
-      // 方向过滤：只考虑目标方向半平面内的元素
-      const threshold = 4;
+      // 方向过滤：候选元素必须整体在目标方向一侧（边界判断）
       switch (direction) {
-        case 'right':
-          if (center.x <= currentRect.right - threshold) return;
-          break;
-        case 'left':
-          if (center.x >= currentRect.left + threshold) return;
-          break;
-        case 'down':
-          if (center.y <= currentRect.bottom - threshold) return;
-          break;
-        case 'up':
-          if (center.y >= currentRect.top + threshold) return;
-          break;
+        case 'right': if (rect.left < currentRect.right - 4) return; break;
+        case 'left':  if (rect.right > currentRect.left + 4) return; break;
+        case 'down':  if (rect.top < currentRect.bottom - 4) return; break;
+        case 'up':    if (rect.bottom > currentRect.top + 4) return; break;
       }
 
-      // 计算角度差
-      const angle = Math.atan2(dy, dx);
-      let angleDiff = Math.abs(angle - targetAngle);
-      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+      let primaryDistance, overlap;
+      if (isVertical) {
+        primaryDistance = direction === 'down'
+          ? rect.top - currentRect.bottom
+          : currentRect.top - rect.bottom;
+        const overlapStart = Math.max(rect.left, currentRect.left);
+        const overlapEnd = Math.min(rect.right, currentRect.right);
+        overlap = Math.max(0, overlapEnd - overlapStart);
+      } else {
+        primaryDistance = direction === 'right'
+          ? rect.left - currentRect.right
+          : currentRect.left - rect.right;
+        const overlapStart = Math.max(rect.top, currentRect.top);
+        const overlapEnd = Math.min(rect.bottom, currentRect.bottom);
+        overlap = Math.max(0, overlapEnd - overlapStart);
+      }
 
-      // 偏离主方向太大的元素给予重罚
-      if (angleDiff > Math.PI / 3) return;
+      // 同列/同行候选享有绝对优先，斜对角候选附加更大偏移惩罚
+      const crossOffset = isVertical
+        ? Math.abs((rect.left + rect.width / 2) - (currentRect.left + currentRect.width / 2))
+        : Math.abs((rect.top + rect.height / 2) - (currentRect.top + currentRect.height / 2));
+      const score = overlap > 0 ? primaryDistance : primaryDistance + crossOffset * 3;
 
-      // 权重：距离 + 角度惩罚，角度惩罚随距离放大
-      const weight = distance + angleDiff * distance * 2;
-
-      if (weight < bestWeight) {
-        bestWeight = weight;
+      if (score < bestScore) {
+        bestScore = score;
         best = el;
       }
     });

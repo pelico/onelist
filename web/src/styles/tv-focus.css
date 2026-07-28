@@ -57,10 +57,10 @@
 
 /* 视频卡片焦点 — 焦点类加在 <a> 上，不是外层 .view-item */
 .tv-mode .view-item a.tv-focus-visible {
-  transform: translateY(-8px) scale(1.12) !important;
+  transform: translateY(-4px) scale(0.95) !important;
   z-index: 20;
   display: inline-block;
-  filter: brightness(1.15);
+  filter: brightness(1.08);
 }
 
 .tv-mode .view-item a.tv-focus-visible img {
