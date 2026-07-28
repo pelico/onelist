@@ -137,3 +137,20 @@ func (r *RepositoryTheTvsCRUD) GetLatest(size int) ([]models.TheTv, error) {
 	}
 	return []models.TheTv{}, err
 }
+
+// Search 剧集搜索：按 name 匹配并去重（覆盖通用 Search）
+func (r *RepositoryTheTvsCRUD) Search(q string, page int, size int) ([]models.TheTv, int, error) {
+	var num int64
+	list := []models.TheTv{}
+	subQuery := r.db.Model(&models.TheTv{}).
+		Select("MIN(id)").
+		Where("name LIKE ?", "%"+q+"%").
+		Group("name")
+	result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
+	result.Count(&num)
+	err := result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
+	if err != nil {
+		return []models.TheTv{}, 0, err
+	}
+	return list, int(num), nil
+}

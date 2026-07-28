@@ -139,8 +139,11 @@ func (r *RepositoryTheMoviesCRUD) GetLatest(size int) ([]models.TheMovie, error)
 func (r *RepositoryTheMoviesCRUD) Search(q string, page int, size int) ([]models.TheMovie, int, error) {
 	var num int64
 	list := []models.TheMovie{}
-	result := r.db.Model(&models.TheMovie{}).
-		Where("title LIKE ? OR original_title LIKE ?", "%"+q+"%", "%"+q+"%")
+	subQuery := r.db.Model(&models.TheMovie{}).
+		Select("MIN(id)").
+		Where("title LIKE ? OR original_title LIKE ?", "%"+q+"%", "%"+q+"%").
+		Group("url")
+	result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
 	result.Count(&num)
 	err := result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
 	if err != nil {
