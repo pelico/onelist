@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - amd64
       - armv7l
     paths-ignore:
       - '**.md'
@@ -77,6 +78,18 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build and push (amd64 only for amd64 branch)
+        if: github.ref == 'refs/heads/amd64'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/onelist:amd64
+            ghcr.io/${{ github.repository_owner }}/onelist:amd64-latest
 
       - name: Build and push (armv7 only for armv7l branch)
         if: github.ref == 'refs/heads/armv7l'
