@@ -335,6 +335,9 @@ func Run() {
 	setting.POST("/data", controllers.GetConfig)
 	r.GET("/v1/api/configs", controllers.GetWebConfig)
 
+	// 系统维护
+	r.POST("/v1/api/system/cleanup", auth.JWTAuthAdmin(), controllers.CleanupLibrary)
+
 	r.GET("/onelist/ping", func(c *gin.Context) {
 		configData := config.GetConfig()
 		configData.KeyDb = ""

@@ -52,6 +52,18 @@
                     保存
                 </n-button>
             </n-form>
+            <n-divider />
+            <div class="cleanup-section">
+                <div class="cleanup-title">媒体库维护</div>
+                <n-popconfirm @positive-click="cleanupLibrary" :disabled="cleaning">
+                    <template #trigger>
+                        <n-button size="large" type="warning" :loading="cleaning">
+                            一键清理媒体库（清除失效/重复记录）
+                        </n-button>
+                    </template>
+                    该操作会扫描所有媒体库，删除文件已不存在的记录，并合并同名重复记录。可能需要一些时间，是否继续？
+                </n-popconfirm>
+            </div>
         </div>
     </div>
 </template>
@@ -75,6 +87,7 @@ export default {
         const { proxy } = getCurrentInstance();
         const load = ref(true);
         const saving = ref(false);
+        const cleaning = ref(false);
 
         const downloadImageBool = computed(() => config.value.download_image === "是");
         const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
@@ -152,16 +165,34 @@ export default {
             saveConfig();
         };
 
+        function cleanupLibrary() {
+            cleaning.value = true;
+            proxy.axios.post(proxy.COMMON.apiUrl + '/v1/api/system/cleanup', {}, {
+                headers: {
+                    'content-type': 'application/json',
+                    'Authorization': proxy.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                cleaning.value = false;
+                proxy.COMMON.ShowMsg(res.data.msg || "清理完成");
+            }).catch((error) => {
+                cleaning.value = false;
+                proxy.COMMON.ShowMsg(error);
+            });
+        }
+
         return {
             config,
             load,
             saving,
+            cleaning,
             downloadImageBool,
             downloadImageToMediaBool,
             logRetentionDaysNum,
             onDownloadImageChange,
             onDownloadImageToMediaChange,
-            saveF
+            saveF,
+            cleanupLibrary
         }
     },
     methods: {
@@ -190,5 +221,15 @@ export default {
     margin-left: 12px;
     color: #999;
     font-size: 0.85em;
+}
+
+.cleanup-section {
+    max-width: 640px;
+}
+
+.cleanup-title {
+    font-size: 1.1em;
+    font-weight: 500;
+    margin-bottom: 12px;
 }
 </style>
