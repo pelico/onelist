@@ -3,6 +3,11 @@
  * 用于显示当前焦点元素的高亮效果
  */
 
+/* 确保所有海报图片裁剪居中，自定义封面图片尺寸不一致时不会变形 */
+img.carousel-img {
+  object-fit: cover;
+}
+
 /* 焦点指示器 - 动态跟随焦点元素 */
 .tv-focus-indicator {
   position: fixed;

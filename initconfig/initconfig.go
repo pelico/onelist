@@ -38,6 +38,8 @@ ImgUrl=https://image.tmdb.org
 TheMovieDbApiUrl=https://api.themoviedb.org/3
 # 允许刮削alist中的视频文件类型
 VideoTypes=.mp4,.mkv,.flv
+# 自定义默认封面（否=使用内置默认图；是=使用 /config/picture 目录下的图片分配给无海报的影片）
+CustomDefaultImage=否
 
 # 数据库设置
 DB_DRIVER=sqlite
