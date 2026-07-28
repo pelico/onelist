@@ -193,4 +193,7 @@ func LoadFromDB() {
 	if v, ok := settingMap["LogRetentionDays"]; ok {
 		LogRetentionDays = v
 	}
+	if v, ok := settingMap["CustomDefaultImage"]; ok {
+		CustomDefaultImage = v
+	}
 }
