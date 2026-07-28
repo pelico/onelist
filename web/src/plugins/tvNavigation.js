@@ -194,6 +194,10 @@ class TvNavigation {
   // 焦点变化处理
   handleFocus(e) {
     if (!this.isTvMode) return;
+    if (e.target === this.currentFocus) {
+      this.updateFocusIndicator(e.target);
+      return;
+    }
     if (this.isFocusable(e.target)) {
       this.setFocus(e.target, false);
     }

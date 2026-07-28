@@ -328,7 +328,8 @@ export default defineComponent({
                 const links = document.querySelectorAll('.sider-item .nav-links li a');
                 if (links.length === 0) return;
                 tvNavigation.registerGroup('sidebar', Array.from(links), { vertical: true, wrap: true });
-                if (tvNavigation.isTvMode) {
+                // 仅在 TV 模式且页面尚无焦点时，将焦点落到侧边栏第一项
+                if (tvNavigation.isTvMode && !tvNavigation.currentFocus) {
                     tvNavigation.setCurrentGroup('sidebar');
                 }
             });
