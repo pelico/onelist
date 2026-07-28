@@ -186,6 +186,7 @@
 
 <script>
 import { getCurrentInstance, onMounted, ref, nextTick } from "vue";
+import { tvNavigation } from '../plugins/tvNavigation';
 export default {
     name: 'HelloWorld',
     setup() {
@@ -294,7 +295,26 @@ export default {
         }
         
         function setupTvNavigation() {
-            // TV端焦点管理可在此扩展
+            // 收集首页所有可点击的卡片和翻页按钮
+            const items = [];
+            document.querySelectorAll('.card-shows').forEach((section) => {
+                const buttons = section.querySelectorAll('.custom-arrow .n-button');
+                buttons.forEach((btn, idx) => {
+                    btn.setAttribute('tabindex', '0');
+                    items.push(btn);
+                });
+                const cards = section.querySelectorAll('.view-item');
+                cards.forEach((card) => {
+                    const link = card.querySelector('a');
+                    if (link) {
+                        link.setAttribute('tabindex', '0');
+                        items.push(link);
+                    }
+                });
+            });
+            if (items.length > 0) {
+                tvNavigation.registerGroup('homepage', items, { vertical: false, wrap: false });
+            }
         }
 
         onMounted(() => {
@@ -358,7 +378,8 @@ export default {
     transition: all .2s ease-in-out;
 }
 
-.gallery-card .view-item:hover {
+.gallery-card .view-item:hover,
+.tv-mode .gallery-card .view-item.tv-focus-visible {
     transform: translateY(0) scale(0.99);
     transition: all .2s ease-in-out;
 }
@@ -426,7 +447,8 @@ img.carousel-img {
     transition: all .2s ease-in-out;
 }
 
-.view-card .view-item:hover {
+.view-card .view-item:hover,
+.tv-mode .view-card .view-item.tv-focus-visible {
     transform: translateY(-4px) scale(0.95);
     transition: all .2s ease-in-out;
 }

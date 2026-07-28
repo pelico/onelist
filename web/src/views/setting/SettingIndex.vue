@@ -48,6 +48,13 @@
                     <n-input-number v-model:value="logRetentionDaysNum" size="large" :min="1" :max="365" placeholder="默认 7 天" style="width: 100%" />
                     <span class="form-hint">超过该天数的日志将被自动清理（重启服务后生效）</span>
                 </n-form-item>
+                <n-form-item label="强制启用遥控器模式" path="force_tv_mode">
+                    <n-switch :value="forceTvMode" @update:value="onForceTvModeChange" size="large">
+                        <template #checked>是</template>
+                        <template #unchecked>否</template>
+                    </n-switch>
+                    <span class="form-hint">开启后强制启用电视遥控器导航模式，适合 Android TV / 电视盒子等无触摸设备。也可在访问地址后加 ?tv=1 临时启用。</span>
+                </n-form-item>
                 <n-button size="large" class="btn-save" @click="Save()" type="info" :loading="saving">
                     保存
                 </n-button>
@@ -94,6 +101,7 @@ export default {
         const saving = ref(false);
         const cleaning = ref(false);
         const versionInfo = ref("v1.0 @2026 Optimized by wanchuan");
+        const forceTvMode = ref(localStorage.getItem('forceTvMode') === 'true');
 
         const downloadImageBool = computed(() => config.value.download_image === "是");
         const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
@@ -114,6 +122,12 @@ export default {
 
         function onDownloadImageToMediaChange(val) {
             config.value.download_image_to_media = val ? "是" : "否";
+        }
+
+        function onForceTvModeChange(val) {
+            forceTvMode.value = val;
+            localStorage.setItem('forceTvMode', val ? 'true' : 'false');
+            proxy.COMMON.ShowMsg(val ? '已启用遥控器模式，刷新页面后生效' : '已关闭遥控器模式，刷新页面后生效');
         }
 
         function getConfig() {
@@ -193,11 +207,13 @@ export default {
             saving,
             cleaning,
             versionInfo,
+            forceTvMode,
             downloadImageBool,
             downloadImageToMediaBool,
             logRetentionDaysNum,
             onDownloadImageChange,
             onDownloadImageToMediaChange,
+            onForceTvModeChange,
             saveF,
             cleanupLibrary
         }

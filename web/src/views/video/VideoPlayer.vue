@@ -1291,7 +1291,8 @@ h1 {
     transition: all .2s ease-in-out;
 }
 
-.view-card-list .view-item:hover {
+.view-card-list .view-item:hover,
+.tv-mode .view-card-list .view-item.tv-focus-visible {
     transform: translateY(-4px) scale(0.95);
     transition: all .2s ease-in-out;
 }

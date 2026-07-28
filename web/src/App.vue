@@ -205,9 +205,10 @@
 
 <script>
 import { darkTheme, useMessage } from 'naive-ui';
-import { defineComponent, getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'vue';
+import { defineComponent, getCurrentInstance, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Login from './components/Login';
 import global from './components/common.vue';
+import { tvNavigation } from './plugins/tvNavigation';
 
 // 消息桥接组件：必须渲染在 n-message-provider 内部才能正确获取 message API
 // （App 组件本身渲染 n-message-provider，因此在 App 的 setup 中调用 useMessage() 找不到 provider）
@@ -257,12 +258,20 @@ export default defineComponent({
         let searchTimer = null;
         const searchRef = ref(null);
 
-        // 搜索弹窗打开时自动聚焦输入框
+        // 搜索弹窗打开时自动聚焦输入框，TV 模式下注册焦点组
         watch(showSaerch, (val) => {
             if (val) {
                 setTimeout(() => {
                     searchRef.value?.focus?.();
+                    if (tvNavigation.isTvMode) {
+                        registerSearchNav();
+                    }
                 }, 100);
+            } else {
+                tvNavigation.unregisterGroup('search');
+                if (tvNavigation.isTvMode) {
+                    registerSidebarNav();
+                }
             }
         });
 
@@ -314,6 +323,36 @@ export default defineComponent({
             });
         }
 
+        function registerSidebarNav() {
+            nextTick(() => {
+                const links = document.querySelectorAll('.sider-item .nav-links li a');
+                if (links.length === 0) return;
+                tvNavigation.registerGroup('sidebar', Array.from(links), { vertical: true, wrap: true });
+                if (tvNavigation.isTvMode) {
+                    tvNavigation.setCurrentGroup('sidebar');
+                }
+            });
+        }
+
+        function registerSearchNav() {
+            nextTick(() => {
+                const input = document.querySelector('.n-auto-complete input');
+                const closeBtn = document.querySelector('.n-card-header-extra button');
+                const items = [];
+                if (input) { input.setAttribute('tabindex', '0'); items.push(input); }
+                if (closeBtn) { closeBtn.setAttribute('tabindex', '0'); items.push(closeBtn); }
+                // 下拉建议项
+                document.querySelectorAll('.n-base-select-option').forEach((opt, idx) => {
+                    opt.setAttribute('tabindex', '0');
+                    items.push(opt);
+                });
+                if (items.length > 0) {
+                    tvNavigation.registerGroup('search', items, { vertical: true, wrap: false });
+                    tvNavigation.setCurrentGroup('search');
+                }
+            });
+        }
+
         function getData() {
             proxy.axios.post(proxy.COMMON.apiUrl + `/v1/api/gallery/list`, {}, {
                 headers: {
@@ -325,6 +364,7 @@ export default defineComponent({
                     data.value = res.data.data;
                     setTimeout(() => {
                         initUrlActive();
+                        registerSidebarNav();
                     }, 1500);
                     load.value = false;
                 } else {
@@ -433,6 +473,10 @@ export default defineComponent({
         onMounted(() => {
             getConfig();
             window.addEventListener('onelist:config-changed', onConfigChanged);
+            // 兜底：即使数据加载异常，也尝试注册固定导航项
+            setTimeout(() => {
+                registerSidebarNav();
+            }, 2000);
         });
         onUnmounted(() => {
             window.removeEventListener('onelist:config-changed', onConfigChanged);
@@ -651,7 +695,8 @@ span.n-avatar {
     width: 100%;
 }
 
-.navigation ul li:hover {
+.navigation ul li:hover,
+.tv-mode .navigation ul li.tv-focus-visible {
     background: rgba(0, 0, 0, .1);
 }
 
@@ -706,7 +751,9 @@ span.n-avatar {
 }
 
 .dark .navigation ul li:hover,
-.light .navigation ul li:hover {
+.light .navigation ul li:hover,
+.tv-mode .dark .navigation ul li.tv-focus-visible,
+.tv-mode .light .navigation ul li.tv-focus-visible {
     background: rgba(0, 0, 0, .1);
 }
 

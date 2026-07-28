@@ -558,7 +558,8 @@ export default {
     transition: background 0.2s;
 }
 
-.dir-item:hover {
+.dir-item:hover,
+.tv-mode .dir-item.tv-focus-visible {
     background: #f5f7fa;
 }
 

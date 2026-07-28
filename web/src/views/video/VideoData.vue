@@ -787,7 +787,8 @@ export default {
     transition: background 0.2s;
 }
 
-.back-button:hover {
+.back-button:hover,
+.tv-mode .back-button.tv-focus-visible {
     background: rgba(255, 255, 255, 0.15);
 }
 
@@ -977,7 +978,8 @@ span.button-text {
     transition: all .2s ease-in-out;
 }
 
-.view-card-list .view-item:hover {
+.view-card-list .view-item:hover,
+.tv-mode .view-card-list .view-item.tv-focus-visible {
     transform: translateY(-4px) scale(0.95);
     transition: all .2s ease-in-out;
 }

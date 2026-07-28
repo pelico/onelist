@@ -208,7 +208,8 @@ export default {
     transition: all 0.2s;
 }
 
-.tab-item:hover {
+.tab-item:hover,
+.tv-mode .tab-item.tv-focus-visible {
     background: var(--n-primary-color-hover, #e6f1ff);
 }
 

@@ -51,8 +51,15 @@ class TvNavigation {
     const isAndroid = /android/i.test(ua) && !/mobile/i.test(ua);
     const isLargeScreen = window.screen.width >= 1280 && window.screen.height >= 720;
     const hasTouch = 'ontouchstart' in window;
-    
-    this.isTvMode = isTv || (isAndroid && isLargeScreen && !hasTouch);
+
+    // URL 参数强制开启，例如 http://ip:port/?tv=1
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceTvFromUrl = urlParams.get('tv') === '1' || urlParams.get('tv') === 'true';
+
+    // localStorage 持久化开关
+    const forceTvFromStorage = localStorage.getItem('forceTvMode') === 'true';
+
+    this.isTvMode = forceTvFromUrl || forceTvFromStorage || isTv || (isAndroid && isLargeScreen && !hasTouch);
     return this.isTvMode;
   }
 

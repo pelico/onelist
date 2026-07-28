@@ -301,7 +301,9 @@ export default {
 }
 
 .detailButton:hover .button-icon,
-.detailButton:hover .button-text {
+.detailButton:hover .button-text,
+.tv-mode .detailButton.tv-focus-visible .button-icon,
+.tv-mode .detailButton.tv-focus-visible .button-text {
     color: #c33;
 }
 
