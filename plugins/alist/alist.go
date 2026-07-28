@@ -103,6 +103,10 @@ func AlistList(isRef bool, gallery models.Gallery, path string, Authorization st
 		return fileList, nil
 	}
 	for _, file := range fs {
+		// 过滤 macOS 系统生成的 ._ 前缀元数据文件
+		if strings.HasPrefix(file.Name, "._") {
+			continue
+		}
 		// 防止拼接path错误
 		if path[len(path)-1:] != "/" {
 			path += "/"
