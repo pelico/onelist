@@ -127,7 +127,7 @@
 </template>
 
 <script>
-import { getCurrentInstance, onMounted, onUnmounted, ref, nextTick, inject, computed } from "vue";
+import { getCurrentInstance, onMounted, onUnmounted, ref, nextTick, inject, computed, watch } from "vue";
 import { onBeforeRouteUpdate } from 'vue-router';
 
 export default {
@@ -404,13 +404,20 @@ export default {
         onMounted(() => {
             fetchData(false);
             window.addEventListener('scroll', handleScroll, { passive: true });
-            // Naive UI 可能使用内部滚动容器，也需要监听
-            nextTick(() => {
-                const scroller = getScrollContainer();
-                if (scroller) {
-                    scroller.addEventListener('scroll', handleScroll, { passive: true });
-                }
-            });
+        });
+
+        // 内容渲染出来（loading 变为 false）之后，sentinelRef 才存在于 DOM 里，
+        // 这时候才能准确找到它所在的滚动容器并绑定监听器
+        watch(loading, (isLoading) => {
+            if (!isLoading) {
+                nextTick(() => {
+                    scrollContainer = null; // 清除旧的缓存，重新查找
+                    const scroller = getScrollContainer();
+                    if (scroller) {
+                        scroller.addEventListener('scroll', handleScroll, { passive: true });
+                    }
+                });
+            }
         });
 
         onUnmounted(() => {
