@@ -22,10 +22,12 @@ function ShowMsg(msg) {
 }
 
 // 获取电影/视频海报URL，无海报时返回默认图或自定义图
+// customImageVersion 用于开关切换时强制浏览器刷新图片
+let customImageVersion = 0;
 function getPosterUrl(posterPath, videoId) {
     if (!posterPath || posterPath.length === 0 || posterPath === '/') {
         if (customDefaultImage && videoId) {
-            return '/custom-image/' + videoId;
+            return '/custom-image/' + videoId + '?v=' + customImageVersion;
         }
         return '/images/not_video.jpg';
     }
@@ -67,7 +69,12 @@ function applyConfig(cfg) {
         api.imgUrl = imgUrl;
     }
     if (cfg.custom_default_image !== undefined && cfg.custom_default_image !== null) {
-        customDefaultImage = cfg.custom_default_image === '是';
+        const newVal = cfg.custom_default_image === '是';
+        // 开关状态变化时递增版本号，强制浏览器重新请求图片
+        if (newVal !== customDefaultImage) {
+            customImageVersion++;
+        }
+        customDefaultImage = newVal;
         localStorage.setItem('custom_default_image', cfg.custom_default_image);
     }
     if (typeof window !== 'undefined' && window.dispatchEvent) {
