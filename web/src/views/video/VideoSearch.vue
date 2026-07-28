@@ -119,9 +119,9 @@ export default {
         }
 
         function fetchData() {
-            let api = proxy.COMMON.apiUrl + `/v1/api/themovie/search?q=${q.value}&?page=${page.value}&size=${size.value}`;
+            let api = proxy.COMMON.apiUrl + `/v1/api/themovie/search?q=${q.value}&page=${page.value}&size=${size.value}`;
             if (data_type.value == "tv") {
-                api = proxy.COMMON.apiUrl + `/v1/api/thetv/search?q=${q.value}&?page=${page.value}&size=${size.value}`;
+                api = proxy.COMMON.apiUrl + `/v1/api/thetv/search?q=${q.value}&page=${page.value}&size=${size.value}`;
             }
             proxy.axios.post(api, {}, {
                 headers: {

@@ -134,3 +134,17 @@ func (r *RepositoryTheMoviesCRUD) GetLatest(size int) ([]models.TheMovie, error)
 	}
 	return []models.TheMovie{}, err
 }
+
+// Search 电影搜索：按 title 和 original_title 匹配（覆盖通用 Search 的 name 字段匹配）
+func (r *RepositoryTheMoviesCRUD) Search(q string, page int, size int) ([]models.TheMovie, int, error) {
+	var num int64
+	list := []models.TheMovie{}
+	result := r.db.Model(&models.TheMovie{}).
+		Where("title LIKE ? OR original_title LIKE ?", "%"+q+"%", "%"+q+"%")
+	result.Count(&num)
+	err := result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
+	if err != nil {
+		return []models.TheMovie{}, 0, err
+	}
+	return list, int(num), nil
+}
