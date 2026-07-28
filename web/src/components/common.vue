@@ -3,6 +3,7 @@
 let title = 'OneList';
 let apiUrl = process.env.NODE_ENV === 'production' ? "" : 'http://127.0.0.1:5245';
 let imgUrl = "https://image.tmdb.org"
+let customDefaultImage = localStorage.getItem('custom_default_image') === '是';
 const isMo = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
 
 // 全局消息回调，由 App.vue 注入 naive-ui 的 message
@@ -20,9 +21,12 @@ function ShowMsg(msg) {
     }
 }
 
-// 获取电影/视频海报URL，无海报时返回默认图
-function getPosterUrl(posterPath) {
+// 获取电影/视频海报URL，无海报时返回默认图或自定义图
+function getPosterUrl(posterPath, videoId) {
     if (!posterPath || posterPath.length === 0 || posterPath === '/') {
+        if (customDefaultImage && videoId) {
+            return '/custom-image/' + videoId;
+        }
         return '/images/not_video.jpg';
     }
     return imgUrl + "/t/p/w220_and_h330_face" + posterPath;
@@ -37,6 +41,9 @@ function initConfig() {
         if (process.env.NODE_ENV != 'production' && localStorage.getItem("img_url").length == 0) {
             imgUrl = apiUrl;
         }
+    }
+    if (localStorage.getItem("custom_default_image") != null) {
+        customDefaultImage = localStorage.getItem("custom_default_image") === '是';
     }
 }
 
@@ -58,6 +65,10 @@ function applyConfig(cfg) {
         }
         imgUrl = v;
         api.imgUrl = imgUrl;
+    }
+    if (cfg.custom_default_image !== undefined && cfg.custom_default_image !== null) {
+        customDefaultImage = cfg.custom_default_image === '是';
+        localStorage.setItem('custom_default_image', cfg.custom_default_image);
     }
     if (typeof window !== 'undefined' && window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('onelist:config-changed', { detail: cfg }));

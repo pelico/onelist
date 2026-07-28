@@ -55,6 +55,13 @@
                     </n-switch>
                     <span class="form-hint">开启后强制启用电视遥控器导航模式，适合 Android TV / 电视盒子等无触摸设备。也可在访问地址后加 ?tv=1 临时启用。</span>
                 </n-form-item>
+                <n-form-item label="自定义默认封面" path="custom_default_image">
+                    <n-switch :value="customDefaultImageBool" @update:value="onCustomDefaultImageChange" size="large">
+                        <template #checked>是</template>
+                        <template #unchecked>否</template>
+                    </n-switch>
+                    <span class="form-hint">开启后，未刮削海报的影片将使用 /config/picture 目录下的图片作为封面。将图片放入该目录，会均匀分配到各影片上。目录为空则使用内置默认图。</span>
+                </n-form-item>
                 <n-button size="large" class="btn-save" @click="Save()" type="info" :loading="saving">
                     保存
                 </n-button>
@@ -95,7 +102,8 @@ export default {
             "key_db": null,
             "faviconico_url": null,
             "video_types": null,
-            "log_retention_days": null
+            "log_retention_days": null,
+            "custom_default_image": null
         })
         const { proxy } = getCurrentInstance();
         const load = ref(true);
@@ -106,6 +114,7 @@ export default {
 
         const downloadImageBool = computed(() => config.value.download_image === "是");
         const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
+        const customDefaultImageBool = computed(() => config.value.custom_default_image === "是");
 
         const logRetentionDaysNum = computed({
             get: () => {
@@ -123,6 +132,10 @@ export default {
 
         function onDownloadImageToMediaChange(val) {
             config.value.download_image_to_media = val ? "是" : "否";
+        }
+
+        function onCustomDefaultImageChange(val) {
+            config.value.custom_default_image = val ? "是" : "否";
         }
 
         function onForceTvModeChange(val) {
@@ -168,6 +181,9 @@ export default {
                     if (config.value.img_url != null) {
                         localStorage.setItem("img_url", config.value.img_url);
                     }
+                    if (config.value.custom_default_image != null) {
+                        localStorage.setItem("custom_default_image", config.value.custom_default_image);
+                    }
                     // 热更新：直接更新内存配置并派发事件，无需 location.reload()
                     proxy.COMMON.applyConfig(config.value);
                     proxy.COMMON.ShowMsg("保存成功!")
@@ -211,9 +227,11 @@ export default {
             forceTvMode,
             downloadImageBool,
             downloadImageToMediaBool,
+            customDefaultImageBool,
             logRetentionDaysNum,
             onDownloadImageChange,
             onDownloadImageToMediaChange,
+            onCustomDefaultImageChange,
             onForceTvModeChange,
             saveF,
             cleanupLibrary

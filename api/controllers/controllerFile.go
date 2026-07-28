@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/msterzhang/onelist/api/utils/dir"
 	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/api/utils/tools"
+	"github.com/msterzhang/onelist/config"
 	"github.com/msterzhang/onelist/plugins/alist"
 )
 
@@ -151,7 +153,76 @@ func getLocalPlaylist(dirPath string) []string {
 	return videos
 }
 
-// getAlistPlaylist 获取 Alist 目录中的视频文件列表
+// 获取 picture 目录下的图片列表（带缓存）
+var cachedPictureImages []string
+
+func getPictureImages() []string {
+	if cachedPictureImages != nil {
+		return cachedPictureImages
+	}
+	pictureDir := filepath.Join("picture")
+	entries, err := os.ReadDir(pictureDir)
+	if err != nil {
+		cachedPictureImages = []string{}
+		return cachedPictureImages
+	}
+	var images []string
+	validExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".bmp": true, ".gif": true}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if validExts[ext] {
+			images = append(images, filepath.Join(pictureDir, entry.Name()))
+		}
+	}
+	sort.Strings(images)
+	cachedPictureImages = images
+	return images
+}
+
+// 自定义默认封面图片服务：基于 seed（影片 ID）均匀分配 picture 目录下的图片
+func CustomImgServer(c *gin.Context) {
+	// 未开启自定义封面时返回默认图
+	if config.CustomDefaultImage != "是" {
+		c.Redirect(http.StatusFound, "/images/not_video.jpg")
+		return
+	}
+
+	images := getPictureImages()
+	if len(images) == 0 {
+		// picture 目录为空，回退到默认图
+		c.Redirect(http.StatusFound, "/images/not_video.jpg")
+		return
+	}
+
+	// 基于 seed 取模选择图片，保证同一影片始终分到同一张图
+	seedStr := c.Param("seed")
+	seed := int64(0)
+	for _, ch := range seedStr {
+		seed = (seed*31 + int64(ch)) % int64(math.MaxInt64)
+		if seed < 0 {
+			seed = -seed
+		}
+	}
+	if seed < 0 {
+		seed = -seed
+	}
+	idx := int(seed % int64(len(images)))
+	imgPath := images[idx]
+
+	b, err := os.ReadFile(imgPath)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/images/not_video.jpg")
+		return
+	}
+	c.Header("Content-Type", "image/*")
+	c.Header("Cache-Control", "public, max-age=3600")
+	c.Writer.WriteHeader(200)
+	c.Writer.Write(b)
+	c.Writer.Flush()
+}
 func getAlistPlaylist(gallery models.Gallery, fileUrl string) []string {
 	// fileUrl 格式如 /d/电影/xxx.mp4，去掉 /d 前缀得到 alist 路径
 	alistPath := strings.TrimPrefix(fileUrl, "/d")
