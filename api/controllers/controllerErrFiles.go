@@ -298,7 +298,7 @@ func RefErrTheMovieById(c *gin.Context) {
 	url := themovieDb.Url
 	galleryUid := themovieDb.GalleryUid
 
-	// 先尝试创建新记录，成功后再删除旧记录
+	// 调用 TheMovieDb 刮削（ChunkTheMovie 会按 URL 查找并更新旧记录，保留原数据库自增 ID）
 	themovieNew, err := thedb.TheMovieDb(id, url, galleryUid)
 	if err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": err})
@@ -310,23 +310,29 @@ func RefErrTheMovieById(c *gin.Context) {
 		return
 	}
 
-	// 新记录创建成功，恢复用户状态
-	db.Model(&models.TheMovie{}).Where("id = ?", themovieNew.ID).Updates(map[string]interface{}{
-		"star":       star,
-		"heart":      heart,
-		"played":     played,
-		"created_at": createdAt,
-	})
+	// 查询实际的数据库记录（ChunkTheMovie 按 URL 更新后，ID 可能是旧 ID，不是 TMDB ID）
+	var actualMovie models.TheMovie
+	db.Model(&models.TheMovie{}).Where("url = ?", url).First(&actualMovie)
 
-	// 只有新旧 ID 不同时才删除旧记录并迁移关联数据
-	if id != oldId {
-		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
-		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
-		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovieNew.ID)
+	// 恢复用户状态到实际记录
+	if actualMovie.ID != 0 {
+		db.Model(&models.TheMovie{}).Where("id = ?", actualMovie.ID).Updates(map[string]interface{}{
+			"star":       star,
+			"heart":      heart,
+			"played":     played,
+			"created_at": createdAt,
+		})
+	}
+
+	// 只有当实际记录是新建的（ID 和 oldId 不同）时才迁移关联数据并删除旧记录
+	if actualMovie.ID != 0 && actualMovie.ID != uint(oldId) {
+		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", actualMovie.ID)
+		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", actualMovie.ID)
+		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", actualMovie.ID)
 		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&themovieDb)
 	}
 
-	c.JSON(200, gin.H{"code": 200, "msg": "刮削电影成功!", "data": themovieNew.ID})
+	c.JSON(200, gin.H{"code": 200, "msg": "刮削电影成功!", "data": actualMovie.ID})
 }
 
 // 根据提交的目录，themoviedb的id修复此电视剧
@@ -389,7 +395,7 @@ func RunRefTv(id int, oldId int, files []string, gallery models.Gallery) {
 	createdAt := thetvDb.CreatedAt
 	galleryUid := thetvDb.GalleryUid
 
-	// 先创建新记录
+	// 先创建新记录（ChunkTheTv 会按文件名查找并更新旧记录，保留原数据库自增 ID）
 	for _, file := range files {
 		_, err := thedb.TheTvDb(id, file, galleryUid)
 		if err != nil {
@@ -397,11 +403,11 @@ func RunRefTv(id int, oldId int, files []string, gallery models.Gallery) {
 		}
 	}
 
-	// 恢复用户状态到新记录
-	var newTv models.TheTv
-	err = db.Model(&models.TheTv{}).Where("id = ?", id).First(&newTv).Error
-	if err == nil {
-		db.Model(&models.TheTv{}).Where("id = ?", id).Updates(map[string]interface{}{
+	// 查询实际更新后的记录（ChunkTheTv 保留了旧 ID，用 oldId 查询）
+	var actualTv models.TheTv
+	err = db.Model(&models.TheTv{}).Where("id = ?", oldId).First(&actualTv).Error
+	if err == nil && actualTv.ID != 0 {
+		db.Model(&models.TheTv{}).Where("id = ?", actualTv.ID).Updates(map[string]interface{}{
 			"star":       star,
 			"heart":      heart,
 			"played":     played,
@@ -409,11 +415,11 @@ func RunRefTv(id int, oldId int, files []string, gallery models.Gallery) {
 		})
 	}
 
-	// 只有新旧 ID 不同时才删除旧记录并迁移关联数据
-	if id != oldId {
-		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
-		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
-		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", id)
+	// 只有当实际记录 ID 和 oldId 不同时才迁移关联数据并删除旧记录
+	if actualTv.ID != 0 && actualTv.ID != oldId {
+		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", actualTv.ID)
+		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", actualTv.ID)
+		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", oldId).Update("data_id", actualTv.ID)
 		db.Model(&models.TheTv{}).Where("id = ?", oldId).Delete(&thetvDb)
 	}
 }

@@ -175,6 +175,7 @@
                                     </n-button>
                                 </template>
                                 <n-auto-complete
+                                    ref="searchRef"
                                     v-model:value="q"
                                     :input-props="{ autocomplete: 'off' }"
                                     :options="searchOptions"
@@ -248,6 +249,16 @@ export default defineComponent({
         // 搜索建议
         const searchOptions = ref([]);
         let searchTimer = null;
+        const searchRef = ref(null);
+
+        // 搜索弹窗打开时自动聚焦输入框
+        watch(showSaerch, (val) => {
+            if (val) {
+                setTimeout(() => {
+                    searchRef.value?.focus?.();
+                }, 100);
+            }
+        });
 
         const them = proxy.$cookies.get("dark");
         const collapsedItem = proxy.$cookies.get("collapsed");
@@ -433,6 +444,7 @@ export default defineComponent({
             theme,
             data,
             showSaerch,
+            searchRef,
             searchOptions,
             onSearchSelect,
             q,
