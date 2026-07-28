@@ -935,9 +935,12 @@ export default {
                 errorRetryCount = 0;
             });
             // 首次播放时触发假全屏（始终绑定，不依赖 loading 状态）
+            // 优先监听 playing 事件，同时加无条件兜底，避免浏览器自动播放策略拦截导致事件不触发
             art.once('playing', () => {
                 fullscreenTimer = setTimeout(triggerTheaterMode, 500);
             });
+            // 兜底：不管 playing 是否触发，2 秒后都尝试进入假全屏
+            fullscreenTimer = setTimeout(triggerTheaterMode, 2000);
             bindPlaylistEnded();
         }
 
