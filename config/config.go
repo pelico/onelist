@@ -31,6 +31,7 @@ var (
 	UA                    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
 	IsDev                 = false
 	LogRetentionDays      = ""
+	CustomDefaultImage    = ""
 	Version               = "v1.0 @2026 Optimized by wanchuan"
 	db                    *gorm.DB
 )
@@ -83,6 +84,7 @@ func Load() {
 		TheMovieDbApiUrl = "https://api.themoviedb.org/3"
 	}
 	VideoTypes = os.Getenv("VideoTypes")
+	CustomDefaultImage = os.Getenv("CustomDefaultImage")
 }
 
 // 获取配置
@@ -97,6 +99,7 @@ func GetConfig() models.Config {
 		FaviconicoUrl:       FaviconicoUrl,
 		VideoTypes:          VideoTypes,
 		LogRetentionDays:    LogRetentionDays,
+		CustomDefaultImage:  CustomDefaultImage,
 	}
 	return config
 }
@@ -114,6 +117,7 @@ func SetConfig(config models.Config) {
 	FaviconicoUrl = config.FaviconicoUrl
 	VideoTypes = config.VideoTypes
 	LogRetentionDays = config.LogRetentionDays
+	CustomDefaultImage = config.CustomDefaultImage
 }
 
 // 保存配置
@@ -129,6 +133,7 @@ func SaveConfig(config models.Config) (models.Config, error) {
 			"KeyDb":                  config.KeyDb,
 			"VideoTypes":             config.VideoTypes,
 			"LogRetentionDays":       config.LogRetentionDays,
+			"CustomDefaultImage":     config.CustomDefaultImage,
 		}
 		for key, value := range settings {
 			setting := models.Setting{}
