@@ -64,6 +64,11 @@
                     该操作会扫描所有媒体库，删除文件已不存在的记录，并合并同名重复记录。可能需要一些时间，是否继续？
                 </n-popconfirm>
             </div>
+            <n-divider />
+            <div class="about-section">
+                <div class="about-title">关于</div>
+                <div class="about-version">{{ versionInfo }}</div>
+            </div>
         </div>
     </div>
 </template>
@@ -88,6 +93,7 @@ export default {
         const load = ref(true);
         const saving = ref(false);
         const cleaning = ref(false);
+        const versionInfo = ref("v1.0 @2026 Optimized by wanchuan");
 
         const downloadImageBool = computed(() => config.value.download_image === "是");
         const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
@@ -186,6 +192,7 @@ export default {
             load,
             saving,
             cleaning,
+            versionInfo,
             downloadImageBool,
             downloadImageToMediaBool,
             logRetentionDaysNum,
@@ -231,5 +238,21 @@ export default {
     font-size: 1.1em;
     font-weight: 500;
     margin-bottom: 12px;
+}
+
+.about-section {
+    max-width: 640px;
+    color: #999;
+}
+
+.about-title {
+    font-size: 1.1em;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: inherit;
+}
+
+.about-version {
+    font-size: 0.95em;
 }
 </style>

@@ -56,7 +56,7 @@ func Run() {
 	// 启动日志清理任务
 	logRetentionDays := logger.ParseRetentionDays(config.LogRetentionDays)
 	logger.StartLogCleaner(logRetentionDays)
-	logger.Info("system", "onelist 服务启动", "版本: "+config.Version)
+	logger.Info("system", "onelist 服务启动，Optimized by wanchuan.", "版本: "+config.Version)
 
 	// 恢复未完成的刮削任务
 	controllers.ResumePendingWorks()

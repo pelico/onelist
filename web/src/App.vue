@@ -98,45 +98,48 @@
                                     </div>
                                 </div>
                                 <div v-show="is_admin" class="sider-item">
-                                    <div class="sider-item-title">管理</div>
-                                    <div class="navigation">
-                                        <ul class="nav-links">
-                                            <li>
-                                                <router-link to="/gallerys">
-                                                    <span class="icon">
-                                                        <i class='bx bxs-grid'></i>
-                                                    </span>
-                                                    <span class="title">媒体中心</span>
-                                                </router-link>
-                                            </li>
-                                            <li>
-                                                <router-link to="/setting">
-                                                    <span class="icon">
-                                                        <i class='bx bx-cog'></i>
-                                                    </span>
-                                                    <span class="title">系统设置</span>
-                                                </router-link>
-                                            </li>
-                                            <li>
-                                                <router-link to="/logs">
-                                                    <span class="icon">
-                                                        <i class='bx bx-file-find'></i>
-                                                    </span>
-                                                    <span class="title">系统日志</span>
-                                                </router-link>
-                                            </li>
-                                            <li>
-                                                <router-link to="/users">
-                                                    <span class="icon">
-                                                        <i class='bx bx-user'></i>
-                                                    </span>
-                                                    <span class="title">用户管理</span>
-                                                </router-link>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </n-layout-sider>
+                            <div class="sider-item-title">管理</div>
+                            <div class="navigation">
+                                <ul class="nav-links">
+                                    <li>
+                                        <router-link to="/gallerys">
+                                            <span class="icon">
+                                                <i class='bx bxs-grid'></i>
+                                            </span>
+                                            <span class="title">媒体中心</span>
+                                        </router-link>
+                                    </li>
+                                    <li>
+                                        <router-link to="/setting">
+                                            <span class="icon">
+                                                <i class='bx bx-cog'></i>
+                                            </span>
+                                            <span class="title">系统设置</span>
+                                        </router-link>
+                                    </li>
+                                    <li>
+                                        <router-link to="/logs">
+                                            <span class="icon">
+                                                <i class='bx bx-file-find'></i>
+                                            </span>
+                                            <span class="title">系统日志</span>
+                                        </router-link>
+                                    </li>
+                                    <li>
+                                        <router-link to="/users">
+                                            <span class="icon">
+                                                <i class='bx bx-user'></i>
+                                            </span>
+                                            <span class="title">用户管理</span>
+                                        </router-link>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="desktop-footer">
+                            <div class="version-info">{{ versionInfo }}</div>
+                        </div>
+                    </n-layout-sider>
                             <n-layout :native-scrollbar="false">
                                 <router-view v-on:refApp="RefAppData()" />
                             </n-layout>
@@ -244,6 +247,7 @@ export default defineComponent({
         const showSaerch = ref(false);
         const title = ref(null);
         const q = ref(null);
+        const versionInfo = ref("v1.0 @2026 Optimized by wanchuan");
         const { proxy } = getCurrentInstance();
         title.value = proxy.COMMON.title;
         document.title = title.value;
@@ -437,6 +441,7 @@ export default defineComponent({
             dark,
             collapsed,
             title,
+            versionInfo,
             load,
             is_admin,
             showIcon,
@@ -718,6 +723,25 @@ span.n-avatar {
 
 .n-layout-footer {
     text-align: center;
+}
+
+.desktop-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    font-size: 12px;
+    color: #999;
+    text-align: center;
+    border-top: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.version-info {
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.dark .desktop-footer {
+    color: hsla(0, 0%, 100%, 0.45);
+    border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 /* 移动端底部导航栏 */

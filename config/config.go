@@ -31,7 +31,7 @@ var (
 	UA                    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
 	IsDev                 = false
 	LogRetentionDays      = ""
-	Version               = "1.0.0"
+	Version               = "v1.0 @2026 Optimized by wanchuan"
 	db                    *gorm.DB
 )
 
