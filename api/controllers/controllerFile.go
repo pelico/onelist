@@ -153,18 +153,12 @@ func getLocalPlaylist(dirPath string) []string {
 	return videos
 }
 
-// 获取 picture 目录下的图片列表（带缓存）
-var cachedPictureImages []string
-
+// 获取 picture 目录下的图片列表（每次请求实时扫描，确保新增图片立即可用）
 func getPictureImages() []string {
-	if cachedPictureImages != nil {
-		return cachedPictureImages
-	}
 	pictureDir := filepath.Join("picture")
 	entries, err := os.ReadDir(pictureDir)
 	if err != nil {
-		cachedPictureImages = []string{}
-		return cachedPictureImages
+		return []string{}
 	}
 	var images []string
 	validExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".bmp": true, ".gif": true}
@@ -178,7 +172,6 @@ func getPictureImages() []string {
 		}
 	}
 	sort.Strings(images)
-	cachedPictureImages = images
 	return images
 }
 
@@ -218,7 +211,8 @@ func CustomImgServer(c *gin.Context) {
 		return
 	}
 	c.Header("Content-Type", "image/*")
-	c.Header("Cache-Control", "public, max-age=3600")
+	// 不缓存，确保开关切换或图片更新后立即生效
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Writer.WriteHeader(200)
 	c.Writer.Write(b)
 	c.Writer.Flush()
