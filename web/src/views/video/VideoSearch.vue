@@ -4,16 +4,16 @@
     <div v-else class="content">
         <div class="seriesTab">
             <div class="seriesTab-list">
-                <div class="seriesTab-item">
+                <div class="seriesTab-item page-info">
                     {{ pageText }}
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="BackPage()" class="page-nav-btn">
+                    <n-button @click="BackPage()" color="#1890ff" text-color="#fff" class="page-nav-btn">
                         <i class='bx bx-left-arrow-alt'></i>
                     </n-button>
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="NextPage()" class="page-nav-btn">
+                    <n-button @click="NextPage()" color="#1890ff" text-color="#fff" class="page-nav-btn">
                         <i class='bx bx-right-arrow-alt'></i>
                     </n-button>
                 </div>
@@ -216,6 +216,12 @@ export default {
     gap: 10px;
 }
 
+.seriesTab-item.page-info {
+    font-size: 1.1em;
+    color: #1890ff !important;
+    font-weight: 500;
+}
+
 .sort-title {
     font-size: 1.2em;
     margin-top: 12px;
@@ -308,23 +314,12 @@ export default {
 
 .page-nav-btn {
     border-radius: 50%;
-    background-color: #1890ff;
-    color: #fff;
     border: none;
     width: 36px;
     height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.page-nav-btn:hover {
-    background-color: #40a9ff;
-}
-
-.page-nav-btn:disabled {
-    background-color: #91d5ff;
-    cursor: not-allowed;
 }
 
 @media (max-width: 767px) {

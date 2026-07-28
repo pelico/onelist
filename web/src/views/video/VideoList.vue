@@ -8,10 +8,10 @@
                     {{ pageText }}
                 </div>
                 <div class="seriesTab-item action-buttons">
-                    <n-button @click="BackPage()" size="medium" class="page-nav-btn">
+                    <n-button @click="BackPage()" size="medium" color="#1890ff" text-color="#fff" class="page-nav-btn">
                         <i class='bx bx-up-arrow-alt'></i>
                     </n-button>
-                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" size="medium" class="page-nav-btn">
+                    <n-button :loading="loadingMore" :disabled="!hasMore" @click="NextPage()" size="medium" color="#1890ff" text-color="#fff" class="page-nav-btn">
                         <i class='bx bx-down-arrow-alt'></i>
                     </n-button>
                     <n-button @click="showSort = !showSort" type="primary" size="medium" class="oval-btn">
@@ -536,7 +536,7 @@ export default {
 
 .seriesTab-item.page-info {
     font-size: 1.1em;
-    color: #fff;
+    color: #1890ff !important;
     font-weight: 500;
 }
 
@@ -559,23 +559,12 @@ export default {
 
 .page-nav-btn {
     border-radius: 50%;
-    background-color: #1890ff;
-    color: #fff;
     border: none;
     width: 36px;
     height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.page-nav-btn:hover {
-    background-color: #40a9ff;
-}
-
-.page-nav-btn:disabled {
-    background-color: #91d5ff;
-    cursor: not-allowed;
 }
 
 .sort-title {

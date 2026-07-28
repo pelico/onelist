@@ -15,16 +15,16 @@
         </div>
         <div class="seriesTab">
             <div class="seriesTab-list">
-                <div class="seriesTab-item">
+                <div class="seriesTab-item page-info">
                     {{ pageText }}
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="BackPage()" strong secondary circle>
+                    <n-button @click="BackPage()" color="#1890ff" text-color="#fff" circle>
                         <i class='bx bx-left-arrow-alt'></i>
                     </n-button>
                 </div>
                 <div class="seriesTab-item">
-                    <n-button @click="NextPage()" strong secondary circle>
+                    <n-button @click="NextPage()" color="#1890ff" text-color="#fff" circle>
                         <i class='bx bx-right-arrow-alt'></i>
                     </n-button>
                 </div>
@@ -265,6 +265,12 @@ export default {
     justify-content: center;
     align-items: center;
     gap: 10px;
+}
+
+.seriesTab-item.page-info {
+    font-size: 1.1em;
+    color: #1890ff !important;
+    font-weight: 500;
 }
 
 .sort-title {
