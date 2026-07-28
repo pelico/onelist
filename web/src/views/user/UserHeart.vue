@@ -70,8 +70,9 @@
 </template>
 
 <script>
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, nextTick, onMounted, ref } from "vue";
 import { onBeforeRouteUpdate } from 'vue-router';
+import { tvNavigation } from '../../plugins/tvNavigation';
 
 export default {
     name: "UserHeart",
@@ -98,6 +99,27 @@ export default {
             pageText.value = num.value + " 的 " + (page.value - 1) * size.value + "-" + ((page.value - 1) * size.value + si);
         }
 
+        function setupTvNavigation() {
+            nextTick(() => {
+                const items = [];
+                document.querySelectorAll('.type-tabs .tab-item').forEach(el => {
+                    el.setAttribute('tabindex', '0');
+                    items.push(el);
+                });
+                document.querySelectorAll('.seriesTab-item .n-button').forEach(el => {
+                    el.setAttribute('tabindex', '0');
+                    items.push(el);
+                });
+                document.querySelectorAll('.view-card-list .view-item a').forEach(el => {
+                    el.setAttribute('tabindex', '0');
+                    items.push(el);
+                });
+                if (items.length > 0) {
+                    tvNavigation.registerGroup('userHeart', items, { vertical: false, wrap: false });
+                }
+            });
+        }
+
         function fetchData() {
             loading.value = true;
             let api = proxy.COMMON.apiUrl + `/v1/api/heart/data/list?data_type=${data_type.value}&page=${page.value}&size=${size.value}`;
@@ -112,6 +134,7 @@ export default {
                     num.value = res.data.num || 0;
                     loading.value = false;
                     initPageText();
+                    if (tvNavigation.isTvMode) setupTvNavigation();
                 } else {
                     loading.value = false;
                     data.value = [];
