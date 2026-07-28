@@ -14,30 +14,53 @@ import (
 	"gorm.io/gorm"
 )
 
-// CleanupLibrary 一键清理：清除孤儿记录（文件已不存在）+ 重复记录（同名只留最新）
+// CleanupLibrary 一键清理：清除失效记录（文件已不存在）+ 重复记录（同名只留最新）
 func CleanupLibrary(c *gin.Context) {
 	db := database.NewDb()
 
 	var galleries []models.Gallery
 	db.Find(&galleries)
 
+	validGalleryUids := make([]string, 0, len(galleries))
+	for _, g := range galleries {
+		validGalleryUids = append(validGalleryUids, g.GalleryUid)
+	}
+
 	orphanCount := 0
 	dupCount := 0
 
-	for _, gallery := range galleries {
-		// 获取该媒体库所有 Work 路径下的当前文件列表
-		fileSet := buildFileSet(db, gallery)
+	// ---------- 第 0 步：清理 gallery_uid 不属于任何现存媒体库的记录 ----------
+	var danglingMovies []models.TheMovie
+	db.Where("gallery_uid NOT IN (?)", validGalleryUids).Find(&danglingMovies)
+	for _, m := range danglingMovies {
+		deleteMovieAndRelations(db, m.ID)
+		orphanCount++
+		logger.Info("cleanup", "清理无归属失效电影", "标题: "+m.Title+", gallery_uid: "+m.GalleryUid)
+	}
 
+	var danglingTvs []models.TheTv
+	db.Where("gallery_uid NOT IN (?)", validGalleryUids).Find(&danglingTvs)
+	for _, tv := range danglingTvs {
+		deleteTvAndRelations(db, tv.ID)
+		orphanCount++
+		logger.Info("cleanup", "清理无归属失效剧集", "名称: "+tv.Name+", gallery_uid: "+tv.GalleryUid)
+	}
+
+	// ---------- 第 1/2 步：针对现存媒体库内部的文件缺失 + 同库内重复 ----------
+	for _, gallery := range galleries {
+		fileSet := buildFileSet(db, gallery)
 		if gallery.GalleryType == "movie" {
 			orphanCount += cleanupOrphanMovies(db, gallery, fileSet)
-			dupCount += dedupMovies(db, gallery)
 		} else {
 			orphanCount += cleanupOrphanTvs(db, gallery, fileSet)
-			dupCount += dedupTvs(db, gallery)
 		}
 	}
 
-	msg := fmt.Sprintf("清理完成：孤儿记录 %d 条，重复记录 %d 条", orphanCount, dupCount)
+	// ---------- 第 3 步：全局去重 ----------
+	dupCount += dedupMoviesGlobal(db)
+	dupCount += dedupTvsGlobal(db)
+
+	msg := fmt.Sprintf("清理完成：失效记录 %d 条，重复记录 %d 条", orphanCount, dupCount)
 	logger.Info("cleanup", "一键清理", msg)
 	c.JSON(200, gin.H{"code": 200, "msg": msg, "data": ""})
 }
@@ -79,7 +102,7 @@ func buildFileSet(db *gorm.DB, gallery models.Gallery) map[string]bool {
 	return fileSet
 }
 
-// cleanupOrphanMovies 清理电影孤儿记录（文件已不存在）
+// cleanupOrphanMovies 清理电影失效记录（文件已不存在）
 func cleanupOrphanMovies(db *gorm.DB, gallery models.Gallery, fileSet map[string]bool) int {
 	var movies []models.TheMovie
 	db.Where("gallery_uid = ?", gallery.GalleryUid).Find(&movies)
@@ -98,13 +121,13 @@ func cleanupOrphanMovies(db *gorm.DB, gallery models.Gallery, fileSet map[string
 			}
 			deleteMovieAndRelations(db, m.ID)
 			deleted++
-			logger.Info("cleanup", "清理孤儿电影记录", "标题: "+m.Title+", url: "+m.Url)
+			logger.Info("cleanup", "清理失效电影记录", "标题: "+m.Title+", url: "+m.Url)
 		}
 	}
 	return deleted
 }
 
-// cleanupOrphanTvs 清理剧集孤儿记录
+// cleanupOrphanTvs 清理剧集失效记录
 func cleanupOrphanTvs(db *gorm.DB, gallery models.Gallery, fileSet map[string]bool) int {
 	deleted := 0
 
@@ -137,16 +160,16 @@ func cleanupOrphanTvs(db *gorm.DB, gallery models.Gallery, fileSet map[string]bo
 		if epCount == 0 {
 			deleteTvAndRelations(db, tv.ID)
 			deleted++
-			logger.Info("cleanup", "清理孤儿剧集记录", "名称: "+tv.Name)
+			logger.Info("cleanup", "清理失效剧集记录", "名称: "+tv.Name)
 		}
 	}
 	return deleted
 }
 
-// dedupMovies 电影去重：同 title 只留 updated_at 最新的一条
-func dedupMovies(db *gorm.DB, gallery models.Gallery) int {
+// dedupMoviesGlobal 电影全局去重：同 title 只留 updated_at 最新的一条
+func dedupMoviesGlobal(db *gorm.DB) int {
 	var movies []models.TheMovie
-	db.Where("gallery_uid = ?", gallery.GalleryUid).Order("updated_at desc").Find(&movies)
+	db.Order("updated_at desc").Find(&movies)
 
 	seen := make(map[string]bool)
 	deleted := 0
@@ -166,10 +189,10 @@ func dedupMovies(db *gorm.DB, gallery models.Gallery) int {
 	return deleted
 }
 
-// dedupTvs 剧集去重：同 name 只留 updated_at 最新的一条
-func dedupTvs(db *gorm.DB, gallery models.Gallery) int {
+// dedupTvsGlobal 剧集全局去重：同 name 只留 updated_at 最新的一条
+func dedupTvsGlobal(db *gorm.DB) int {
 	var tvs []models.TheTv
-	db.Where("gallery_uid = ?", gallery.GalleryUid).Order("updated_at desc").Find(&tvs)
+	db.Order("updated_at desc").Find(&tvs)
 
 	seen := make(map[string]bool)
 	deleted := 0
