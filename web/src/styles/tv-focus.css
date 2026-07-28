@@ -8,12 +8,15 @@
   position: fixed;
   pointer-events: none;
   z-index: 99999;
-  border: 3px solid #23ade5;
-  border-radius: 8px;
-  box-shadow: 0 0 0 2px rgba(35, 173, 229, 0.3),
-              0 0 20px rgba(35, 173, 229, 0.4),
-              inset 0 0 20px rgba(35, 173, 229, 0.1);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 4px solid #23ade5;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 4px rgba(35, 173, 229, 0.25),
+    0 0 24px rgba(35, 173, 229, 0.55),
+    0 0 48px rgba(35, 173, 229, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  background: rgba(35, 173, 229, 0.08);
+  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
   display: none;
 }
 
@@ -32,9 +35,12 @@
 /* 深色主题焦点 */
 .dark.tv-mode .tv-focus-indicator {
   border-color: #63e2b7;
-  box-shadow: 0 0 0 2px rgba(99, 226, 183, 0.3),
-              0 0 20px rgba(99, 226, 183, 0.4),
-              inset 0 0 20px rgba(99, 226, 183, 0.1);
+  box-shadow:
+    0 0 0 4px rgba(99, 226, 183, 0.25),
+    0 0 24px rgba(99, 226, 183, 0.55),
+    0 0 48px rgba(99, 226, 183, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  background: rgba(99, 226, 183, 0.08);
 }
 
 /* 侧边栏导航焦点 */
@@ -153,26 +159,32 @@
 /* 动画效果 */
 @keyframes tvFocusPulse {
   0%, 100% {
-    box-shadow: 0 0 0 2px rgba(35, 173, 229, 0.3),
-                0 0 20px rgba(35, 173, 229, 0.4);
+    box-shadow:
+      0 0 0 4px rgba(35, 173, 229, 0.25),
+      0 0 24px rgba(35, 173, 229, 0.55),
+      0 0 48px rgba(35, 173, 229, 0.35),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(35, 173, 229, 0.4),
-                0 0 30px rgba(35, 173, 229, 0.5);
+    box-shadow:
+      0 0 0 6px rgba(35, 173, 229, 0.35),
+      0 0 36px rgba(35, 173, 229, 0.7),
+      0 0 64px rgba(35, 173, 229, 0.45),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   }
 }
 
-.tv-mode .tv-focus-visible {
+.tv-mode .tv-focus-indicator {
   animation: tvFocusPulse 2s ease-in-out infinite;
 }
 
 /* 大屏幕优化 */
 @media (min-width: 1920px) {
   .tv-mode .tv-focus-indicator {
-    border-width: 4px;
-    border-radius: 12px;
+    border-width: 5px;
+    border-radius: 14px;
   }
-  
+
   .tv-mode .tv-focus-visible {
     transform: scale(1.03);
   }
@@ -181,8 +193,8 @@
 /* 小屏幕/移动端电视 */
 @media (max-width: 1280px) {
   .tv-mode .tv-focus-indicator {
-    border-width: 2px;
-    border-radius: 6px;
+    border-width: 3px;
+    border-radius: 8px;
   }
 }
 

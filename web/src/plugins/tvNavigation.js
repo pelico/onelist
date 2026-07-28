@@ -1,20 +1,18 @@
 /**
- * 电视遥控器导航插件
- * 支持 Android TV / 智能电视遥控器操作
- * 
+ * 电视遥控器导航插件 (Spatial Navigation 版)
+ * 支持 Android TV / 智能电视 / 遥控器 / 键盘方向键操作
+ *
  * 按键映射:
  * - ArrowUp/ArrowDown/ArrowLeft/ArrowRight: 方向导航
- * - Enter/Space: 确认/播放暂停
- * - Escape/Backspace: 返回/退出
+ * - Enter/Space: 确认
+ * - Escape/Backspace: 返回/关闭弹窗
  * - MediaPlayPause/MediaPlay/MediaPause: 媒体控制
  */
 
 class TvNavigation {
   constructor() {
-    this.focusableElements = [];
-    this.currentFocusIndex = -1;
-    this.currentGroup = 'default';
-    this.groups = {};
+    this.focusables = [];
+    this.currentFocus = null;
     this.isTvMode = false;
     this.listeners = new Map();
     this.history = [];
@@ -25,7 +23,6 @@ class TvNavigation {
       scrollBehavior: 'smooth',
       scrollBlock: 'center',
       autoFocus: true,
-      wrapAround: false,
       soundEnabled: false
     };
     this.playerInstance = null;
@@ -42,70 +39,129 @@ class TvNavigation {
       nextEpisode: null,
       prevEpisode: null
     };
+    this._indicator = null;
+    this._resizeTimer = null;
+    this._lastDirection = null;
+    this._mutationObserver = null;
+
+    // 绑定 this
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleFocus = this.handleFocus.bind(this);
+    this.handleResize = this.handleResize.bind(this);
+    this.refresh = this.refresh.bind(this);
   }
 
-  // 检测是否为电视环境
+  // 检测是否为电视环境，URL ?tv=1 会自动持久化到 localStorage
   detectTvMode() {
     const ua = navigator.userAgent.toLowerCase();
     const isTv = /tv|smart-tv|smarttv|googletv|appletv|hbbtv|netcast|viera|nettv|roku|firetv|fire-tv|aft|aftb|aftt|aftm|aftd|android tv/i.test(ua);
     const isAndroid = /android/i.test(ua) && !/mobile/i.test(ua);
     const isLargeScreen = window.screen.width >= 1280 && window.screen.height >= 720;
-    const hasTouch = 'ontouchstart' in window;
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-    // URL 参数强制开启，例如 http://ip:port/?tv=1
     const urlParams = new URLSearchParams(window.location.search);
     const forceTvFromUrl = urlParams.get('tv') === '1' || urlParams.get('tv') === 'true';
 
-    // localStorage 持久化开关
-    const forceTvFromStorage = localStorage.getItem('forceTvMode') === 'true';
+    // URL 参数开启时，自动持久化，避免跳转后丢失
+    if (forceTvFromUrl) {
+      try { localStorage.setItem('forceTvMode', 'true'); } catch (e) {}
+    }
+
+    const forceTvFromStorage = (() => {
+      try { return localStorage.getItem('forceTvMode') === 'true'; } catch (e) { return false; }
+    })();
 
     this.isTvMode = forceTvFromUrl || forceTvFromStorage || isTv || (isAndroid && isLargeScreen && !hasTouch);
     return this.isTvMode;
+  }
+
+  // 切换 TV 模式（供设置页调用）
+  setTvMode(enabled) {
+    this.isTvMode = !!enabled;
+    try { localStorage.setItem('forceTvMode', this.isTvMode ? 'true' : 'false'); } catch (e) {}
+
+    if (this.isTvMode) {
+      document.body.classList.add('tv-mode');
+      this.refresh();
+      const first = this.getFirstFocusable();
+      if (first) this.setFocus(first);
+    } else {
+      document.body.classList.remove('tv-mode');
+      this.clearFocus();
+    }
+    return this;
   }
 
   // 初始化
   init(config = {}) {
     this.config = { ...this.config, ...config };
     this.detectTvMode();
-    
+
     if (this.isTvMode) {
       document.body.classList.add('tv-mode');
     }
-    
+
     this.bindGlobalEvents();
     this.createFocusIndicator();
-    
+    this.startMutationObserver();
+
+    if (this.isTvMode) {
+      // 页面加载后自动聚焦第一个可聚焦元素
+      setTimeout(() => {
+        this.refresh();
+        const first = this.getFirstFocusable();
+        if (first && !this.currentFocus) this.setFocus(first);
+      }, 300);
+    }
+
     console.log('[TvNavigation] Initialized, TV mode:', this.isTvMode);
     return this;
   }
 
   // 绑定全局键盘事件
   bindGlobalEvents() {
-    document.addEventListener('keydown', this.handleKeyDown.bind(this));
-    
-    // 监听焦点变化
-    document.addEventListener('focus', (e) => {
-      if (this.isFocusable(e.target)) {
-        this.updateFocusState(e.target);
-      }
-    }, true);
+    document.addEventListener('keydown', this.handleKeyDown, true);
+    document.addEventListener('focus', this.handleFocus, true);
+    window.addEventListener('resize', this.handleResize);
+    window.addEventListener('scroll', this.refresh, true);
   }
 
   // 创建焦点指示器
   createFocusIndicator() {
     if (document.getElementById('tv-focus-indicator')) return;
-    
+
     const indicator = document.createElement('div');
     indicator.id = 'tv-focus-indicator';
     indicator.className = 'tv-focus-indicator';
     indicator.setAttribute('aria-hidden', 'true');
     document.body.appendChild(indicator);
+    this._indicator = indicator;
+  }
+
+  // 监听 DOM 变化，自动刷新焦点列表
+  startMutationObserver() {
+    if (this._mutationObserver || typeof MutationObserver === 'undefined') return;
+
+    this._mutationObserver = new MutationObserver((mutations) => {
+      // DOM 变化较大时延迟刷新，避免频繁扫描
+      clearTimeout(this._mutationTimer);
+      this._mutationTimer = setTimeout(() => {
+        this.refresh();
+      }, 150);
+    });
+
+    this._mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'hidden', 'disabled']
+    });
   }
 
   // 键盘事件处理
   handleKeyDown(e) {
     if (!this.isTvMode && !this.config.forceTvMode) return;
-    
+
     const key = e.key;
     const handlers = {
       'ArrowUp': () => this.navigate('up'),
@@ -131,206 +187,208 @@ class TvNavigation {
       e.preventDefault();
       e.stopPropagation();
       handlers[key]();
-      this.emit('navigate', { key, action: handlers[key].name });
+      this.emit('navigate', { key });
     }
   }
 
-  // 注册焦点元素组
+  // 焦点变化处理
+  handleFocus(e) {
+    if (!this.isTvMode) return;
+    if (this.isFocusable(e.target)) {
+      this.setFocus(e.target, false);
+    }
+  }
+
+  // 窗口大小变化处理
+  handleResize() {
+    clearTimeout(this._resizeTimer);
+    this._resizeTimer = setTimeout(() => {
+      this.refresh();
+      if (this.currentFocus) this.updateFocusIndicator(this.currentFocus);
+    }, 100);
+  }
+
+  // 注册焦点元素组（兼容旧 API，元素会被纳入全局导航）
   registerGroup(name, elements, options = {}) {
-    this.groups[name] = {
-      elements: Array.isArray(elements) ? elements : [elements],
-      options: {
-        vertical: false,
-        wrap: false,
-        cols: 0, // 网格列数，0 表示自动检测
-        ...options
-      }
-    };
-    
-    // 为元素添加焦点属性
-    this.groups[name].elements.forEach((el, index) => {
-      if (el) {
-        el.setAttribute('data-tv-group', name);
-        el.setAttribute('data-tv-index', index);
-        el.setAttribute('tabindex', '0');
-      }
+    const arr = Array.isArray(elements) ? elements.filter(Boolean) : [elements].filter(Boolean);
+    arr.forEach((el, index) => {
+      el.setAttribute('data-tv-group', name);
+      el.setAttribute('data-tv-index', index);
+      el.setAttribute('tabindex', '0');
     });
-    
+    this.refresh();
     return this;
   }
 
   // 取消注册焦点组
   unregisterGroup(name) {
-    if (this.groups[name]) {
-      this.groups[name].elements.forEach(el => {
-        if (el) {
-          el.removeAttribute('data-tv-group');
-          el.removeAttribute('data-tv-index');
-        }
-      });
-      delete this.groups[name];
-    }
+    this.focusables.forEach(el => {
+      if (el.getAttribute('data-tv-group') === name) {
+        el.removeAttribute('data-tv-group');
+        el.removeAttribute('data-tv-index');
+      }
+    });
+    this.refresh();
     return this;
   }
 
-  // 更新焦点组元素
-  updateGroup(name, elements) {
-    if (this.groups[name]) {
-      this.unregisterGroup(name);
-    }
-    return this.registerGroup(name, elements, this.groups[name]?.options || {});
-  }
-
-  // 设置当前焦点组
+  // 设置当前焦点组（兼容旧 API）
   setCurrentGroup(name) {
-    if (this.groups[name]) {
-      this.currentGroup = name;
-      const group = this.groups[name];
-      
-      if (group.elements.length > 0) {
-        const startIndex = this.findFirstFocusable(group.elements);
-        this.setFocus(group.elements[startIndex]);
-      }
-    }
+    const el = this.focusables.find(el => el.getAttribute('data-tv-group') === name);
+    if (el) this.setFocus(el);
     return this;
   }
 
-  // 查找第一个可聚焦元素
-  findFirstFocusable(elements) {
-    for (let i = 0; i < elements.length; i++) {
-      if (this.isFocusable(elements[i])) {
-        return i;
+  // 刷新可聚焦元素列表
+  refresh() {
+    this.focusables = this.scanFocusables();
+    return this;
+  }
+
+  // 扫描页面上所有可聚焦元素
+  scanFocusables() {
+    const candidates = document.querySelectorAll(
+      'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
+    );
+
+    const list = [];
+    candidates.forEach(el => {
+      if (this.isFocusable(el)) {
+        list.push(el);
       }
-    }
-    return 0;
+    });
+
+    // 按 DOM 位置排序，作为兜底
+    list.sort((a, b) => {
+      const pos = a.compareDocumentPosition(b);
+      return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
+
+    return list;
   }
 
   // 检查元素是否可聚焦
   isFocusable(el) {
-    if (!el) return false;
+    if (!el || el === document.body) return false;
+
     const style = window.getComputedStyle(el);
-    return style.display !== 'none' && 
-           style.visibility !== 'hidden' && 
-           !el.disabled &&
-           el.offsetParent !== null;
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    if (el.disabled) return false;
+    if (el.offsetParent === null && style.position !== 'fixed') return false;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return false;
+
+    return true;
   }
 
-  // 方向导航
+  // 获取第一个可聚焦元素
+  getFirstFocusable() {
+    return this.focusables[0] || null;
+  }
+
+  // 方向导航（Spatial Navigation）
   navigate(direction) {
-    const group = this.groups[this.currentGroup];
-    if (!group || group.elements.length === 0) return;
+    this.refresh();
 
-    const currentIndex = this.currentFocusIndex >= 0 ? this.currentFocusIndex : 0;
-    const { vertical, wrap, cols } = group.options;
-    
-    let nextIndex = currentIndex;
-    const elements = group.elements.filter(el => this.isFocusable(el));
-    const count = elements.length;
-    
-    // 自动检测列数
-    const actualCols = cols || this.detectGridCols(elements);
-    
-    if (actualCols > 1) {
-      // 网格导航
-      nextIndex = this.navigateGrid(currentIndex, direction, count, actualCols, wrap);
-    } else if (vertical) {
-      // 垂直列表导航
-      nextIndex = this.navigateList(currentIndex, direction, count, wrap, true);
-    } else {
-      // 水平列表导航
-      nextIndex = this.navigateList(currentIndex, direction, count, wrap, false);
+    const focusables = this.focusables.filter(el => this.isFocusable(el));
+    if (focusables.length === 0) return;
+
+    let current = this.currentFocus;
+    if (!current || !this.isFocusable(current) || !focusables.includes(current)) {
+      current = this.getFirstFocusable();
+      if (current) {
+        this.setFocus(current);
+      }
+      return;
     }
-    
-    if (nextIndex !== currentIndex && nextIndex >= 0 && nextIndex < count) {
-      this.setFocus(elements[nextIndex]);
-      this.currentFocusIndex = nextIndex;
+
+    const next = this.findNearestInDirection(current, direction, focusables);
+    if (next && next !== current) {
+      this.setFocus(next);
     }
   }
 
-  // 检测网格列数
-  detectGridCols(elements) {
-    if (elements.length < 2) return 1;
-    
-    const firstTop = elements[0].getBoundingClientRect().top;
-    for (let i = 1; i < elements.length; i++) {
-      if (Math.abs(elements[i].getBoundingClientRect().top - firstTop) > 10) {
-        return i;
-      }
-    }
-    return elements.length;
-  }
+  // 找到指定方向上最近的元素
+  findNearestInDirection(current, direction, candidates) {
+    const currentRect = current.getBoundingClientRect();
+    const currentCenter = {
+      x: currentRect.left + currentRect.width / 2,
+      y: currentRect.top + currentRect.height / 2
+    };
 
-  // 列表导航
-  navigateList(current, direction, count, wrap, vertical) {
-    const isForward = vertical ? direction === 'down' : direction === 'right';
-    const isBackward = vertical ? direction === 'up' : direction === 'left';
-    
-    if (isForward) {
-      if (current < count - 1) {
-        return current + 1;
-      } else if (wrap) {
-        return 0;
-      }
-    } else if (isBackward) {
-      if (current > 0) {
-        return current - 1;
-      } else if (wrap) {
-        return count - 1;
-      }
-    }
-    
-    return current;
-  }
+    let best = null;
+    let bestWeight = Infinity;
 
-  // 网格导航
-  navigateGrid(current, direction, count, cols, wrap) {
-    const row = Math.floor(current / cols);
-    const col = current % cols;
-    const rows = Math.ceil(count / cols);
-    
-    let newRow = row;
-    let newCol = col;
-    
-    switch (direction) {
-      case 'up':
-        newRow = row > 0 ? row - 1 : (wrap ? rows - 1 : 0);
-        break;
-      case 'down':
-        newRow = row < rows - 1 ? row + 1 : (wrap ? 0 : row);
-        break;
-      case 'left':
-        newCol = col > 0 ? col - 1 : (wrap ? cols - 1 : 0);
-        break;
-      case 'right':
-        newCol = col < cols - 1 ? col + 1 : (wrap ? 0 : col);
-        break;
-    }
-    
-    let nextIndex = newRow * cols + newCol;
-    
-    // 处理最后一行元素不足的情况
-    if (nextIndex >= count) {
-      nextIndex = count - 1;
-    }
-    
-    return nextIndex;
+    const directionAngles = {
+      right: 0,
+      left: Math.PI,
+      down: Math.PI / 2,
+      up: -Math.PI / 2
+    };
+    const targetAngle = directionAngles[direction];
+
+    candidates.forEach(el => {
+      if (el === current) return;
+
+      const rect = el.getBoundingClientRect();
+      const center = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+
+      const dx = center.x - currentCenter.x;
+      const dy = center.y - currentCenter.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < 2) return;
+
+      // 方向过滤：只考虑目标方向半平面内的元素
+      const threshold = 4;
+      switch (direction) {
+        case 'right':
+          if (center.x <= currentRect.right - threshold) return;
+          break;
+        case 'left':
+          if (center.x >= currentRect.left + threshold) return;
+          break;
+        case 'down':
+          if (center.y <= currentRect.bottom - threshold) return;
+          break;
+        case 'up':
+          if (center.y >= currentRect.top + threshold) return;
+          break;
+      }
+
+      // 计算角度差
+      const angle = Math.atan2(dy, dx);
+      let angleDiff = Math.abs(angle - targetAngle);
+      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+      // 偏离主方向太大的元素给予重罚
+      if (angleDiff > Math.PI / 3) return;
+
+      // 权重：距离 + 角度惩罚，角度惩罚随距离放大
+      const weight = distance + angleDiff * distance * 2;
+
+      if (weight < bestWeight) {
+        bestWeight = weight;
+        best = el;
+      }
+    });
+
+    return best;
   }
 
   // 设置焦点
   setFocus(element, scroll = true) {
-    if (!element) return;
-    
-    // 移除之前的焦点
-    const prevFocused = document.querySelector('.' + this.config.focusVisibleClass);
-    if (prevFocused) {
-      prevFocused.classList.remove(this.config.focusVisibleClass);
-    }
-    
-    // 设置新焦点
+    if (!element || !this.isFocusable(element)) return;
+
+    this.clearFocus();
+
+    this.currentFocus = element;
     element.classList.add(this.config.focusVisibleClass);
     element.focus({ preventScroll: true });
-    
-    // 滚动到可见区域
+
     if (scroll && this.config.scrollIntoView) {
       element.scrollIntoView({
         behavior: this.config.scrollBehavior,
@@ -338,50 +396,43 @@ class TvNavigation {
         inline: 'center'
       });
     }
-    
-    // 更新焦点指示器位置
+
     this.updateFocusIndicator(element);
-    
-    // 发送事件
-    this.emit('focus', { element, index: this.currentFocusIndex });
+    this.emit('focus', { element });
+  }
+
+  // 清除焦点
+  clearFocus() {
+    const prev = document.querySelector('.' + this.config.focusVisibleClass);
+    if (prev) {
+      prev.classList.remove(this.config.focusVisibleClass);
+    }
+    this.currentFocus = null;
   }
 
   // 更新焦点指示器
   updateFocusIndicator(element) {
-    const indicator = document.getElementById('tv-focus-indicator');
-    if (!indicator || !element) return;
-    
+    if (!this._indicator || !element) return;
+    if (!this.isTvMode) {
+      this._indicator.style.display = 'none';
+      return;
+    }
+
     const rect = element.getBoundingClientRect();
     const padding = 4;
-    
-    indicator.style.display = 'block';
-    indicator.style.left = (rect.left - padding) + 'px';
-    indicator.style.top = (rect.top - padding) + 'px';
-    indicator.style.width = (rect.width + padding * 2) + 'px';
-    indicator.style.height = (rect.height + padding * 2) + 'px';
-  }
 
-  // 更新焦点状态
-  updateFocusState(element) {
-    const group = element.getAttribute('data-tv-group');
-    const index = parseInt(element.getAttribute('data-tv-index'), 10);
-    
-    if (group && !isNaN(index)) {
-      this.currentGroup = group;
-      this.currentFocusIndex = index;
-    }
-    
-    this.updateFocusIndicator(element);
+    this._indicator.style.display = 'block';
+    this._indicator.style.left = (rect.left - padding) + 'px';
+    this._indicator.style.top = (rect.top - padding) + 'px';
+    this._indicator.style.width = (rect.width + padding * 2) + 'px';
+    this._indicator.style.height = (rect.height + padding * 2) + 'px';
   }
 
   // 确认/选择
   confirm(e) {
-    const focused = document.activeElement;
+    const focused = this.currentFocus || document.activeElement;
     if (focused && focused !== document.body) {
-      // 触发点击事件
       focused.click();
-      
-      // 如果是播放按钮，调用播放器控制
       if (focused.getAttribute('data-action') === 'play') {
         this.togglePlay();
       }
@@ -399,22 +450,20 @@ class TvNavigation {
         return;
       }
     }
-    
-    // 检查播放器是否全屏
+
     if (document.fullscreenElement) {
       document.exitFullscreen();
       return;
     }
-    
-    // 调用路由返回
+
     if (window.history.length > 1) {
       window.history.back();
     }
-    
+
     this.emit('back');
   }
 
-  // 播放器控制
+  // 播放器控制（保持原有 API）
   setPlayerInstance(player) {
     this.playerInstance = player;
     return this;
@@ -537,9 +586,7 @@ class TvNavigation {
     if (this.listeners.has(event)) {
       const callbacks = this.listeners.get(event);
       const index = callbacks.indexOf(callback);
-      if (index > -1) {
-        callbacks.splice(index, 1);
-      }
+      if (index > -1) callbacks.splice(index, 1);
     }
     return this;
   }
@@ -553,13 +600,21 @@ class TvNavigation {
 
   // 销毁
   destroy() {
-    document.removeEventListener('keydown', this.handleKeyDown);
-    this.listeners.clear();
-    
-    const indicator = document.getElementById('tv-focus-indicator');
-    if (indicator) {
-      indicator.remove();
+    document.removeEventListener('keydown', this.handleKeyDown, true);
+    document.removeEventListener('focus', this.handleFocus, true);
+    window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('scroll', this.refresh, true);
+
+    if (this._mutationObserver) {
+      this._mutationObserver.disconnect();
+      this._mutationObserver = null;
     }
+
+    this.listeners.clear();
+    this.clearFocus();
+
+    const indicator = document.getElementById('tv-focus-indicator');
+    if (indicator) indicator.remove();
   }
 }
 
@@ -570,11 +625,7 @@ export const tvNavigation = new TvNavigation();
 export default {
   install(app, options = {}) {
     tvNavigation.init(options);
-    
-    // 提供全局属性
     app.config.globalProperties.$tvNavigation = tvNavigation;
-    
-    // 提供全局方法
     app.provide('tvNavigation', tvNavigation);
   }
 };

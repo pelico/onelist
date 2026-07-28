@@ -82,6 +82,7 @@
 
 <script>
 import { computed, getCurrentInstance, onMounted, ref } from "vue";
+import { tvNavigation } from "../../plugins/tvNavigation";
 export default {
     name: "SettingIndex",
     setup() {
@@ -126,8 +127,8 @@ export default {
 
         function onForceTvModeChange(val) {
             forceTvMode.value = val;
-            localStorage.setItem('forceTvMode', val ? 'true' : 'false');
-            proxy.COMMON.ShowMsg(val ? '已启用遥控器模式，刷新页面后生效' : '已关闭遥控器模式，刷新页面后生效');
+            tvNavigation.setTvMode(val);
+            proxy.COMMON.ShowMsg(val ? '已启用遥控器模式' : '已关闭遥控器模式');
         }
 
         function getConfig() {
