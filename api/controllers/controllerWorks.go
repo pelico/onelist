@@ -61,20 +61,21 @@ func CreateBasicTvRecord(file string, galleryUid string) error {
 	db := database.NewDb()
 	fileName := filepath.Base(file)
 	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	
+
+	// TheTv 没有 url 字段，按 name + gallery_uid 查重
 	var exist models.TheTv
-	err := db.Model(&models.TheTv{}).Where("url = ?", file).First(&exist).Error
+	err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", title, galleryUid).First(&exist).Error
 	if err == nil {
-		return nil
+		return nil // 已存在同名基础记录，不重复创建
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	
+
 	tv := models.TheTv{
-		Name:        title,
-		GalleryUid:  galleryUid,
-		PosterPath:  "/",
+		Name:       title,
+		GalleryUid: galleryUid,
+		PosterPath: "/",
 	}
 	return db.Model(&models.TheTv{}).Create(&tv).Error
 }
@@ -552,10 +553,29 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 		fileSet[f] = true
 	}
 
+	// 构建当前文件名集合（去扩展名），用于比对 TV 基础记录的 name
+	fileNames := make(map[string]bool)
+	for _, f := range currentFiles {
+		fileName := strings.TrimSuffix(filepath.Base(f), filepath.Ext(f))
+		fileNames[fileName] = true
+	}
+
+	// 构建路径前缀用于匹配数据库中的 url
+	// Alist 返回的文件路径带 /d 前缀（如 /d/movies/file.mp4），需要与 work.Path 对齐
+	pathPrefix := work.Path
+	if gallery.IsAlist {
+		pathPrefix = "/d" + pathPrefix
+	}
+	// 确保路径以 / 结尾，避免 /movies% 匹配到 /moviesxxx
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix += "/"
+	}
+	logger.Info("work", "清理失效记录", "路径前缀: "+pathPrefix+", 当前文件数: "+strconv.Itoa(len(currentFiles)))
+
 	if gallery.GalleryType == "tv" {
 		// 只清理本任务路径范围内的剧集，避免影响同一影库下其他任务的记录
 		var episodes []models.Episode
-		db.Model(&models.Episode{}).Where("url LIKE ?", work.Path+"%").Find(&episodes)
+		db.Model(&models.Episode{}).Where("url LIKE ?", pathPrefix+"%").Find(&episodes)
 		deletedCount := 0
 		for _, ep := range episodes {
 			if !fileSet[ep.Url] {
@@ -567,7 +587,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 			logger.Info("work", "清理失效剧集记录", "路径: "+work.Path+", 清理数: "+strconv.Itoa(deletedCount))
 		}
 
-		// 只检查本任务路径范围内有剧集的电视节目
+		// 检查所有电视节目，清理无剧集且文件名不匹配的旧记录
 		var tvs []models.TheTv
 		db.Model(&models.TheTv{}).Where("gallery_uid = ?", work.GalleryUid).Find(&tvs)
 		for _, tv := range tvs {
@@ -576,7 +596,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 			db.Model(&models.Episode{}).
 				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
 				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
-				Where("the_tvs.id = ? AND episodes.url LIKE ?", tv.ID, work.Path+"%").
+				Where("the_tvs.id = ? AND episodes.url LIKE ?", tv.ID, pathPrefix+"%").
 				Count(&scopedEps)
 			if scopedEps > 0 {
 				continue // 本任务范围内仍有剧集，跳过
@@ -589,6 +609,12 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 				Where("the_tvs.id = ?", tv.ID).
 				Count(&remainingEps)
 			if remainingEps == 0 {
+				// 无剧集：可能是未刮削的基础记录，也可能是剧集被清理的旧记录
+				// 如果 name 匹配当前文件名，说明是刚创建的基础记录，保留
+				if fileNames[tv.Name] {
+					continue
+				}
+				// name 不匹配当前文件名，说明是改名/删除后的孤儿记录，删除
 				db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{})
 				db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Star{})
 				db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Heart{})
@@ -601,7 +627,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 	} else {
 		// 只清理本任务路径范围内的电影，避免影响同一影库下其他任务的记录
 		var movies []models.TheMovie
-		db.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, work.Path+"%").Find(&movies)
+		db.Model(&models.TheMovie{}).Where("gallery_uid = ? AND url LIKE ?", work.GalleryUid, pathPrefix+"%").Find(&movies)
 		deletedCount := 0
 		for _, movie := range movies {
 			if !fileSet[movie.Url] {
@@ -614,6 +640,25 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 		}
 		if deletedCount > 0 {
 			logger.Info("work", "清理失效电影记录", "路径: "+work.Path+", 清理数: "+strconv.Itoa(deletedCount))
+		}
+
+		// 去重：同一 url 可能存在多条记录（基础记录 + 刮削后按 TMDB ID 更新了旧记录）
+		// 保留 id 最小的（最早创建的），删除其余重复记录
+		urlSeen := make(map[string]int) // url -> 保留的 id
+		for _, movie := range movies {
+			if !fileSet[movie.Url] {
+				continue // 已经被清理的不用管
+			}
+			if keptId, exists := urlSeen[movie.Url]; exists {
+				// 已有保留记录，删除当前这条重复记录
+				db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Played{})
+				db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
+				db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
+				db.Model(&models.TheMovie{}).Where("id = ?", movie.ID).Delete(&models.TheMovie{})
+				logger.Info("work", "去重电影记录", "url: "+movie.Url, "保留id: "+strconv.Itoa(keptId)+", 删除id: "+strconv.Itoa(movie.ID))
+			} else {
+				urlSeen[movie.Url] = movie.ID
+			}
 		}
 	}
 }

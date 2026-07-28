@@ -570,7 +570,7 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 		return data, err
 	}
 	data.GalleryUid = GalleryUid
-	err = ChunkTheTv(data)
+	err = ChunkTheTv(data, file)
 	if err != nil {
 		return data, err
 	}
@@ -583,12 +583,15 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 }
 
 // 检查是否已存在此节目（支持基础记录更新），存在则更新，不存在则创建
-func ChunkTheTv(thetv models.TheTv) error {
+func ChunkTheTv(thetv models.TheTv, file string) error {
 	db := database.NewDb()
 	dbthetv := models.TheTv{}
-	// 先按名字查找基础记录（支持未刮削的记录更新）
-	if thetv.Name != "" {
-		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", thetv.Name, thetv.GalleryUid).First(&dbthetv).Error
+	// 先按文件名查找基础记录（支持未刮削的记录更新）
+	// CreateBasicTvRecord 用文件名（去扩展名）作为 name 创建基础记录
+	// 刮削时 TMDB 返回的 name 通常与文件名不同，需要用文件名才能匹配到基础记录
+	if file != "" {
+		fileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", fileName, thetv.GalleryUid).First(&dbthetv).Error
 		if err == nil {
 			// 找到基础记录，更新（保留原有的状态，不更新ID）
 			thetv.ID = dbthetv.ID
@@ -599,7 +602,20 @@ func ChunkTheTv(thetv models.TheTv) error {
 			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
 		}
 	}
-	// 按名字未找到，先在同一媒体库内按 TMDB ID 查找
+	// 按文件名未找到，按 TMDB 名字查找（已刮削的记录重命名后重新刮削）
+	if thetv.Name != "" {
+		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", thetv.Name, thetv.GalleryUid).First(&dbthetv).Error
+		if err == nil {
+			// 找到记录，更新（保留原有的状态，不更新ID）
+			thetv.ID = dbthetv.ID
+			thetv.CreatedAt = dbthetv.CreatedAt
+			thetv.Star = dbthetv.Star
+			thetv.Heart = dbthetv.Heart
+			thetv.Played = dbthetv.Played
+			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
+		}
+	}
+	// 按 TMDB 名字未找到，先在同一媒体库内按 TMDB ID 查找
 	err := db.Model(&models.TheTv{}).Where("id = ? AND gallery_uid = ?", thetv.ID, thetv.GalleryUid).First(&dbthetv).Error
 	if err == nil {
 		// 同一媒体库内找到，更新（保留播放状态和创建时间）
