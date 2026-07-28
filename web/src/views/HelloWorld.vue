@@ -378,8 +378,7 @@ export default {
     transition: all .2s ease-in-out;
 }
 
-.gallery-card .view-item:hover,
-.tv-mode .gallery-card .view-item.tv-focus-visible {
+.gallery-card .view-item:hover {
     transform: translateY(0) scale(0.99);
     transition: all .2s ease-in-out;
 }
@@ -447,8 +446,7 @@ img.carousel-img {
     transition: all .2s ease-in-out;
 }
 
-.view-card .view-item:hover,
-.tv-mode .view-card .view-item.tv-focus-visible {
+.view-card .view-item:hover {
     transform: translateY(-4px) scale(0.95);
     transition: all .2s ease-in-out;
 }
