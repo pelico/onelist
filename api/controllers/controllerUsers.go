@@ -129,17 +129,20 @@ func SearchUser(c *gin.Context) {
 }
 
 func LoginUser(c *gin.Context) {
-	user := models.User{}
-	captchaCode := c.PostForm("captcha")
-	requireCaptcha := c.PostForm("require_captcha") == "true"
+	var req struct {
+		UserEmail      string `json:"user_email"`
+		UserPassword   string `json:"user_password"`
+		Captcha        string `json:"captcha"`
+		RequireCaptcha bool   `json:"require_captcha"`
+	}
 
-	err := c.ShouldBind(&user)
+	err := c.ShouldBindJSON(&req)
 	if err != nil {
-		c.JSON(200, gin.H{"code": 201, "msg": "解析表单解析出错!", "data": user})
+		c.JSON(200, gin.H{"code": 201, "msg": "解析表单出错!", "data": ""})
 		return
 	}
 
-	user, token, needCaptcha, err := auth.Login(user.UserEmail, user.UserPassword, captchaCode, requireCaptcha)
+	user, token, needCaptcha, err := auth.Login(req.UserEmail, req.UserPassword, req.Captcha, req.RequireCaptcha, c.ClientIP())
 	if err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": "", "need_captcha": needCaptcha})
 		return

@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/msterzhang/onelist/api/security"
@@ -21,8 +22,32 @@ const (
 	LockDuration      = 15 * time.Minute
 )
 
+var (
+	ipLoginAttempts = make(map[string]int)
+	ipMutex         sync.RWMutex
+)
+
+func getIPAttempts(ip string) int {
+	ipMutex.RLock()
+	defer ipMutex.RUnlock()
+	return ipLoginAttempts[ip]
+}
+
+func incrementIPAttempts(ip string) int {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+	ipLoginAttempts[ip]++
+	return ipLoginAttempts[ip]
+}
+
+func resetIPAttempts(ip string) {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+	delete(ipLoginAttempts, ip)
+}
+
 // SignIn method
-func Login(email, password string, captcha string, requireCaptcha bool) (models.User, string, bool, error) {
+func Login(email, password string, captcha string, requireCaptcha bool, clientIP string) (models.User, string, bool, error) {
 	user := models.User{}
 	var err error
 	var db *gorm.DB
@@ -50,7 +75,11 @@ func Login(email, password string, captcha string, requireCaptcha bool) (models.
 				"failed_attempts": 0,
 			})
 		}
-		if user.FailedAttempts >= MaxFailedAttempts && requireCaptcha && !verifyCaptcha(captcha) {
+		failedCount := user.FailedAttempts
+		if failedCount == 0 {
+			failedCount = getIPAttempts(clientIP)
+		}
+		if failedCount >= MaxFailedAttempts && requireCaptcha && !verifyCaptcha(captcha) {
 			err = errors.New("验证码错误")
 			ch <- false
 			return
@@ -68,6 +97,7 @@ func Login(email, password string, captcha string, requireCaptcha bool) (models.
 			"failed_attempts":     0,
 			"last_failed_attempt": time.Time{},
 		})
+		resetIPAttempts(clientIP)
 		user.UserPassword = ""
 		err, token := GenerateJWT(user)
 		return user, err, false, token
@@ -82,6 +112,8 @@ func Login(email, password string, captcha string, requireCaptcha bool) (models.
 			"last_failed_attempt": time.Now(),
 			"is_lock":             isLock,
 		})
+	} else {
+		newAttempts = incrementIPAttempts(clientIP)
 	}
 
 	requireCaptcha = newAttempts >= MaxFailedAttempts-1

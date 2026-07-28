@@ -17,13 +17,13 @@
                             <div class="icon">
                                 <i class='bx bx-envelope'></i>
                             </div>
-                            <input v-model.trim="user.user_email" type="text" name="email" placeholder="账号" required="">
+                            <input v-model="user.user_email" @input="user.user_email = $event.target.value.replace(/\s+/g, '')" type="text" name="email" placeholder="账号" required="">
                         </div>
                         <div class="form-control">
                             <div class="icon">
                                 <i class='bx bx-key'></i>
                             </div>
-                            <input v-model.trim="user.user_password" type="password" name="password" placeholder="密码" required=""
+                            <input v-model="user.user_password" @input="user.user_password = $event.target.value.replace(/\s+/g, '')" type="password" name="password" placeholder="密码" required=""
                                 autocomplete="off" @keyup.enter="LoginUser()">
                         </div>
                         <div v-if="needCaptcha" class="form-control captcha-control">
