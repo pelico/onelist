@@ -76,7 +76,8 @@
                                 }
                             }">
                                 <img loading="lazy" v-img-fade class="carousel-img"
-                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'>
+                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'
+                                    @error="COMMON.onPosterError($event, item.poster_path)">
                             </router-link>
                             <div class="view-item-title">
                                 {{ item.title }}
@@ -122,7 +123,8 @@
                                 }
                             }">
                                 <img loading="lazy" v-img-fade class="carousel-img"
-                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'>
+                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'
+                                    @error="COMMON.onPosterError($event, item.poster_path)">
                             </router-link>
                             <div class="view-item-title">
                                 {{ item.name }}
@@ -168,7 +170,8 @@
                                 }
                             }">
                                 <img loading="lazy" v-img-fade class="carousel-img"
-                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'>
+                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'
+                                    @error="COMMON.onPosterError($event, item.poster_path)">
                             </router-link>
                             <div v-if="item.title != null" class="view-item-title">
                                 {{ item.title }}

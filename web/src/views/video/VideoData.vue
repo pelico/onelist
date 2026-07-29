@@ -7,7 +7,8 @@
             <div class="mainColumn">
                 <div class="view-scroller">
                     <div class="view-card-image">
-                        <img :src='COMMON.getPosterUrl(data.poster_path, data.id)' alt="">
+                        <img :src='COMMON.getPosterUrl(data.poster_path, data.id)' alt=""
+                            @error="COMMON.onPosterError($event, data.poster_path)">
                     </div>
                     <div class="view-card-detail detailTextContainer">
                         <div class="lex-direction-column">
@@ -111,7 +112,8 @@
                                     }">
                                         <div class="show-img">
                                             <img :src='COMMON.getPosterUrl(item.poster_path, item.id)'
-                                                alt="">
+                                                alt=""
+                                                @error="COMMON.onPosterError($event, item.poster_path)">
                                         </div>
                                     </router-link>
                                     <div class="show-name season-name">
@@ -199,7 +201,8 @@
                                             </div>
                                         </div>
                                         <img loading="lazy" class="carousel-img"
-                                            :src='COMMON.getPosterUrl(item.poster_path, item.id)'>
+                                            :src='COMMON.getPosterUrl(item.poster_path, item.id)'
+                                            @error="COMMON.onPosterError($event, item.poster_path)">
                                         <div v-if="item.video != null" class="view-item-title">
                                             {{ item.title }}
                                         </div>

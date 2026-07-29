@@ -12,7 +12,7 @@ export const imgFadeDirective = {
             show()
         } else {
             el.addEventListener('load', show, { once: true })
-            el.addEventListener('error', show, { once: true }) // 加载失败也显示，避免一直透明
+            el.addEventListener('error', show) // 加载失败也显示（不用 once，支持本地→远程回退场景）
         }
     },
     updated(el) {

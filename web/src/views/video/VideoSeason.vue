@@ -7,7 +7,8 @@
             <div class="mainColumn">
                 <div class="view-scroller">
                     <div class="view-card-image">
-                        <img :src='COMMON.getPosterUrl(data.poster_path, data.id)' alt="">
+                        <img :src='COMMON.getPosterUrl(data.poster_path, data.id)' alt=""
+                        @error="COMMON.onPosterError($event, data.poster_path)">
                     </div>
                     <div class="view-card-detail detailTextContainer">
                         <div class="lex-direction-column">
