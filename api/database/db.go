@@ -51,8 +51,20 @@ func InitDb() error {
 		db.Exec("PRAGMA journal_mode=WAL;")
 		db.Exec("PRAGMA busy_timeout=5000;")
 		db.Exec("PRAGMA synchronous=NORMAL;")
+		db.Exec("PRAGMA cache_size=8192;")
+		db.Exec("PRAGMA mmap_size=268435456;")
+		db.Exec("PRAGMA temp_store=MEMORY;")
 		sqlDB.SetMaxOpenConns(1)
 		sqlDB.SetMaxIdleConns(1)
+
+		// 为用户交互频繁的表创建复合索引
+		for _, idx := range []string{
+			"CREATE INDEX IF NOT EXISTS idx_star_user_data ON star(user_id, data_type, data_id)",
+			"CREATE INDEX IF NOT EXISTS idx_heart_user_data ON heart(user_id, data_type, data_id)",
+			"CREATE INDEX IF NOT EXISTS idx_played_user_data ON played(user_id, data_type, data_id)",
+		} {
+			db.Exec(idx)
+		}
 	} else {
 		sqlDB.SetMaxIdleConns(10)
 		sqlDB.SetMaxOpenConns(100)

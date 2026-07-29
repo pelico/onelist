@@ -37,11 +37,26 @@ func Static(r *gin.Engine) {
 	}
 }
 
+// 启动时缓存 index.html，避免每次请求都读取嵌入式文件系统
+var indexHTML []byte
+
+func initIndex() {
+	b, err := public.Public.ReadFile("dist/index.html")
+	if err != nil {
+		log.Printf("[WARN] 读取 index.html 失败: %v", err)
+		return
+	}
+	indexHTML = b
+}
+
 func IndexView(c *gin.Context) {
+	if len(indexHTML) == 0 {
+		c.Writer.WriteHeader(404)
+		return
+	}
 	c.Writer.WriteHeader(200)
-	b, _ := public.Public.ReadFile("dist/index.html")
-	_, _ = c.Writer.Write(b)
-	c.Writer.Header().Add("Accept", "text/html")
+	_, _ = c.Writer.Write(indexHTML)
+	c.Writer.Header().Add("Content-Type", "text/html")
 	c.Writer.Flush()
 }
 
@@ -52,6 +67,7 @@ func Faviconico(c *gin.Context) {
 func Run() {
 	// 初始化
 	InitServer()
+	initIndex()
 
 	// 启动日志清理任务
 	logRetentionDays := logger.ParseRetentionDays(config.LogRetentionDays)

@@ -36,8 +36,20 @@ import (
 var (
 	ImageHost = "http://image.tmdb.org/"
 	personNumber = 24
-	timeOut      = 60 * time.Second
 	maxRetries   = 3
+
+	// 预编译正则，避免每个文件处理时重复编译
+	tvNameRegex = regexp.MustCompile(`[\p{Han}\d{1,2}]+`)
+
+	// 共享 HTTP 客户端，复用 TCP 连接池，避免每次请求重新 TLS 握手
+	sharedHTTPClient = &http.Client{
+		Timeout: 60 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        20,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     120 * time.Second,
+		},
+	}
 )
 
 // TheApi 返回当前配置中的 TMDB API 地址
@@ -94,10 +106,7 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 			}
 			req.Header.Set("User-Agent", config.UA)
 			req.Header.Set("Accept", "application/json")
-			client := http.Client{
-				Timeout: timeOut,
-			}
-			resp, err := client.Do(req)
+			resp, err := sharedHTTPClient.Do(req)
 			if err != nil {
 				if retry < maxRetries-1 {
 					logger.Warn("thedb", "TMDB搜索请求失败(重试"+fmt.Sprintf("%d", retry+1)+"): "+searchKey, err.Error())
@@ -107,9 +116,9 @@ func SearchTheDb(key string, tv bool) (ThedbSearchRsp, error) {
 				logger.Error("thedb", "TMDB搜索请求失败: "+searchKey, err.Error())
 				return ThedbSearchRsp{}, err
 			}
-			defer resp.Body.Close()
 			
 			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close() // 立即关闭，不用 defer（在 for 循环内 defer 会延迟到函数返回才执行）
 			if err != nil {
 				if retry < maxRetries-1 {
 					time.Sleep(time.Duration(retry+1) * 2 * time.Second)
@@ -177,10 +186,7 @@ func GetCredits(id int, tv bool) (models.TheCredit, error) {
 		return models.TheCredit{}, err
 	}
 	req.Header.Set("User-Agent", config.UA)
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return models.TheCredit{}, err
 	}
@@ -216,10 +222,7 @@ func GetMovieData(id int) (models.TheMovie, error) {
 		return models.TheMovie{}, err
 	}
 	req.Header.Set("User-Agent", config.UA)
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		logger.Error("thedb", "获取电影详情请求失败", "ID: "+fmt.Sprintf("%d", id)+", 错误: "+err.Error())
 		return models.TheMovie{}, err
@@ -258,10 +261,7 @@ func GetTvData(id int) (models.TheTv, error) {
 		return models.TheTv{}, err
 	}
 	req.Header.Set("User-Agent", config.UA)
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		logger.Error("thedb", "获取电视详情请求失败", "ID: "+fmt.Sprintf("%d", id)+", 错误: "+err.Error())
 		return models.TheTv{}, err
@@ -299,10 +299,7 @@ func GetTheSeasonData(id int, item int) (models.TheSeason, error) {
 		return models.TheSeason{}, err
 	}
 	req.Header.Set("User-Agent", config.UA)
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return models.TheSeason{}, err
 	}
@@ -333,10 +330,7 @@ func GetThePersonData(id int) (models.ThePerson, error) {
 		return models.ThePerson{}, err
 	}
 	req.Header.Set("User-Agent", config.UA)
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return models.ThePerson{}, err
 	}
@@ -707,8 +701,7 @@ func RunTheTvWork(file string, GalleryUid string) (int, error) {
 	fileName := filepath.Base(p)
 	fileType := path.Ext(fileName)
 	name := strings.ReplaceAll(fileName, fileType, "")
-	re := regexp.MustCompile(`[\p{Han}\d{1,2}]+`)
-	matches := re.FindAllString(name, -1)
+	matches := tvNameRegex.FindAllString(name, -1)
 	if len(matches) > 0 {
 		name = matches[0]
 	}
