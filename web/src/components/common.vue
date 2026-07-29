@@ -20,27 +20,9 @@ function ShowMsg(msg) {
     }
 }
 
-// 未刮削视频的默认封面图片列表，随机分配
-// 将自定义图片放在 web/public/images/default/ 目录下，文件名从 1.jpg 到 N.jpg
-// 如果数组为空则回退到 not_video.jpg
-const defaultPosters = [
-    '/images/default/1.jpg',
-    '/images/default/2.jpg',
-    '/images/default/3.jpg',
-    '/images/default/4.jpg',
-    '/images/default/5.jpg',
-    '/images/default/6.jpg',
-    '/images/default/7.jpg',
-    '/images/default/8.jpg',
-];
-
-// 获取电影/视频海报URL，无海报时从默认图列表中随机选取
+// 获取电影/视频海报URL，无海报时返回默认图
 function getPosterUrl(posterPath) {
     if (!posterPath || posterPath.length === 0 || posterPath === '/') {
-        if (defaultPosters.length > 0) {
-            const idx = Math.floor(Math.random() * defaultPosters.length);
-            return defaultPosters[idx];
-        }
         return '/images/not_video.jpg';
     }
     return imgUrl + "/t/p/w220_and_h330_face" + posterPath;
