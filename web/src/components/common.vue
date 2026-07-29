@@ -3,7 +3,6 @@
 let title = 'OneList';
 let apiUrl = process.env.NODE_ENV === 'production' ? "" : 'http://127.0.0.1:5245';
 let imgUrl = "https://image.tmdb.org"
-let customDefaultImage = localStorage.getItem('custom_default_image') === '是';
 const isMo = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
 
 // 全局消息回调，由 App.vue 注入 naive-ui 的 message
@@ -21,13 +20,26 @@ function ShowMsg(msg) {
     }
 }
 
-// 获取电影/视频海报URL，无海报时返回默认图或自定义图
-// customImageVersion 用于开关切换时强制浏览器刷新图片
-let customImageVersion = 0;
-function getPosterUrl(posterPath, videoId) {
+// 未刮削视频的默认封面图片列表，随机分配
+// 将自定义图片放在 web/public/images/default/ 目录下，文件名从 1.jpg 到 N.jpg
+// 如果数组为空则回退到 not_video.jpg
+const defaultPosters = [
+    '/images/default/1.jpg',
+    '/images/default/2.jpg',
+    '/images/default/3.jpg',
+    '/images/default/4.jpg',
+    '/images/default/5.jpg',
+    '/images/default/6.jpg',
+    '/images/default/7.jpg',
+    '/images/default/8.jpg',
+];
+
+// 获取电影/视频海报URL，无海报时从默认图列表中随机选取
+function getPosterUrl(posterPath) {
     if (!posterPath || posterPath.length === 0 || posterPath === '/') {
-        if (customDefaultImage && videoId) {
-            return '/custom-image/' + videoId + '?v=' + customImageVersion;
+        if (defaultPosters.length > 0) {
+            const idx = Math.floor(Math.random() * defaultPosters.length);
+            return defaultPosters[idx];
         }
         return '/images/not_video.jpg';
     }
@@ -43,9 +55,6 @@ function initConfig() {
         if (process.env.NODE_ENV != 'production' && localStorage.getItem("img_url").length == 0) {
             imgUrl = apiUrl;
         }
-    }
-    if (localStorage.getItem("custom_default_image") != null) {
-        customDefaultImage = localStorage.getItem("custom_default_image") === '是';
     }
 }
 
@@ -67,15 +76,6 @@ function applyConfig(cfg) {
         }
         imgUrl = v;
         api.imgUrl = imgUrl;
-    }
-    if (cfg.custom_default_image !== undefined && cfg.custom_default_image !== null) {
-        const newVal = cfg.custom_default_image === '是';
-        // 开关状态变化时递增版本号，强制浏览器重新请求图片
-        if (newVal !== customDefaultImage) {
-            customImageVersion++;
-        }
-        customDefaultImage = newVal;
-        localStorage.setItem('custom_default_image', cfg.custom_default_image);
     }
     if (typeof window !== 'undefined' && window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('onelist:config-changed', { detail: cfg }));
