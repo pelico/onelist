@@ -2,7 +2,8 @@ package controllers
 
 import (
 	"fmt"
-	"math"
+	"hash/fnv"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -175,7 +176,26 @@ func getPictureImages() []string {
 	return images
 }
 
-// 自定义默认封面图片服务：基于 seed（影片 ID）均匀分配 picture 目录下的图片
+// 用 FNV-1a 做充分混合的哈希，避免连续 ID 产生线性/周期性规律
+func hashSeed(s string) uint64 {
+	h := fnv.New64a()
+	h.Write([]byte(s))
+	return h.Sum64()
+}
+
+// 以 round 为种子，对 [0, n) 做一次确定性 Fisher-Yates 洗牌
+// 保证同一 round 内 n 张图片各用一次，不同 round 洗牌结果不同
+func shuffledPermutation(round uint64, n int) []int {
+	perm := make([]int, n)
+	for i := range perm {
+		perm[i] = i
+	}
+	r := rand.New(rand.NewSource(int64(round)))
+	r.Shuffle(n, func(i, j int) { perm[i], perm[j] = perm[j], perm[i] })
+	return perm
+}
+
+// 自定义默认封面图片服务：FNV-1a 哈希 + 按轮次 Fisher-Yates 洗牌，保证均匀且不重复
 func CustomImgServer(c *gin.Context) {
 	// 未开启自定义封面时返回默认图
 	if config.CustomDefaultImage != "是" {
@@ -184,26 +204,22 @@ func CustomImgServer(c *gin.Context) {
 	}
 
 	images := getPictureImages()
-	if len(images) == 0 {
+	n := len(images)
+	if n == 0 {
 		// picture 目录为空，回退到默认图
 		c.Redirect(http.StatusFound, "/images/not_video.jpg")
 		return
 	}
 
-	// 基于 seed 取模选择图片，保证同一影片始终分到同一张图
-	seedStr := c.Param("seed")
-	seed := int64(0)
-	for _, ch := range seedStr {
-		seed = (seed*31 + int64(ch)) % int64(math.MaxInt64)
-		if seed < 0 {
-			seed = -seed
-		}
-	}
-	if seed < 0 {
-		seed = -seed
-	}
-	idx := int(seed % int64(len(images)))
-	imgPath := images[idx]
+	// FNV-1a 哈希影片 ID，彻底打掉连续 ID 的线性相关性
+	id := hashSeed(c.Param("seed"))
+	// 按 n 部影片一轮分组，轮内做 Fisher-Yates 洗牌
+	// 保证每轮 n 张图片各用一次、一张不漏
+	round := id / uint64(n)
+	position := int(id % uint64(n))
+
+	perm := shuffledPermutation(round, n)
+	imgPath := images[perm[position]]
 
 	b, err := os.ReadFile(imgPath)
 	if err != nil {
