@@ -133,6 +133,14 @@
                                             <span class="title">用户管理</span>
                                         </router-link>
                                     </li>
+                                    <li>
+                                        <router-link to="/play-stats">
+                                            <span class="icon">
+                                                <i class='bx bx-bar-chart-alt-2'></i>
+                                            </span>
+                                            <span class="title">播放统计</span>
+                                        </router-link>
+                                    </li>
                                 </ul>
                             </div>
                         </div>
