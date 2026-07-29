@@ -65,11 +65,12 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=ref,event=tag
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push (full platforms for main/master)
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      - name: Build and push (full platforms for main/master/release)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'release'
         uses: docker/build-push-action@v6
         with:
           context: .
