@@ -286,8 +286,6 @@
 <script>
 import Artplayer from "./ArtPlayer.vue";
 
-import flvjs from 'flv.js';
-import Hls from 'hls.js';
 import { getCurrentInstance, onMounted, onUnmounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 import tvNavigation from '@/plugins/tvNavigation';
@@ -720,12 +718,14 @@ export default {
                 url: "",
                 id: "",
                 customType: {
-                    m3u8: function (video, url) {
+                    m3u8: async function (video, url) {
+                        const { default: Hls } = await import('hls.js')
                         var hls = new Hls()
                         hls.loadSource(url)
                         hls.attachMedia(video)
                     },
-                    flv: function (video, url) {
+                    flv: async function (video, url) {
+                        const { default: flvjs } = await import('flv.js')
                         const flvPlayer = flvjs.createPlayer({
                             type: 'flv',
                             url: url

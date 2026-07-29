@@ -88,6 +88,6 @@ func AppIndex(c *gin.Context) {
 		}
 	}
 	videoText, _ := json.Marshal(thedatas)
-	cDb.Set(string(config.SECRETKEY), videoText, 10*time.Microsecond)
+	cDb.Set(string(config.SECRETKEY), videoText, 10*time.Minute)
 	c.JSON(200, gin.H{"code": 200, "msg": "查询资源成功!", "data": thedatas})
 }

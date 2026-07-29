@@ -30,6 +30,28 @@ var (
 	ipMutex         sync.RWMutex
 )
 
+func init() {
+	// 定期清理过期的 IP 登录尝试条目，防止内存泄漏
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			cleanupStaleIPEntries()
+		}
+	}()
+}
+
+func cleanupStaleIPEntries() {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+	now := time.Now()
+	for ip, entry := range ipLoginAttempts {
+		if now.Sub(entry.lastFailTime) > ipEntryTTL {
+			delete(ipLoginAttempts, ip)
+		}
+	}
+}
+
 // ipAttemptEntry 同一 IP 的失败尝试记录
 type ipAttemptEntry struct {
 	count        int

@@ -18,6 +18,16 @@ import (
 	"github.com/msterzhang/onelist/config"
 )
 
+// 共享 HTTP 客户端，复用 TCP 连接池
+var sharedHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        20,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     120 * time.Second,
+	},
+}
+
 // 登录alist获取token
 func AlistLogin(gallery models.Gallery) (string, error) {
 	api := fmt.Sprintf("%s/api/auth/login", gallery.AlistHost)
@@ -28,10 +38,7 @@ func AlistLogin(gallery models.Gallery) (string, error) {
 	}
 	req.Header.Set("User-Agent", config.UA)
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -62,10 +69,7 @@ func AlistFilesByPath(isRef bool, gallery models.Gallery, path string, Authoriza
 	req.Header.Set("User-Agent", config.UA)
 	req.Header.Set("Authorization", Authorization)
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return []Content{}, err
 	}
@@ -279,10 +283,7 @@ func AlistRnameFile(name string, errfile models.ErrFile) error {
 	req.Header.Set("User-Agent", config.UA)
 	req.Header.Set("Authorization", Authorization)
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -318,10 +319,7 @@ func AlistAliOpenVideo(file string, gallery_uid string) (AliOpenVideo, error) {
 	req.Header.Set("User-Agent", config.UA)
 	req.Header.Set("Authorization", Authorization)
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return AliOpenVideo{}, err
 	}
@@ -373,10 +371,7 @@ func AlistFsGet(gallery models.Gallery, path string) (AlistFsGetData, error) {
 	req.Header.Set("User-Agent", config.UA)
 	req.Header.Set("Authorization", Authorization)
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return AlistFsGetData{}, err
 	}
