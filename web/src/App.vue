@@ -303,6 +303,8 @@ export default defineComponent({
                     let config = res.data.data;
                     localStorage.setItem("title", config.title);
                     localStorage.setItem("img_url", config.img_url);
+                    // 同步自定义封面等配置到 localStorage 和内存状态
+                    proxy.COMMON.applyConfig(config);
                     let link = config.faviconico_url;
                     let favicon = document.querySelector('link[rel="icon"]');
                     if (favicon !== null) {
