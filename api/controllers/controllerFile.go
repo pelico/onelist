@@ -213,9 +213,14 @@ func CustomImgServer(c *gin.Context) {
 
 	// FNV-1a 哈希影片 ID，彻底打掉连续 ID 的线性相关性
 	id := hashSeed(c.Param("seed"))
+	// 读取前端版本号（开关切换时递增），使每次切换产生不同的洗牌结果
+	version := uint64(0)
+	if v := c.Query("v"); v != "" {
+		fmt.Sscanf(v, "%d", &version)
+	}
 	// 按 n 部影片一轮分组，轮内做 Fisher-Yates 洗牌
-	// 保证每轮 n 张图片各用一次、一张不漏
-	round := id / uint64(n)
+	// 加入 version 偏移，保证开关切换后同一影片分到不同的图
+	round := id/uint64(n) + version
 	position := int(id % uint64(n))
 
 	perm := shuffledPermutation(round, n)

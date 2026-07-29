@@ -1,4 +1,6 @@
 <script type="text/javascript">
+import { ref } from 'vue';
+
 // 定义一些公共的属性和方法
 let title = 'OneList';
 let apiUrl = process.env.NODE_ENV === 'production' ? "" : 'http://127.0.0.1:5245';
@@ -21,13 +23,12 @@ function ShowMsg(msg) {
     }
 }
 
-// 获取电影/视频海报URL，无海报时返回默认图或自定义图
-// customImageVersion 用于开关切换时强制浏览器刷新图片
-let customImageVersion = 0;
+// 自定义封面版本号：用 ref 保证响应式，递增时触发组件重新渲染以刷新图片 URL
+let customImageVersion = ref(0);
 function getPosterUrl(posterPath, videoId) {
     if (!posterPath || posterPath.length === 0 || posterPath === '/') {
         if (customDefaultImage && videoId) {
-            return '/custom-image/' + videoId + '?v=' + customImageVersion;
+            return '/custom-image/' + videoId + '?v=' + customImageVersion.value;
         }
         return '/images/not_video.jpg';
     }
@@ -72,7 +73,7 @@ function applyConfig(cfg) {
         const newVal = cfg.custom_default_image === '是';
         // 开关状态变化时递增版本号，强制浏览器重新请求图片
         if (newVal !== customDefaultImage) {
-            customImageVersion++;
+            customImageVersion.value++;
         }
         customDefaultImage = newVal;
         localStorage.setItem('custom_default_image', cfg.custom_default_image);
