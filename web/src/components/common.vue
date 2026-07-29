@@ -5,7 +5,7 @@ import { ref } from 'vue';
 let title = 'OneList';
 let apiUrl = process.env.NODE_ENV === 'production' ? "" : 'http://127.0.0.1:5245';
 let imgUrl = "https://image.tmdb.org"
-let customDefaultImage = localStorage.getItem('custom_default_image') === '是';
+let customDefaultImage = true;
 const isMo = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
 
 // 全局消息回调，由 App.vue 注入 naive-ui 的 message
@@ -45,8 +45,10 @@ function initConfig() {
             imgUrl = apiUrl;
         }
     }
-    if (localStorage.getItem("custom_default_image") != null) {
-        customDefaultImage = localStorage.getItem("custom_default_image") === '是';
+    // 自定义封面默认开启；仅在管理员明确设置过 "否" 时才关闭
+    const customVal = localStorage.getItem("custom_default_image");
+    if (customVal === "否") {
+        customDefaultImage = false;
     }
 }
 
