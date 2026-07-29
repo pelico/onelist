@@ -5,7 +5,7 @@ import { ref } from 'vue';
 let title = 'OneList';
 let apiUrl = process.env.NODE_ENV === 'production' ? "" : 'http://127.0.0.1:5245';
 let imgUrl = "https://image.tmdb.org"
-let customDefaultImage = localStorage.getItem('custom_default_image') === '是';
+let customDefaultImage = true;
 const isMo = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
 
 // 全局消息回调，由 App.vue 注入 naive-ui 的 message
@@ -45,9 +45,6 @@ function initConfig() {
             imgUrl = apiUrl;
         }
     }
-    if (localStorage.getItem("custom_default_image") != null) {
-        customDefaultImage = localStorage.getItem("custom_default_image") === '是';
-    }
 }
 
 initConfig()
@@ -68,15 +65,6 @@ function applyConfig(cfg) {
         }
         imgUrl = v;
         api.imgUrl = imgUrl;
-    }
-    if (cfg.custom_default_image !== undefined && cfg.custom_default_image !== null) {
-        const newVal = cfg.custom_default_image === '是';
-        // 开关状态变化时递增版本号，强制浏览器重新请求图片
-        if (newVal !== customDefaultImage) {
-            customImageVersion.value++;
-        }
-        customDefaultImage = newVal;
-        localStorage.setItem('custom_default_image', cfg.custom_default_image);
     }
     if (typeof window !== 'undefined' && window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('onelist:config-changed', { detail: cfg }));
