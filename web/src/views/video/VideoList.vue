@@ -332,6 +332,9 @@ export default {
                     }
                     initPageText();
 
+                    // 先重置 loadingMore，再进 nextTick；否则自动加载检查时 loadingMore 仍为 true，fetchMore() 会直接 return
+                    loadingMore.value = false;
+
                     // 注册视频网格到电视导航系统
                     nextTick(() => {
                         setupTvNavigation();
@@ -346,7 +349,6 @@ export default {
                         }
                     });
                 }
-                loadingMore.value = false;
             }).catch((error) => {
                 loadingMore.value = false;
                 proxy.COMMON.ShowMsg(error);
