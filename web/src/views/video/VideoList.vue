@@ -177,62 +177,29 @@ export default {
             return data.value != null && num.value != null && data.value.length < num.value && data.value.length < MAX_LOADED;
         });
 
-        // 滚动加载：动态查找滚动容器，不缓存（DOM 结构可能变化）
-        let scrollCooldown = false;
+        // 无限滚动：使用 IntersectionObserver 检测哨兵元素进入视口
+        // naive-ui 的 native-scrollbar="false" 使用自定义滚动（CSS transform），
+        // 不会触发原生 scroll 事件，所以改用 IntersectionObserver 判断可见性
+        let intersectionObserver = null;
 
-        function findScrollAncestor(el) {
-            let node = el?.parentElement;
-            while (node && node !== document.body && node !== document.documentElement) {
-                const style = getComputedStyle(node);
-                const overflowY = style.overflowY || style.overflow;
-                if (/(auto|scroll|overlay)/.test(overflowY)) {
-                    return node;
-                }
-                node = node.parentElement;
+        function setupInfiniteScrollObserver() {
+            if (intersectionObserver) {
+                intersectionObserver.disconnect();
+                intersectionObserver = null;
             }
-            return null;
-        }
+            if (!sentinelRef.value) return;
 
-        function getScrollContainer() {
-            // 每次都重新查找，不缓存
-            // 优先从 sentinel 向上找滚动祖先
-            if (sentinelRef.value) {
-                const ancestor = findScrollAncestor(sentinelRef.value);
-                if (ancestor) return ancestor;
-            }
-            // 尝试 Naive UI 常见滚动容器类名
-            const candidates = [
-                '.n-layout-scroll-container',
-                '.n-scrollbar-container',
-                '.n-layout-content .n-scrollbar-container',
-                '.n-layout .n-scrollbar',
-                '[class*="scroll"]',
-            ];
-            for (const sel of candidates) {
-                const el = document.querySelector(sel);
-                if (el) {
-                    const style = getComputedStyle(el);
-                    if (/(auto|scroll|overlay)/.test(style.overflowY || style.overflow)) {
-                        return el;
-                    }
+            intersectionObserver = new IntersectionObserver((entries) => {
+                const entry = entries[0];
+                if (entry.isIntersecting && hasMore.value && !loadingMore.value) {
+                    fetchMore();
                 }
-            }
-            // 最后兜底：返回 document.documentElement（body 级滚动）
-            return document.documentElement;
-        }
-        function handleScroll() {
-            if (scrollCooldown || !hasMore.value || loadingMore.value) return;
-            const scroller = getScrollContainer();
-            let scrollBottom;
-            if (scroller && scroller !== document.documentElement && scroller !== document.body) {
-                scrollBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
-            } else {
-                scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-            }
-            if (scrollBottom < 600) {
-                scrollCooldown = true;
-                fetchMore();
-            }
+            }, {
+                root: null,               // 用浏览器视口判断，不管内容是原生滚动还是 transform
+                rootMargin: '600px 0px',  // 提前 600px 触发
+                threshold: 0
+            });
+            intersectionObserver.observe(sentinelRef.value);
         }
 
         let page_str = localStorage.getItem("page")
@@ -312,7 +279,6 @@ export default {
                 loadingMore.value = true;
             } else {
                 page.value = 1;
-                scrollCooldown = false;
             }
             const api = buildApi(page.value);
             proxy.axios.post(api, {}, {
@@ -353,8 +319,8 @@ export default {
                     // 注册视频网格到电视导航系统
                     nextTick(() => {
                         setupTvNavigation();
-                        // 数据加载后重置滚动冷却，允许继续加载
-                        scrollCooldown = false;
+                        // 重新设置 observer（sentinel 可能已更新）
+                        setupInfiniteScrollObserver();
                         // 若内容不足以撑满视口，继续加载下一页
                         if (append && hasMore.value && sentinelRef.value) {
                             const rect = sentinelRef.value.getBoundingClientRect();
@@ -420,36 +386,19 @@ export default {
 
         onMounted(() => {
             fetchData(false);
-            window.addEventListener('scroll', handleScroll, { passive: true });
         });
 
         // 内容渲染出来（loading 变为 false）之后，sentinelRef 才存在于 DOM 里，
-        // 这时候才能准确找到它所在的滚动容器并绑定监听器
+        // 这时候才能用 IntersectionObserver 观察它
         watch(loading, (isLoading) => {
             if (!isLoading) {
-                nextTick(() => {
-                    const scroller = getScrollContainer();
-                    if (scroller && scroller !== document.documentElement && scroller !== document.body) {
-                        scroller.addEventListener('scroll', handleScroll, { passive: true });
-                    }
-                });
+                nextTick(setupInfiniteScrollObserver);
             }
         });
 
         onUnmounted(() => {
-            window.removeEventListener('scroll', handleScroll);
-            // 清理所有可能的滚动容器监听器
-            const candidates = [
-                '.n-layout-scroll-container',
-                '.n-scrollbar-container',
-                '.n-layout-content .n-scrollbar-container',
-                '.n-layout .n-scrollbar',
-            ];
-            for (const sel of candidates) {
-                const el = document.querySelector(sel);
-                if (el) {
-                    el.removeEventListener('scroll', handleScroll);
-                }
+            if (intersectionObserver) {
+                intersectionObserver.disconnect();
             }
             if (tvNavigation) {
                 tvNavigation.unregisterGroup('videoGrid');
