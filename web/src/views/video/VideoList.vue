@@ -177,15 +177,15 @@ export default {
             return data.value != null && num.value != null && data.value.length < num.value && data.value.length < MAX_LOADED;
         });
 
-        // 滚动加载：用 scroll 事件替代 IntersectionObserver（Naive UI 滚动容器兼容性问题）
+        // 滚动加载：动态查找滚动容器，不缓存（DOM 结构可能变化）
         let scrollCooldown = false;
-        let scrollContainer = null;
 
         function findScrollAncestor(el) {
             let node = el?.parentElement;
-            while (node && node !== document.body) {
+            while (node && node !== document.body && node !== document.documentElement) {
                 const style = getComputedStyle(node);
-                if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) {
+                const overflowY = style.overflowY || style.overflow;
+                if (/(auto|scroll|overlay)/.test(overflowY)) {
                     return node;
                 }
                 node = node.parentElement;
@@ -194,21 +194,37 @@ export default {
         }
 
         function getScrollContainer() {
-            if (scrollContainer) return scrollContainer;
+            // 每次都重新查找，不缓存
+            // 优先从 sentinel 向上找滚动祖先
             if (sentinelRef.value) {
-                scrollContainer = findScrollAncestor(sentinelRef.value);
+                const ancestor = findScrollAncestor(sentinelRef.value);
+                if (ancestor) return ancestor;
             }
-            if (!scrollContainer) {
-                scrollContainer = document.querySelector('.n-layout-scroll-container')
-                    || document.querySelector('.n-scrollbar-container');
+            // 尝试 Naive UI 常见滚动容器类名
+            const candidates = [
+                '.n-layout-scroll-container',
+                '.n-scrollbar-container',
+                '.n-layout-content .n-scrollbar-container',
+                '.n-layout .n-scrollbar',
+                '[class*="scroll"]',
+            ];
+            for (const sel of candidates) {
+                const el = document.querySelector(sel);
+                if (el) {
+                    const style = getComputedStyle(el);
+                    if (/(auto|scroll|overlay)/.test(style.overflowY || style.overflow)) {
+                        return el;
+                    }
+                }
             }
-            return scrollContainer;
+            // 最后兜底：返回 document.documentElement（body 级滚动）
+            return document.documentElement;
         }
         function handleScroll() {
             if (scrollCooldown || !hasMore.value || loadingMore.value) return;
             const scroller = getScrollContainer();
             let scrollBottom;
-            if (scroller) {
+            if (scroller && scroller !== document.documentElement && scroller !== document.body) {
                 scrollBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
             } else {
                 scrollBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
@@ -296,7 +312,6 @@ export default {
                 loadingMore.value = true;
             } else {
                 page.value = 1;
-                scrollContainer = null; // 重新查找滚动容器
                 scrollCooldown = false;
             }
             const api = buildApi(page.value);
@@ -413,9 +428,8 @@ export default {
         watch(loading, (isLoading) => {
             if (!isLoading) {
                 nextTick(() => {
-                    scrollContainer = null; // 清除旧的缓存，重新查找
                     const scroller = getScrollContainer();
-                    if (scroller) {
+                    if (scroller && scroller !== document.documentElement && scroller !== document.body) {
                         scroller.addEventListener('scroll', handleScroll, { passive: true });
                     }
                 });
@@ -424,9 +438,18 @@ export default {
 
         onUnmounted(() => {
             window.removeEventListener('scroll', handleScroll);
-            const scroller = getScrollContainer();
-            if (scroller) {
-                scroller.removeEventListener('scroll', handleScroll);
+            // 清理所有可能的滚动容器监听器
+            const candidates = [
+                '.n-layout-scroll-container',
+                '.n-scrollbar-container',
+                '.n-layout-content .n-scrollbar-container',
+                '.n-layout .n-scrollbar',
+            ];
+            for (const sel of candidates) {
+                const el = document.querySelector(sel);
+                if (el) {
+                    el.removeEventListener('scroll', handleScroll);
+                }
             }
             if (tvNavigation) {
                 tvNavigation.unregisterGroup('videoGrid');
