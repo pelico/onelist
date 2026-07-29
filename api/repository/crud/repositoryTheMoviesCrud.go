@@ -29,49 +29,52 @@ func NewRepositoryTheMoviesCRUD(db *gorm.DB) *RepositoryTheMoviesCRUD {
 
 // Stor themovie from the DB
 func (r *RepositoryTheMoviesCRUD) Sort(galleryUid string, mode string, order string, page int, size int) ([]models.TheMovie, int, error) {
-	// 第一步：收集去重后的所有 ID（按 url 分组）
-	var ids []int
 	orderSql := fmt.Sprintf("%s %s", mode, order)
 	if config.DBDRIVER == "sqlite" && strings.Contains(mode, "_at") {
 		orderSql = fmt.Sprintf("datetime(%s) %s", mode, order)
 	}
-	err := r.db.Model(&models.TheMovie{}).
-		Select("MIN(id)").
+	// 加上 id 作为次要排序键：不管主排序字段有多少并列值，最终排序结果都是唯一确定的，
+	// 不会再出现"同一个查询、不同次执行结果不一样"的情况
+	stableOrderSql := orderSql + ", id ASC"
+
+	// 先查总数（按 url 去重）
+	var total int64
+	r.db.Model(&models.TheMovie{}).
+		Select("url").
 		Where("gallery_uid = ?", galleryUid).
 		Group("url").
-		Order(orderSql).
-		Pluck("MIN(id)", &ids).Error
-	if err != nil {
-		return []models.TheMovie{}, 0, err
-	}
-
-	total := len(ids)
+		Count(&total)
 	if total == 0 {
 		return []models.TheMovie{}, 0, nil
 	}
 
-	// 第二步：对 ID 列表分页
-	start := (page - 1) * size
-	if start >= total {
-		start = 0
-	}
-	end := start + size
-	if end > total {
-		end = total
-	}
-	pageIds := ids[start:end]
-
-	// 第三步：按 ID 列表查询完整记录
-	themovies := []models.TheMovie{}
-	err = r.db.Model(&models.TheMovie{}).
-		Where("id IN ?", pageIds).
-		Order(orderSql).
-		Scan(&themovies).Error
+	// 直接用 SQL 的 LIMIT/OFFSET 做分页，而不是每次把全量 ID 拉到内存里再切片，
+	// 库大了以后也不会每翻一页就全表扫一遍
+	var pageIds []int
+	err := r.db.Model(&models.TheMovie{}).
+		Select("MIN(id)").
+		Where("gallery_uid = ?", galleryUid).
+		Group("url").
+		Order(stableOrderSql).
+		Limit(size).
+		Offset((page - 1) * size).
+		Pluck("MIN(id)", &pageIds).Error
 	if err != nil {
 		return []models.TheMovie{}, 0, err
 	}
 
-	return themovies, total, nil
+	// 按 ID 列表查询完整记录
+	themovies := []models.TheMovie{}
+	if len(pageIds) > 0 {
+		err = r.db.Model(&models.TheMovie{}).
+			Where("id IN ?", pageIds).
+			Order(stableOrderSql).
+			Scan(&themovies).Error
+		if err != nil {
+			return []models.TheMovie{}, 0, err
+		}
+	}
+	return themovies, int(total), nil
 }
 
 // FindByGalleryId themovies from the DB
