@@ -328,6 +328,10 @@ export default {
         const isTheaterMode = ref(false);
         let fullscreenTimer = null;
 
+        // 播放心跳上报（每30秒）
+        let heartbeatTimer = null;
+        let lastHeartbeatPosition = 0;
+
         function triggerTheaterMode() {
             isTheaterMode.value = true;
         }
@@ -820,6 +824,52 @@ export default {
             });
         }
 
+        // 播放心跳上报
+        function sendHeartbeat() {
+            if (!art || !data.value || !data.value.id) return;
+            try {
+                const video = art.video;
+                const currentPosition = Math.floor(video.currentTime);
+                const duration = Math.floor(video.duration) || 0;
+                const delta = currentPosition - lastHeartbeatPosition;
+                // 只在有实际播放（前进）且间隔合理时上报
+                if (delta <= 0 || delta > 60) {
+                    lastHeartbeatPosition = currentPosition;
+                    return;
+                }
+                lastHeartbeatPosition = currentPosition;
+                let api = `${proxy.COMMON.apiUrl}/v1/api/play-history/heartbeat`;
+                proxy.axios.post(api, {
+                    "data_type": gallery_type.value,
+                    "data_id": data.value.id,
+                    "gallery_uid": data.value.gallery_uid || "",
+                    "duration": delta,
+                    "position": currentPosition,
+                    "total_duration": duration
+                }, {
+                    headers: {
+                        'content-type': 'application/json',
+                        'Authorization': proxy.$cookies.get("Authorization")
+                    }
+                }).catch(() => {});
+            } catch (e) {
+                // 静默失败，不影响播放
+            }
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat();
+            lastHeartbeatPosition = 0;
+            heartbeatTimer = setInterval(sendHeartbeat, 30000);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
         function fetchData() {
             let api = `${proxy.COMMON.apiUrl}/v1/api/themovie/id?id=${id.value}`;
             if (gallery_type.value == "tv") {
@@ -944,6 +994,8 @@ export default {
             // 兜底：不管 playing 是否触发，2 秒后都尝试进入假全屏
             fullscreenTimer = setTimeout(triggerTheaterMode, 2000);
             bindPlaylistEnded();
+            // 启动播放心跳上报
+            startHeartbeat();
         }
 
         onBeforeRouteUpdate((to, from) => {
@@ -1121,6 +1173,8 @@ export default {
         });
 
         onUnmounted(() => {
+            // 清理心跳上报
+            stopHeartbeat();
             // 清理自动全屏计时器
             if (fullscreenTimer) clearTimeout(fullscreenTimer);
             // 清理键盘事件监听

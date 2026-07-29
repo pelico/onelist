@@ -337,6 +337,14 @@ func Run() {
 	played.POST("/data/list", controllers.GetPlayedDataList)
 	played.POST("/clean", controllers.CleanPlayed)
 
+	// 播放历史（播放统计）
+	playHistory := r.Group("/v1/api/play-history")
+	playHistory.POST("/heartbeat", auth.JWTAuth(), controllers.PlayHistoryHeartbeat)
+	playHistory.POST("/stats", auth.JWTAuthAdmin(), controllers.PlayHistoryStats)
+	playHistory.POST("/gallery-stats", auth.JWTAuthAdmin(), controllers.PlayHistoryGalleryStats)
+	playHistory.POST("/list", auth.JWTAuthAdmin(), controllers.PlayHistoryList)
+	playHistory.POST("/clean", auth.JWTAuthAdmin(), controllers.PlayHistoryClean)
+
 	//客户端首屏api
 	app := r.Group("/v1/api/app", auth.JWTAuth())
 	app.POST("/index", controllers.AppIndex)
