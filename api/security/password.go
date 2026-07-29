@@ -37,3 +37,20 @@ func VerifyPassword(hashedPassword, password string) error {
 	}
 	return nil
 }
+
+// DecodePassword 尝试还原存储的密码明文。
+// 旧版 base64 编码可直接还原；新版 bcrypt 哈希不可逆，原样返回。
+// 用于 onelist -run admin 命令显示管理员账户信息。
+func DecodePassword(hashedPassword string) (string, error) {
+	// bcrypt 哈希不可逆，直接返回
+	if len(hashedPassword) > 4 && hashedPassword[0] == '$' && hashedPassword[1] == '2' {
+		return hashedPassword, nil
+	}
+	// 旧版 base64 编码，尝试解码
+	decoded, err := base64.StdEncoding.DecodeString(hashedPassword)
+	if err != nil {
+		// 无法解码，原样返回
+		return hashedPassword, nil
+	}
+	return string(decoded), nil
+}
