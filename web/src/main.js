@@ -22,7 +22,7 @@ app.config.globalProperties.$cookies = VueCookies;
 app.config.globalProperties.COMMON = global;
 
 // 注册电视导航插件
-app.use(tvNavigation, { forceTvMode: false });
+app.use(tvNavigation, { forceTvMode: true });
 
 // 注册电视焦点指令
 setupTvFocusDirectives(app);

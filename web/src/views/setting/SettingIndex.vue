@@ -110,7 +110,7 @@ export default {
         const saving = ref(false);
         const cleaning = ref(false);
         const versionInfo = ref("v1.0 @2026 Optimized by wanchuan");
-        const forceTvMode = ref(localStorage.getItem('forceTvMode') === 'true');
+        const forceTvMode = ref(localStorage.getItem('forceTvMode') !== 'false');
 
         const downloadImageBool = computed(() => config.value.download_image === "是");
         const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
