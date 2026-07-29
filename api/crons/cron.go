@@ -2,12 +2,16 @@ package crons
 
 import (
 	"log"
+	"sync"
 
 	"github.com/msterzhang/onelist/plugins/watch"
 	"github.com/robfig/cron/v3"
 )
 
 var Cron *cron.Cron
+
+// watchMu 防止 WatchPath 重叠执行（大型目录刮削可能超过调度间隔）
+var watchMu sync.Mutex
 
 func Run() {
 	watch.UpdateGalleryImage()
@@ -20,11 +24,15 @@ func RunFiveM() {
 
 // 6小时运行一次
 func RunSixH() {
+	watchMu.Lock()
+	defer watchMu.Unlock()
 	watch.WatchPath()
 }
 
 // 凌晨两点运行
 func DayWork() {
+	watchMu.Lock()
+	defer watchMu.Unlock()
 	watch.WatchPath()
 }
 

@@ -64,9 +64,9 @@ func (g *GenericCRUD[T]) FindAll(page int, size int) ([]T, int, error) {
 	var zero T
 	var num int64
 	list := []T{}
-	result := g.db.Model(&zero).Find(&list)
-	result.Count(&num)
-	err := result.Limit(size).Offset((page - 1) * size).Order("-ID").Scan(&list).Error
+	model := g.db.Model(&zero)
+	model.Count(&num)
+	err := model.Limit(size).Offset((page - 1) * size).Order("-ID").Find(&list).Error
 	if err != nil {
 		return nil, 0, err
 	}

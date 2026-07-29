@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/msterzhang/onelist/api/utils/dir"
 	"github.com/msterzhang/onelist/api/utils/logger"
@@ -42,17 +43,22 @@ var keysEpisode = []string{"w227_and_h127_bestv2", "w710_and_h400_multi_faces", 
 // 下载横向海报图及背景图
 var keysBackImge = []string{"w355_and_h200_multi_faces", "w1920_and_h1080_bestv2"}
 
-// 初始化图片保存目录
+// 初始化图片保存目录（仅在首次下载时执行一次）
+var initDirOnce sync.Once
+
 func initDir() {
-	for _, item := range dirs {
-		imgsPath := imgpath + "/" + item
-		if !dir.DirExists(imgsPath) {
-			err := os.MkdirAll(imgsPath, os.ModePerm)
-			if err != nil {
-				log.Panic("创建图片保存文件夹失败!")
+	initDirOnce.Do(func() {
+		for _, item := range dirs {
+			imgsPath := imgpath + "/" + item
+			if !dir.DirExists(imgsPath) {
+				err := os.MkdirAll(imgsPath, os.ModePerm)
+				if err != nil {
+					log.Printf("[ERROR] 创建图片保存文件夹失败: %s, 错误: %v", imgsPath, err)
+					return
+				}
 			}
 		}
-	}
+	})
 }
 
 // 下载电视剧及电影竖向海报图
@@ -181,10 +187,7 @@ func Download(url string, fileName string) error {
 		logger.Error("thedb", "创建图片下载请求失败", "URL: "+url+", 错误: "+err.Error())
 		return err
 	}
-	client := http.Client{
-		Timeout: timeOut,
-	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		logger.Error("thedb", "图片下载请求失败", "URL: "+url+", 错误: "+err.Error())
 		return err

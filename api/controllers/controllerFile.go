@@ -26,21 +26,13 @@ import (
 func ImgServer(c *gin.Context) {
 	path := c.Param("path")
 	filePath := "images" + path
-	c.Writer.WriteHeader(200)
-	b, err := os.ReadFile(filePath)
-	if err != nil {
+	if !dir.FileExists(filePath) {
 		c.Writer.WriteHeader(http.StatusNotFound)
 		c.Writer.Flush()
 		return
 	}
-	_, err = c.Writer.Write(b)
-	if err != nil {
-		c.Writer.WriteHeader(http.StatusNoContent)
-		c.Writer.Flush()
-		return
-	}
-	c.Writer.Header().Add("Content-Type", "image/*")
-	c.Writer.Flush()
+	c.Header("Content-Type", "image/*")
+	c.File(filePath)
 }
 
 // 本地文件服务
@@ -71,21 +63,13 @@ func FileServer(c *gin.Context) {
 func GalleryImgServer(c *gin.Context) {
 	path := c.Param("path")
 	filePath := "./images" + path
-	c.Writer.WriteHeader(200)
-	b, err := os.ReadFile(filePath)
-	if err != nil {
+	if !dir.FileExists(filePath) {
 		c.Writer.WriteHeader(http.StatusNotFound)
 		c.Writer.Flush()
 		return
 	}
-	_, err = c.Writer.Write(b)
-	if err != nil {
-		c.Writer.WriteHeader(http.StatusNoContent)
-		c.Writer.Flush()
-		return
-	}
-	c.Writer.Header().Add("Content-Type", "image/*")
-	c.Writer.Flush()
+	c.Header("Content-Type", "image/*")
+	c.File(filePath)
 }
 
 func FileUpload(c *gin.Context) {
@@ -226,17 +210,14 @@ func CustomImgServer(c *gin.Context) {
 	perm := shuffledPermutation(round, n)
 	imgPath := images[perm[position]]
 
-	b, err := os.ReadFile(imgPath)
-	if err != nil {
+	if !dir.FileExists(imgPath) {
 		c.Redirect(http.StatusFound, "/images/not_video.jpg")
 		return
 	}
 	c.Header("Content-Type", "image/*")
 	// 不缓存，确保开关切换或图片更新后立即生效
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Writer.WriteHeader(200)
-	c.Writer.Write(b)
-	c.Writer.Flush()
+	c.File(imgPath)
 }
 func getAlistPlaylist(gallery models.Gallery, fileUrl string) []string {
 	// fileUrl 格式如 /d/电影/xxx.mp4，去掉 /d 前缀得到 alist 路径
