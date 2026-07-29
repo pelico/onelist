@@ -18,6 +18,7 @@ import (
 	"github.com/msterzhang/onelist/api/utils/dir"
 	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/api/utils/tools"
+	"github.com/msterzhang/onelist/config"
 	"github.com/msterzhang/onelist/plugins/alist"
 )
 
@@ -180,6 +181,12 @@ func shuffledPermutation(round uint64, n int) []int {
 
 // 自定义默认封面图片服务：FNV-1a 哈希 + 按轮次 Fisher-Yates 洗牌，保证均匀且不重复
 func CustomImgServer(c *gin.Context) {
+	// 未开启自定义封面时返回默认图
+	if config.CustomDefaultImage != "是" {
+		c.Redirect(http.StatusFound, "/images/not_video.jpg")
+		return
+	}
+
 	images := getPictureImages()
 	n := len(images)
 	if n == 0 {

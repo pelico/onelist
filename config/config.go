@@ -31,7 +31,7 @@ var (
 	UA                    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
 	IsDev                 = false
 	LogRetentionDays      = ""
-	CustomDefaultImage    = ""
+	CustomDefaultImage    = "是"
 	Version               = "v1.0 @2026 Optimized by wanchuan"
 	db                    *gorm.DB
 )
@@ -84,7 +84,9 @@ func Load() {
 		TheMovieDbApiUrl = "https://api.themoviedb.org/3"
 	}
 	VideoTypes = os.Getenv("VideoTypes")
-	CustomDefaultImage = os.Getenv("CustomDefaultImage")
+	if v := os.Getenv("CustomDefaultImage"); v != "" {
+		CustomDefaultImage = v
+	}
 }
 
 // 获取配置
