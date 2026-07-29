@@ -45,6 +45,11 @@ function initConfig() {
             imgUrl = apiUrl;
         }
     }
+    // 自定义封面默认开启；仅在管理员明确设置过 "否" 时才关闭
+    const customVal = localStorage.getItem("custom_default_image");
+    if (customVal === "否") {
+        customDefaultImage = false;
+    }
 }
 
 initConfig()
@@ -65,6 +70,15 @@ function applyConfig(cfg) {
         }
         imgUrl = v;
         api.imgUrl = imgUrl;
+    }
+    if (cfg.custom_default_image !== undefined && cfg.custom_default_image !== null) {
+        const newVal = cfg.custom_default_image === '是';
+        // 开关状态变化时递增版本号，强制浏览器重新请求图片
+        if (newVal !== customDefaultImage) {
+            customImageVersion.value++;
+        }
+        customDefaultImage = newVal;
+        localStorage.setItem('custom_default_image', cfg.custom_default_image);
     }
     if (typeof window !== 'undefined' && window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('onelist:config-changed', { detail: cfg }));
