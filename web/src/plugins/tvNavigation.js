@@ -68,7 +68,11 @@ class TvNavigation {
     }
 
     const forceTvFromStorage = (() => {
-      try { return localStorage.getItem('forceTvMode') === 'true'; } catch (e) { return false; }
+      try {
+        const val = localStorage.getItem('forceTvMode');
+        // 未设置过时默认启用，管理员可在设置中关闭
+        return val === null || val === 'true';
+      } catch (e) { return true; }
     })();
 
     this.isTvMode = forceTvFromUrl || forceTvFromStorage || isTv || (isAndroid && isLargeScreen && !hasTouch);
