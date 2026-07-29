@@ -32,7 +32,18 @@ function getPosterUrl(posterPath, videoId) {
         }
         return '/images/not_video.jpg';
     }
-    return imgUrl + "/t/p/w220_and_h330_face" + posterPath;
+    // 优先使用本地路径，由后端 ImgServer 从 images/ 目录提供
+    // 加载失败时由模板 @error 回退到远程 TMDB
+    return "/t/p/w220_and_h330_face" + posterPath;
+}
+
+// 海报图片加载失败时回退到远程 TMDB（每个元素只回退一次，避免无限循环）
+function onPosterError(event, posterPath) {
+    const el = event.target;
+    if (el._fallbackTried) return;
+    el._fallbackTried = true;
+    el.src = imgUrl + "/t/p/w220_and_h330_face" + posterPath;
+    el.style.opacity = '1'; // 确保远程也失败时图片可见
 }
 
 function initConfig() {
@@ -93,6 +104,7 @@ const api = {
     imgUrl,
     ShowMsg,
     getPosterUrl,
+    onPosterError,
     setMsgHandler,
     applyConfig
 }
