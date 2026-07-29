@@ -76,6 +76,11 @@ const routes = [
         name: 'LogIndex',
         component: () => import('../views/log/LogIndex.vue')
     },
+    {
+        path: '/play-stats',
+        name: 'PlayStats',
+        component: () => import('../views/playstats/PlayStats.vue')
+    },
 ];
 
 const router = createRouter({
