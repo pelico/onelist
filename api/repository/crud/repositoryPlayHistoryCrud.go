@@ -266,11 +266,12 @@ func (r *RepositoryPlayHistoryCRUD) GetDailyTimePeriods(userId string, startDate
 
 		// 合并连续心跳为播放段（间隔≤5分钟视为连续）
 		type seg struct {
-			start time.Time
-			end   time.Time
+			start    time.Time
+			end      time.Time
+			totalDur int // 累加实际播放秒数
 		}
 		var segments []seg
-		cur := seg{start: hbs[0].StartedAt, end: hbs[0].StartedAt}
+		cur := seg{start: hbs[0].StartedAt, end: hbs[0].StartedAt, totalDur: hbs[0].Duration}
 		for i := 1; i < len(hbs); i++ {
 			gap := hbs[i].StartedAt.Sub(cur.end)
 			if gap <= 5*time.Minute {
@@ -278,10 +279,11 @@ func (r *RepositoryPlayHistoryCRUD) GetDailyTimePeriods(userId string, startDate
 				if hbs[i].StartedAt.After(cur.end) {
 					cur.end = hbs[i].StartedAt
 				}
+				cur.totalDur += hbs[i].Duration
 			} else {
 				// 间隙超过5分钟，结束当前段，开始新段
 				segments = append(segments, cur)
-				cur = seg{start: hbs[i].StartedAt, end: hbs[i].StartedAt}
+				cur = seg{start: hbs[i].StartedAt, end: hbs[i].StartedAt, totalDur: hbs[i].Duration}
 			}
 		}
 		segments = append(segments, cur)
@@ -289,7 +291,7 @@ func (r *RepositoryPlayHistoryCRUD) GetDailyTimePeriods(userId string, startDate
 		// 构建时间段列表：播放段 + 间隙交替
 		var timeSegments []repository.TimeSegment
 		for i, s := range segments {
-			dur := int(s.end.Sub(s.start).Seconds())
+			dur := s.totalDur
 			if dur < 30 {
 				dur = 30 // 最小30秒
 			}
