@@ -617,7 +617,7 @@ export default defineComponent({
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 36px;
 }
 
 .summary-card {
@@ -982,5 +982,41 @@ export default defineComponent({
     color: #5c6bc0;
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+/* 夜间模式：给模块加灰度背景，与页面底色区分 */
+@media (prefers-color-scheme: dark) {
+    .summary-card,
+    .chart-card,
+    .history-section {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .top-movie-item {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .top-movie-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+}
+</style>
+
+<style>
+/* 暗色主题（.dark class 在 n-layout 上，需要非 scoped 样式穿透） */
+.dark .play-stats .summary-card,
+.dark .play-stats .chart-card,
+.dark .play-stats .history-section {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .play-stats .top-movie-item {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.dark .play-stats .top-movie-item:hover {
+    background: rgba(255, 255, 255, 0.06);
 }
 </style>
