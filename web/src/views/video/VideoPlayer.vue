@@ -289,12 +289,21 @@
             <span>护眼屏保将在 {{ warningCountdown }} 秒后启动，请准备休息</span>
         </div>
 
+        <!-- 护眼屏保：每日限额接近预警 -->
+        <div v-if="dailyLimitWarning && !warningVisible && !screensaverVisible" class="daily-limit-warning">
+            今天的时间快用完啦，还剩约 {{ dailyLimitRemainingMin }} 分钟
+        </div>
+
+        <!-- 护眼屏保：每日限额达到，画面变暗（等当前集播完） -->
+        <div v-if="dailyLimitDimmed && !screensaverVisible" class="daily-limit-dim"></div>
+
         <!-- 护眼屏保：全屏遮罩 -->
         <ScreensaverOverlay
             :visible="screensaverVisible"
             :mode="screensaverMode"
             :countdown="screensaverCountdown"
             :wallpaper-files="wallpaperFiles"
+            :today-watched-minutes="todayWatchedMinDisplay"
             @countdown-end="onScreensaverEnd"
         />
     </div>
@@ -364,6 +373,10 @@ export default {
         let warningTimer = null;
         let todayTotalSeconds = 0;
         let screensaverWasPlaying = false;  // 屏保触发前是否在播放
+        const dailyLimitDimmed = ref(false);      // 达到每日限额，画面变暗
+        const dailyLimitWarning = ref(false);     // 接近每日限额，友好提示
+        const dailyLimitRemainingMin = ref(0);    // 剩余分钟数
+        const todayWatchedMinDisplay = ref(0);    // 今日已看分钟数（响应式，用于模板展示）
 
         function triggerTheaterMode() {
             isTheaterMode.value = true;
@@ -415,6 +428,11 @@ export default {
             art.off('video:ended');
             art.on('video:ended', () => {
                 if (playlist.value.length > 0 && playlistIndex.value < playlist.value.length - 1) {
+                    // 达到每日限额时，当前集播完后不再自动连播，触发锁定屏保
+                    if (isScreensaverActive() && todayTotalSeconds >= screensaverConfig.dailyLimit) {
+                        triggerScreensaver('locked');
+                        return;
+                    }
                     playNextInPlaylist();
                 }
             });
@@ -458,6 +476,14 @@ export default {
             }).then(res => {
                 if (res.data.code === 200) {
                     todayTotalSeconds = res.data.data || 0;
+                    todayWatchedMinDisplay.value = Math.floor(todayTotalSeconds / 60);
+                    // 如果已经在限额外（比如刷新页面时已超时长），立即变暗
+                    if (isScreensaverActive() && todayTotalSeconds >= screensaverConfig.dailyLimit) {
+                        dailyLimitDimmed.value = true;
+                    } else if (isScreensaverActive() && screensaverConfig.dailyLimit - todayTotalSeconds <= 600) {
+                        dailyLimitRemainingMin.value = Math.ceil((screensaverConfig.dailyLimit - todayTotalSeconds) / 60);
+                        dailyLimitWarning.value = true;
+                    }
                 }
             }).catch(() => {});
         }
@@ -484,10 +510,26 @@ export default {
                 cumulativePlaySeconds++;
                 todayTotalSeconds++;
 
-                // 检查每日上限
-                if (todayTotalSeconds >= screensaverConfig.dailyLimit) {
-                    triggerScreensaver('locked');
-                    return;
+                // 每分钟更新展示用数据
+                if (todayTotalSeconds % 60 === 0) {
+                    todayWatchedMinDisplay.value = Math.floor(todayTotalSeconds / 60);
+                }
+
+                const remaining = screensaverConfig.dailyLimit - todayTotalSeconds;
+
+                // 达到每日上限：画面变暗，等当前集播完再锁
+                if (remaining <= 0) {
+                    dailyLimitDimmed.value = true;
+                    dailyLimitWarning.value = false;
+                    return;  // 不再检查连续播放阈值
+                }
+
+                // 接近每日上限（剩余 ≤ 10 分钟）：友好提示
+                if (remaining <= 600) {
+                    dailyLimitRemainingMin.value = Math.ceil(remaining / 60);
+                    dailyLimitWarning.value = true;
+                } else {
+                    dailyLimitWarning.value = false;
                 }
 
                 // 检查连续播放阈值
@@ -531,6 +573,8 @@ export default {
         // 触发屏保
         function triggerScreensaver(mode) {
             stopWarning();
+            dailyLimitWarning.value = false;
+            dailyLimitDimmed.value = false;
             screensaverMode.value = mode;
             screensaverVisible.value = true;
 
@@ -1452,6 +1496,10 @@ export default {
             wallpaperFiles,
             warningVisible,
             warningCountdown,
+            dailyLimitDimmed,
+            dailyLimitWarning,
+            dailyLimitRemainingMin,
+            todayWatchedMinDisplay,
             onScreensaverEnd
         }
     },
@@ -1504,6 +1552,41 @@ h1 {
 @keyframes screensaver-warning-pulse {
     from { opacity: 0.85; }
     to { opacity: 1; }
+}
+
+/* 每日限额接近预警横幅 */
+.daily-limit-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 99997;
+    background: rgba(255, 87, 34, 0.88);
+    color: #fff;
+    text-align: center;
+    padding: 12px 20px;
+    font-size: 1.1em;
+    font-weight: 500;
+    pointer-events: none;
+    user-select: none;
+    animation: daily-limit-fade 2s ease-in-out infinite alternate;
+}
+
+@keyframes daily-limit-fade {
+    from { opacity: 0.75; }
+    to { opacity: 1; }
+}
+
+/* 每日限额达到：画面变暗遮罩 */
+.daily-limit-dim {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none;
 }
 
 

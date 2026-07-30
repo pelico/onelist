@@ -12,6 +12,8 @@
                     <br />
                     <span class="countdown-sub">明天再继续吧</span>
                 </template>
+                <br />
+                <span class="countdown-stat">今天已看 {{ todayWatchedMinutes }} 分钟</span>
             </div>
 
             <!-- 屏保内容区域 -->
@@ -61,7 +63,8 @@ export default defineComponent({
         visible: { type: Boolean, default: false },
         mode: { type: String, default: 'rest' },       // 'rest' = 休息倒计时, 'locked' = 每日锁定
         countdown: { type: Number, default: 0 },        // 剩余秒数（rest 模式用）
-        wallpaperFiles: { type: Array, default: () => [] }
+        wallpaperFiles: { type: Array, default: () => [] },
+        todayWatchedMinutes: { type: Number, default: 0 }  // 今日已看分钟数
     },
     emits: ['countdown-end'],
     setup(props, { emit }) {
@@ -181,6 +184,13 @@ export default defineComponent({
 .countdown-sub {
     font-size: 0.85em;
     color: #aaa;
+}
+
+.countdown-stat {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 4px;
+    display: inline-block;
 }
 
 .screensaver-content {
