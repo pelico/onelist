@@ -283,10 +283,25 @@
                 </ul>
             </n-card>
         </n-modal>
+
+        <!-- 护眼屏保：10秒预警横幅 -->
+        <div v-if="warningVisible" class="screensaver-warning">
+            <span>护眼屏保将在 {{ warningCountdown }} 秒后启动，请准备休息</span>
+        </div>
+
+        <!-- 护眼屏保：全屏遮罩 -->
+        <ScreensaverOverlay
+            :visible="screensaverVisible"
+            :mode="screensaverMode"
+            :countdown="screensaverCountdown"
+            :wallpaper-files="wallpaperFiles"
+            @countdown-end="onScreensaverEnd"
+        />
     </div>
 </template>
 <script>
 import Artplayer from "./ArtPlayer.vue";
+import ScreensaverOverlay from "./ScreensaverOverlay.vue";
 
 import { getCurrentInstance, onMounted, onUnmounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
@@ -295,6 +310,7 @@ export default {
     name: 'VideoPlayer',
     components: {
         Artplayer,
+        ScreensaverOverlay,
     },
     setup() {
         const loading = ref(true);
@@ -331,6 +347,23 @@ export default {
         // 播放心跳上报（每30秒）
         let heartbeatTimer = null;
         let lastHeartbeatPosition = 0;
+
+        // ===== 护眼屏保 =====
+        const screensaverVisible = ref(false);
+        const screensaverMode = ref('rest');       // 'rest' | 'locked'
+        const screensaverCountdown = ref(0);
+        const wallpaperFiles = ref([]);
+        const warningVisible = ref(false);
+        const warningCountdown = ref(10);
+        // 屏保配置（从后端获取）
+        let screensaverConfig = { enabled: '是', playDuration: 3600, duration: 180, dailyLimit: 7200 };
+        // 累计播放计时
+        let cumulativePlaySeconds = 0;
+        let playTrackerTimer = null;
+        let screensaverTimer = null;
+        let warningTimer = null;
+        let todayTotalSeconds = 0;
+        let screensaverWasPlaying = false;  // 屏保触发前是否在播放
 
         function triggerTheaterMode() {
             isTheaterMode.value = true;
@@ -385,6 +418,178 @@ export default {
                     playNextInPlaylist();
                 }
             });
+        }
+
+        // ===== 护眼屏保逻辑 =====
+
+        // 获取屏保配置（公开接口，无需管理员权限）
+        function fetchScreensaverConfig() {
+            let api = `${proxy.COMMON.apiUrl}/v1/api/configs`;
+            proxy.axios.get(api).then(res => {
+                if (res.data.code === 200 && res.data.data) {
+                    const d = res.data.data;
+                    screensaverConfig = {
+                        enabled: d.screensaver_enabled || '是',
+                        playDuration: parseInt(d.screensaver_play_duration) || 3600,
+                        duration: parseInt(d.screensaver_duration) || 180,
+                        dailyLimit: parseInt(d.screensaver_daily_limit) || 7200
+                    };
+                }
+            }).catch(() => {});
+        }
+
+        // 获取壁纸素材列表
+        function fetchWallpaperFiles() {
+            let api = `${proxy.COMMON.apiUrl}/v1/api/wallpaper/list`;
+            proxy.axios.get(api, {
+                headers: { 'Authorization': proxy.$cookies.get("Authorization") }
+            }).then(res => {
+                if (res.data.code === 200 && res.data.data) {
+                    wallpaperFiles.value = res.data.data;
+                }
+            }).catch(() => {});
+        }
+
+        // 获取今日已播放总秒数
+        function fetchTodayPlayDuration() {
+            let api = `${proxy.COMMON.apiUrl}/v1/api/play-history/today`;
+            proxy.axios.get(api, {
+                headers: { 'Authorization': proxy.$cookies.get("Authorization") }
+            }).then(res => {
+                if (res.data.code === 200) {
+                    todayTotalSeconds = res.data.data || 0;
+                }
+            }).catch(() => {});
+        }
+
+        // 判断当前用户是否受屏保管控
+        function isScreensaverActive() {
+            if (screensaverConfig.enabled !== '是') return false;
+            // 管理员可以关闭自己的屏保（通过设置页面）
+            // 非管理员始终开启——这里通过检查 is_admin cookie 判断
+            const isAdmin = proxy.$cookies.get("is_admin") === "true";
+            if (isAdmin && screensaverConfig.enabled !== '是') return false;
+            return true;
+        }
+
+        // 启动累计播放计时器（每秒 +1）
+        function startPlayTracker() {
+            stopPlayTracker();
+            playTrackerTimer = setInterval(() => {
+                if (!art || !art.playing) return;
+                if (screensaverVisible.value) return;
+                // 管理员关闭屏保后不再计时
+                if (!isScreensaverActive()) return;
+
+                cumulativePlaySeconds++;
+                todayTotalSeconds++;
+
+                // 检查每日上限
+                if (todayTotalSeconds >= screensaverConfig.dailyLimit) {
+                    triggerScreensaver('locked');
+                    return;
+                }
+
+                // 检查连续播放阈值
+                if (cumulativePlaySeconds >= screensaverConfig.playDuration) {
+                    startWarning();
+                }
+            }, 1000);
+        }
+
+        function stopPlayTracker() {
+            if (playTrackerTimer) {
+                clearInterval(playTrackerTimer);
+                playTrackerTimer = null;
+            }
+        }
+
+        // 10 秒预警
+        function startWarning() {
+            if (warningVisible.value || screensaverVisible.value) return;
+            warningCountdown.value = 10;
+            warningVisible.value = true;
+            warningTimer = setInterval(() => {
+                warningCountdown.value--;
+                if (warningCountdown.value <= 0) {
+                    clearInterval(warningTimer);
+                    warningTimer = null;
+                    warningVisible.value = false;
+                    triggerScreensaver('rest');
+                }
+            }, 1000);
+        }
+
+        function stopWarning() {
+            if (warningTimer) {
+                clearInterval(warningTimer);
+                warningTimer = null;
+            }
+            warningVisible.value = false;
+        }
+
+        // 触发屏保
+        function triggerScreensaver(mode) {
+            stopWarning();
+            screensaverMode.value = mode;
+            screensaverVisible.value = true;
+
+            if (mode === 'rest') {
+                screensaverCountdown.value = screensaverConfig.duration;
+                // 暂停视频
+                if (art && art.playing) {
+                    screensaverWasPlaying = true;
+                    art.pause();
+                } else {
+                    screensaverWasPlaying = false;
+                }
+                // 倒计时
+                screensaverTimer = setInterval(() => {
+                    screensaverCountdown.value--;
+                    if (screensaverCountdown.value <= 0) {
+                        clearInterval(screensaverTimer);
+                        screensaverTimer = null;
+                        onScreensaverEnd();
+                    }
+                }, 1000);
+            }
+            // locked 模式不设倒计时，由 onScreensaverEnd 检查次日解锁
+        }
+
+        // 屏保倒计时结束回调
+        function onScreensaverEnd() {
+            if (screensaverMode.value === 'rest') {
+                // 重置累计计时
+                cumulativePlaySeconds = 0;
+                screensaverVisible.value = false;
+                // 恢复播放
+                if (art && screensaverWasPlaying) {
+                    art.play();
+                }
+            } else if (screensaverMode.value === 'locked') {
+                // 每日锁定：重新查询今日时长，确认是否已跨天
+                fetchTodayPlayDuration();
+                if (todayTotalSeconds < screensaverConfig.dailyLimit) {
+                    // 已跨天解锁
+                    screensaverVisible.value = false;
+                    cumulativePlaySeconds = 0;
+                    if (art && screensaverWasPlaying) {
+                        art.play();
+                    }
+                }
+                // 否则保持锁定，1分钟后再次检查
+                screensaverTimer = setTimeout(() => {
+                    onScreensaverEnd();
+                }, 60000);
+            }
+        }
+
+        function stopScreensaverTimer() {
+            if (screensaverTimer) {
+                clearInterval(screensaverTimer);
+                clearTimeout(screensaverTimer);
+                screensaverTimer = null;
+            }
         }
 
         gallery_type.value = proxy.$route.query.gallery_type;
@@ -1024,6 +1229,9 @@ export default {
             bindPlaylistEnded();
             // 启动播放心跳上报
             startHeartbeat();
+            // 启动护眼屏保累计播放计时
+            cumulativePlaySeconds = 0;
+            startPlayTracker();
         }
 
         onBeforeRouteUpdate((to, from) => {
@@ -1198,6 +1406,10 @@ export default {
             setTimeout(() => {
                 setupTvPlayerControl();
             }, 1000);
+            // 护眼屏保初始化
+            fetchScreensaverConfig();
+            fetchWallpaperFiles();
+            fetchTodayPlayDuration();
         });
 
         onUnmounted(() => {
@@ -1205,6 +1417,10 @@ export default {
             stopHeartbeat();
             // 清理自动全屏计时器
             if (fullscreenTimer) clearTimeout(fullscreenTimer);
+            // 清理护眼屏保计时器
+            stopPlayTracker();
+            stopWarning();
+            stopScreensaverTimer();
             // 清理键盘事件监听
             if (window._tvPlayerKeyHandler) {
                 window.removeEventListener('keydown', window._tvPlayerKeyHandler, true);
@@ -1229,7 +1445,14 @@ export default {
             videoRef,
             left,
             season,
-            isTheaterMode
+            isTheaterMode,
+            screensaverVisible,
+            screensaverMode,
+            screensaverCountdown,
+            wallpaperFiles,
+            warningVisible,
+            warningCountdown,
+            onScreensaverEnd
         }
     },
     methods: {
@@ -1258,6 +1481,29 @@ export default {
 <style scoped>
 h1 {
     padding: auto;
+}
+
+/* 护眼屏保预警横幅 */
+.screensaver-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 99998;
+    background: rgba(255, 152, 0, 0.92);
+    color: #fff;
+    text-align: center;
+    padding: 14px 20px;
+    font-size: 1.1em;
+    font-weight: 500;
+    animation: screensaver-warning-pulse 1s ease-in-out infinite alternate;
+    pointer-events: none;
+    user-select: none;
+}
+
+@keyframes screensaver-warning-pulse {
+    from { opacity: 0.85; }
+    to { opacity: 1; }
 }
 
 

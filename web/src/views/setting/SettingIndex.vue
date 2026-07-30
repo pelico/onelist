@@ -62,6 +62,29 @@
                     </n-switch>
                     <span class="form-hint">开启后，未刮削海报的影片将使用 /config/picture 目录下的图片作为封面。将图片放入该目录，会均匀分配到各影片上。目录为空则使用内置默认图。</span>
                 </n-form-item>
+                <n-divider>护眼屏保</n-divider>
+                <n-form-item label="启用护眼屏保" path="screensaver_enabled">
+                    <n-switch :value="screensaverEnabledBool" @update:value="onScreensaverEnabledChange" size="large">
+                        <template #checked>是</template>
+                        <template #unchecked>否</template>
+                    </n-switch>
+                    <span class="form-hint">关闭后管理员账号不受屏保限制，非管理员账号始终开启</span>
+                </n-form-item>
+                <n-form-item label="连续播放时长（分钟）" path="screensaver_play_duration">
+                    <n-input-number v-model:value="screensaverPlayDurationMin" size="large" :min="1" :max="600" placeholder="默认 60 分钟" style="width: 100%" />
+                    <span class="form-hint">连续播放达到此时长后触发屏保休息</span>
+                </n-form-item>
+                <n-form-item label="屏保休息时长（秒）" path="screensaver_duration">
+                    <n-input-number v-model:value="screensaverDurationSec" size="large" :min="10" :max="3600" placeholder="默认 180 秒" style="width: 100%" />
+                    <span class="form-hint">屏保展示多久后自动恢复播放</span>
+                </n-form-item>
+                <n-form-item label="每日最大播放时长（小时）" path="screensaver_daily_limit">
+                    <n-input-number v-model:value="screensaverDailyLimitHour" size="large" :min="0.5" :max="24" :step="0.5" placeholder="默认 2 小时" style="width: 100%" />
+                    <span class="form-hint">当天累计播放超过此时长后锁定播放，次日自动解锁</span>
+                </n-form-item>
+                <div class="screensaver-hint">
+                    屏保素材：将视频、图片或 HTML 文件放入 <code>wallpaper/</code> 目录，屏保启动时随机展示。支持 .mp4/.webm/.mov、.jpg/.png/.gif、.html 等格式。
+                </div>
                 <n-button size="large" class="btn-save" @click="Save()" type="info" :loading="saving">
                     保存
                 </n-button>
@@ -103,7 +126,11 @@ export default {
             "faviconico_url": null,
             "video_types": null,
             "log_retention_days": null,
-            "custom_default_image": null
+            "custom_default_image": null,
+            "screensaver_enabled": null,
+            "screensaver_play_duration": null,
+            "screensaver_duration": null,
+            "screensaver_daily_limit": null
         })
         const { proxy } = getCurrentInstance();
         const load = ref(true);
@@ -115,6 +142,41 @@ export default {
         const downloadImageBool = computed(() => config.value.download_image === "是");
         const downloadImageToMediaBool = computed(() => config.value.download_image_to_media === "是");
         const customDefaultImageBool = computed(() => config.value.custom_default_image === "是");
+
+        const screensaverEnabledBool = computed(() => config.value.screensaver_enabled === "是");
+
+        // 后端存储秒，前端显示分钟
+        const screensaverPlayDurationMin = computed({
+            get: () => {
+                const n = parseInt(config.value.screensaver_play_duration);
+                return isNaN(n) || n <= 0 ? 60 : Math.round(n / 60);
+            },
+            set: (val) => {
+                config.value.screensaver_play_duration = val != null ? String(Math.round(val * 60)) : "";
+            }
+        });
+
+        // 后端存储秒，前端显示秒
+        const screensaverDurationSec = computed({
+            get: () => {
+                const n = parseInt(config.value.screensaver_duration);
+                return isNaN(n) || n <= 0 ? 180 : n;
+            },
+            set: (val) => {
+                config.value.screensaver_duration = val != null ? String(val) : "";
+            }
+        });
+
+        // 后端存储秒，前端显示小时
+        const screensaverDailyLimitHour = computed({
+            get: () => {
+                const n = parseInt(config.value.screensaver_daily_limit);
+                return isNaN(n) || n <= 0 ? 7200 : n / 3600;
+            },
+            set: (val) => {
+                config.value.screensaver_daily_limit = val != null ? String(Math.round(val * 3600)) : "";
+            }
+        });
 
         const logRetentionDaysNum = computed({
             get: () => {
@@ -136,6 +198,10 @@ export default {
 
         function onCustomDefaultImageChange(val) {
             config.value.custom_default_image = val ? "是" : "否";
+        }
+
+        function onScreensaverEnabledChange(val) {
+            config.value.screensaver_enabled = val ? "是" : "否";
         }
 
         function onForceTvModeChange(val) {
@@ -228,10 +294,15 @@ export default {
             downloadImageBool,
             downloadImageToMediaBool,
             customDefaultImageBool,
+            screensaverEnabledBool,
+            screensaverPlayDurationMin,
+            screensaverDurationSec,
+            screensaverDailyLimitHour,
             logRetentionDaysNum,
             onDownloadImageChange,
             onDownloadImageToMediaChange,
             onCustomDefaultImageChange,
+            onScreensaverEnabledChange,
             onForceTvModeChange,
             saveF,
             cleanupLibrary
@@ -263,6 +334,20 @@ export default {
     margin-left: 12px;
     color: #999;
     font-size: 0.85em;
+}
+
+.screensaver-hint {
+    color: #999;
+    font-size: 0.85em;
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.screensaver-hint code {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.95em;
 }
 
 .cleanup-section {

@@ -32,6 +32,11 @@ var (
 	IsDev                 = false
 	LogRetentionDays      = ""
 	CustomDefaultImage    = "是"
+	// 护眼屏保
+	ScreensaverEnabled      = "是"
+	ScreensaverPlayDuration = "3600"  // 默认1小时
+	ScreensaverDuration     = "180"   // 默认3分钟
+	ScreensaverDailyLimit   = "7200"  // 默认2小时
 	Version               = "v1.0 @2026 Optimized by wanchuan"
 	db                    *gorm.DB
 )
@@ -87,21 +92,38 @@ func Load() {
 	if v := os.Getenv("CustomDefaultImage"); v != "" {
 		CustomDefaultImage = v
 	}
+	// 护眼屏保
+	if v := os.Getenv("ScreensaverEnabled"); v != "" {
+		ScreensaverEnabled = v
+	}
+	if v := os.Getenv("ScreensaverPlayDuration"); v != "" {
+		ScreensaverPlayDuration = v
+	}
+	if v := os.Getenv("ScreensaverDuration"); v != "" {
+		ScreensaverDuration = v
+	}
+	if v := os.Getenv("ScreensaverDailyLimit"); v != "" {
+		ScreensaverDailyLimit = v
+	}
 }
 
 // 获取配置
 func GetConfig() models.Config {
 	config := models.Config{
-		Title:               Title,
-		DownLoadImage:       DownLoadImage,
-		DownLoadImageToMedia: DownLoadImageToMedia,
-		ImgUrl:              ImgUrl,
-		TheMovieDbApiUrl:    TheMovieDbApiUrl,
-		KeyDb:               KeyDb,
-		FaviconicoUrl:       FaviconicoUrl,
-		VideoTypes:          VideoTypes,
-		LogRetentionDays:    LogRetentionDays,
-		CustomDefaultImage:  CustomDefaultImage,
+		Title:                 Title,
+		DownLoadImage:         DownLoadImage,
+		DownLoadImageToMedia:  DownLoadImageToMedia,
+		ImgUrl:                ImgUrl,
+		TheMovieDbApiUrl:      TheMovieDbApiUrl,
+		KeyDb:                 KeyDb,
+		FaviconicoUrl:         FaviconicoUrl,
+		VideoTypes:            VideoTypes,
+		LogRetentionDays:      LogRetentionDays,
+		CustomDefaultImage:    CustomDefaultImage,
+		ScreensaverEnabled:    ScreensaverEnabled,
+		ScreensaverPlayDuration: ScreensaverPlayDuration,
+		ScreensaverDuration:   ScreensaverDuration,
+		ScreensaverDailyLimit: ScreensaverDailyLimit,
 	}
 	return config
 }
@@ -120,6 +142,19 @@ func SetConfig(config models.Config) {
 	VideoTypes = config.VideoTypes
 	LogRetentionDays = config.LogRetentionDays
 	CustomDefaultImage = config.CustomDefaultImage
+	// 护眼屏保
+	if config.ScreensaverEnabled != "" {
+		ScreensaverEnabled = config.ScreensaverEnabled
+	}
+	if config.ScreensaverPlayDuration != "" {
+		ScreensaverPlayDuration = config.ScreensaverPlayDuration
+	}
+	if config.ScreensaverDuration != "" {
+		ScreensaverDuration = config.ScreensaverDuration
+	}
+	if config.ScreensaverDailyLimit != "" {
+		ScreensaverDailyLimit = config.ScreensaverDailyLimit
+	}
 }
 
 // 保存配置
@@ -136,6 +171,10 @@ func SaveConfig(config models.Config) (models.Config, error) {
 			"VideoTypes":             config.VideoTypes,
 			"LogRetentionDays":       config.LogRetentionDays,
 			"CustomDefaultImage":     config.CustomDefaultImage,
+			"ScreensaverEnabled":     config.ScreensaverEnabled,
+			"ScreensaverPlayDuration": config.ScreensaverPlayDuration,
+			"ScreensaverDuration":    config.ScreensaverDuration,
+			"ScreensaverDailyLimit":  config.ScreensaverDailyLimit,
 		}
 		for key, value := range settings {
 			setting := models.Setting{}
@@ -197,5 +236,18 @@ func LoadFromDB() {
 	}
 	if v, ok := settingMap["CustomDefaultImage"]; ok {
 		CustomDefaultImage = v
+	}
+	// 护眼屏保
+	if v, ok := settingMap["ScreensaverEnabled"]; ok {
+		ScreensaverEnabled = v
+	}
+	if v, ok := settingMap["ScreensaverPlayDuration"]; ok {
+		ScreensaverPlayDuration = v
+	}
+	if v, ok := settingMap["ScreensaverDuration"]; ok {
+		ScreensaverDuration = v
+	}
+	if v, ok := settingMap["ScreensaverDailyLimit"]; ok {
+		ScreensaverDailyLimit = v
 	}
 }
