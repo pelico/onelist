@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -77,6 +80,14 @@ func Load() {
 	}
 	DBDRIVER = os.Getenv("DB_DRIVER")
 	SECRETKEY = []byte(os.Getenv("API_SECRET"))
+	if len(SECRETKEY) == 0 {
+		// API_SECRET 未配置时自动生成随机密钥，避免空密钥签名
+		key := make([]byte, 32)
+		if _, err := rand.Read(key); err == nil {
+			SECRETKEY = []byte(hex.EncodeToString(key))
+			log.Println("[WARN] API_SECRET 未配置，已使用自动生成的随机密钥。请在 config.env 中设置 API_SECRET。")
+		}
+	}
 	DbName = os.Getenv("DbName")
 	KeyDb = os.Getenv("KeyDb")
 	UserEmail = os.Getenv("UserEmail")

@@ -9,7 +9,7 @@ import (
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/config"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,9 +18,10 @@ import (
  */
 func JWTAuthAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := c.Query("token")
+		// 优先从 Authorization Header 获取（比 URL 参数更安全，不会出现在日志/历史记录中）
+		token := c.Request.Header.Get("Authorization")
 		if token == "" {
-			token = c.Request.Header.Get("Authorization")
+			token = c.Query("token")
 		}
 		if token == "" {
 			token = c.PostForm("token")
@@ -63,9 +64,10 @@ func JWTAuthAdmin() gin.HandlerFunc {
  */
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := c.Query("token")
+		// 优先从 Authorization Header 获取（比 URL 参数更安全，不会出现在日志/历史记录中）
+		token := c.Request.Header.Get("Authorization")
 		if token == "" {
-			token = c.Request.Header.Get("Authorization")
+			token = c.Query("token")
 		}
 		if token == "" {
 			token = c.PostForm("token")
@@ -111,7 +113,6 @@ var (
 	ErrTokenNotValidYet = errors.New("token not active yet")
 	ErrTokenMalformed   = errors.New("that's not even a token")
 	ErrTokenInvalid     = errors.New("couldn't handle this token")
-	SignKey             = "test"
 )
 
 /*
@@ -120,9 +121,9 @@ var (
 func GenerateJWT(user models.User) (string, error) {
 	claim := models.Claim{
 		User: user,
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Alfredo Mendoza",
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 7)),
 		},
 	}
 
@@ -138,18 +139,17 @@ func ParseToken(tokenString string) (*models.Claim, error) {
 		return config.SECRETKEY, nil
 	})
 	if err != nil {
-		if ve, ok := err.(*jwt.ValidationError); ok {
+		var ve *jwt.ValidationError
+		if errors.As(err, &ve) {
 			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
 				return nil, ErrTokenMalformed
 			} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				// Token is expired
 				return nil, ErrTokenExpired
 			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
 				return nil, ErrTokenNotValidYet
-			} else {
-				return nil, ErrTokenInvalid
 			}
 		}
+		return nil, ErrTokenInvalid
 	}
 	if claims, ok := token.Claims.(*models.Claim); ok && token.Valid {
 		return claims, nil
@@ -161,13 +161,15 @@ func ParseToken(tokenString string) (*models.Claim, error) {
  * 刷新token数据
  */
 func RefreshToken(tokenString string) (string, error) {
-	// 使用 ParseUnverified 避免修改全局 jwt.TimeFunc 导致并发竞争
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &models.Claim{})
+	// 验证签名但跳过过期时间检查（允许刷新已过期的 token）
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	token, err := parser.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return config.SECRETKEY, nil
+	})
 	if err != nil {
 		return "", err
 	}
 	if claims, ok := token.Claims.(*models.Claim); ok {
-		claims.StandardClaims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
 		return GenerateJWT(claims.User)
 	}
 	return "", ErrTokenInvalid

@@ -15,7 +15,7 @@ COPY --chmod=755 . /build
 # 用本地构建的前端替换下载的前端
 RUN rm -rf /build/public/dist
 COPY --from=frontend /dist /build/public/dist
-RUN go build -o ./bin/onelist -ldflags="-w -s" -tags=jsoniter .
+RUN go mod tidy && go build -o ./bin/onelist -ldflags="-w -s" -tags=jsoniter .
 
 # Stage 3: 最终镜像
 FROM alpine:3.18
