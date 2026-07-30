@@ -55,7 +55,7 @@
 </template>
 
 <script>
-import { computed, defineComponent, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, defineComponent, getCurrentInstance, onBeforeUnmount, ref, watch } from 'vue';
 
 export default defineComponent({
     name: 'ScreensaverOverlay',
@@ -68,12 +68,18 @@ export default defineComponent({
     },
     emits: ['countdown-end'],
     setup(props, { emit }) {
+        const { proxy } = getCurrentInstance();
         const wallpaperVideo = ref(null);
         const currentWallpaper = ref(null);
 
         const wallpaperFileUrl = computed(() => {
             if (!currentWallpaper.value) return '';
-            return currentWallpaper.value.url;
+            const token = proxy.$cookies.get("Authorization");
+            const url = currentWallpaper.value.url;
+            if (token) {
+                return url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+            }
+            return url;
         });
 
         const formattedCountdown = computed(() => {
