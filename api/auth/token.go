@@ -139,15 +139,12 @@ func ParseToken(tokenString string) (*models.Claim, error) {
 		return config.SECRETKEY, nil
 	})
 	if err != nil {
-		var ve *jwt.ValidationError
-		if errors.As(err, &ve) {
-			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-				return nil, ErrTokenMalformed
-			} else if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				return nil, ErrTokenExpired
-			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-				return nil, ErrTokenNotValidYet
-			}
+		if errors.Is(err, jwt.ErrTokenMalformed) {
+			return nil, ErrTokenMalformed
+		} else if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrTokenExpired
+		} else if errors.Is(err, jwt.ErrTokenNotValidYet) {
+			return nil, ErrTokenNotValidYet
 		}
 		return nil, ErrTokenInvalid
 	}
