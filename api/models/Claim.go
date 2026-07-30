@@ -1,11 +1,11 @@
 package models
 
 import (
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Claim is the token payload
 type Claim struct {
 	User User `json:"user"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }

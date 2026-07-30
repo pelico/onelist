@@ -22,12 +22,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// 99.84.251.12 api.themoviedb.org
-// 99.84.251.19 api.themoviedb.org
-// 99.84.251.67 api.themoviedb.org
-// 99.84.251.108 api.themoviedb.org
-// 156.146.56.162 image.tmdb.org
-// 108.138.246.49 image.tmdb.org
+// TMDB API 使用域名访问，不要硬编码 IP（CDN 节点会变化）
+// API: api.themoviedb.org  图片: image.tmdb.org
 // https://image.tmdb.org/t/p/w220_and_h330_face/h7thH2xZeicwK7a3Pkr4cCzXkSu.jpg
 // https://image.tmdb.org/t/p/w1920_and_h1080_bestv2/yL0h5NggYqBzGvLzc4TTM049jDm.jpg
 // https://image.tmdb.org/t/p/w355_and_h200_multi_faces/yL0h5NggYqBzGvLzc4TTM049jDm.jpg
