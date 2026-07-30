@@ -634,12 +634,12 @@ export default defineComponent({
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
 }
 
 /* 纵向播放时间段 */
 .v-timeline-section {
-    margin-top: 8px;
+    margin-top: 0;
 }
 
 .v-timeline {
@@ -680,6 +680,8 @@ export default defineComponent({
     text-overflow: ellipsis;
     max-width: 100%;
     text-align: center;
+    height: 16px;
+    line-height: 16px;
 }
 
 .v-day-total {
@@ -689,6 +691,8 @@ export default defineComponent({
     margin-bottom: 4px;
     white-space: nowrap;
     text-align: center;
+    height: 14px;
+    line-height: 14px;
 }
 
 .v-day-track {
