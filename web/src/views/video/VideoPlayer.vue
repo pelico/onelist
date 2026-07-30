@@ -417,6 +417,7 @@ export default {
                 onSelect: function (item, $dom, event) {
                     localStorage.setItem(`${id.value}_${gallery_type.value}`, item.speed);
                     document.title = gallery_type.value == "tv" ? `${data.value.name}第${item.speed + 1}集` : data.value.title
+                    lastHeartbeatPosition = 0; // 切集时重置心跳计数器
                     if (is_ali_open.value) {
                         urlBase.value = encodeURI(alist_host.value + item.url)
                         OpenVideo(item.url);
@@ -973,6 +974,8 @@ export default {
 
                     } else {
                         fetchSeason();
+                        // 电视剧也加载同目录播放列表，用于自动连播
+                        loadPlaylist();
                     }
                 } else {
                     proxy.COMMON.ShowMsg(res.data.msg)
