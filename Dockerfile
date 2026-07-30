@@ -10,6 +10,7 @@ RUN OUTPUT_DIR=/dist npm run build
 # Stage 2: 构建后端
 FROM golang:1.22-alpine AS backend
 RUN apk add --no-cache bash curl gcc git musl-dev
+ENV CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
 WORKDIR /build
 COPY --chmod=755 . /build
 # 用本地构建的前端替换下载的前端
