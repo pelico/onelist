@@ -2,7 +2,7 @@
 FROM node:18-alpine AS frontend
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
-RUN npm ci --silent
+RUN npm install --silent
 COPY web/ ./
 # 输出到 /dist 目录
 RUN OUTPUT_DIR=/dist npm run build
