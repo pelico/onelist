@@ -22,10 +22,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Generate Gradle Wrapper
+      - name: Setup Gradle
         run: |
           cd android-tv
-          gradle wrapper --gradle-version 8.0
+          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5
+          rm -rf gradle.zip gradle-8.5
 
       - name: Build Debug APK
         working-directory: android-tv
