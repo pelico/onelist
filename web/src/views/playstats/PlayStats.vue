@@ -153,14 +153,19 @@
                     </n-radio-group>
                 </div>
                 <div v-if="topMovies.length === 0" class="empty-chart">暂无数据</div>
-                <div v-else class="top-movies-list">
-                    <div v-for="(item, index) in topMovies" :key="index" class="top-movie-item">
-                        <span class="top-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
-                        <div class="top-movie-info">
-                            <span class="top-movie-title">{{ item.title || '未知影片' }}</span>
-                            <span class="top-movie-meta">{{ item.data_type === 'tv' ? '电视剧' : '电影' }} · {{ item.gallery_title || '' }}</span>
+                <div v-else>
+                    <div class="top-movies-list">
+                        <div v-for="(item, index) in displayedMovies" :key="index" class="top-movie-item">
+                            <span class="top-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
+                            <div class="top-movie-info">
+                                <span class="top-movie-title">{{ item.title || '未知影片' }}</span>
+                                <span class="top-movie-meta">{{ item.data_type === 'tv' ? '电视剧' : '电影' }} · {{ item.gallery_title || '' }}</span>
+                            </div>
+                            <span class="top-movie-value">{{ topMoviesMode === 'duration' ? formatDuration(item.total_seconds) : item.play_count + '次' }}</span>
                         </div>
-                        <span class="top-movie-value">{{ topMoviesMode === 'duration' ? formatDuration(item.total_seconds) : item.play_count + '次' }}</span>
+                    </div>
+                    <div v-if="topMovies.length > 5" class="top-expand-btn" @click="showAllMovies = !showAllMovies">
+                        <i class='bx' :class="showAllMovies ? 'bx-chevron-up' : 'bx-chevron-down'"></i>
                     </div>
                 </div>
             </div>
@@ -206,6 +211,7 @@ export default defineComponent({
         const galleryPieMode = ref('duration') // 'duration' | 'count'
         const topMovies = ref([])
         const topMoviesMode = ref('duration') // 'duration' | 'count'
+        const showAllMovies = ref(false)
 
         // 每日时间段
         const dailyTimePeriods = ref([])
@@ -291,6 +297,12 @@ export default defineComponent({
                 cumulative += pct
             })
             return `conic-gradient(${stops.join(', ')})`
+        })
+
+        // Top 影片：默认显示前5，展开显示全部
+        const displayedMovies = computed(() => {
+            if (showAllMovies.value) return topMovies.value
+            return topMovies.value.slice(0, 5)
         })
 
         // 表格列定义
@@ -564,6 +576,8 @@ export default defineComponent({
             galleryPieMode,
             topMovies,
             topMoviesMode,
+            showAllMovies,
+            displayedMovies,
             dailyTimePeriods,
             timePeriodDays,
             historyList,
@@ -984,6 +998,25 @@ export default defineComponent({
     flex-shrink: 0;
 }
 
+/* 展开/收起按钮 */
+.top-expand-btn {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 4px;
+    cursor: pointer;
+    color: #bbb;
+    font-size: 20px;
+    transition: color 0.2s;
+}
+
+.top-expand-btn:hover {
+    color: #5c6bc0;
+}
+
+.top-expand-btn i {
+    transition: transform 0.3s ease;
+}
+
 /* 夜间模式：给模块加灰度背景，与页面底色区分 */
 @media (prefers-color-scheme: dark) {
     .summary-card,
@@ -1018,5 +1051,13 @@ export default defineComponent({
 
 .dark .play-stats .top-movie-item:hover {
     background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .play-stats .top-expand-btn {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.dark .play-stats .top-expand-btn:hover {
+    color: rgba(255, 255, 255, 0.6);
 }
 </style>
