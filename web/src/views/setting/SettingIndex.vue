@@ -375,4 +375,8 @@ export default {
 .about-version {
     font-size: 0.95em;
 }
+
+:deep(.n-input-number .n-input-wrapper input) {
+    padding-right: 36px !important;
+}
 </style>
