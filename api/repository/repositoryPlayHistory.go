@@ -10,8 +10,20 @@ type PlayHistoryRepository interface {
 	GetHistoryList(userId string, page int, size int) ([]models.PlayHistory, int, error)
 	GetTodayDuration(userId string) (int, error)
 	GetDailyTimePeriods(userId string, startDate string, endDate string) ([]DailyTimePeriod, error)
+	GetTopMovies(userId string, galleryUid string, startDate string, endDate string, limit int) ([]MoviePlayStat, error)
 	Clean(days int) (int64, error)
 	CleanAll() (int64, error)
+}
+
+// MoviePlayStat 影片观看统计（Top排行）
+type MoviePlayStat struct {
+	DataId       int    `json:"data_id"`
+	DataType     string `json:"data_type"`
+	Title        string `json:"title"`
+	GalleryUid   string `json:"gallery_uid"`
+	GalleryTitle string `json:"gallery_title"`
+	TotalSeconds int64  `json:"total_seconds"`
+	PlayCount    int64  `json:"play_count"`
 }
 
 // GalleryStat 媒体库观看统计
