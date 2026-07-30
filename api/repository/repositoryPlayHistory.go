@@ -9,6 +9,7 @@ type PlayHistoryRepository interface {
 	GetGalleryStats(userId string, startDate string, endDate string) ([]GalleryStat, error)
 	GetHistoryList(userId string, page int, size int) ([]models.PlayHistory, int, error)
 	GetTodayDuration(userId string) (int, error)
+	GetDailyTimePeriods(userId string, startDate string, endDate string) ([]DailyTimePeriod, error)
 	Clean(days int) (int64, error)
 	CleanAll() (int64, error)
 }
@@ -19,4 +20,20 @@ type GalleryStat struct {
 	GalleryTitle string `json:"gallery_title"`
 	TotalSeconds int64  `json:"total_seconds"`
 	PlayCount    int64  `json:"play_count"`
+}
+
+// TimeSegment 时间段（播放或未观看）
+type TimeSegment struct {
+	Start    string `json:"start"`     // HH:MM
+	End      string `json:"end"`       // HH:MM
+	Duration int    `json:"duration"`  // 秒数
+	IsGap    bool   `json:"is_gap"`    // true=未观看间隙, false=播放时段
+}
+
+// DailyTimePeriod 每日播放时间段
+type DailyTimePeriod struct {
+	Date     string        `json:"date"`      // YYYY-MM-DD
+	Earliest string        `json:"earliest"`  // 最早播放时间 HH:MM
+	Latest   string        `json:"latest"`    // 最晚播放时间 HH:MM
+	Segments []TimeSegment `json:"segments"`  // 时间段列表
 }

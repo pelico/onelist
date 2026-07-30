@@ -107,6 +107,38 @@
             </div>
         </div>
 
+        <!-- 每日播放时间段 -->
+        <div class="chart-card" style="margin-bottom: 24px;">
+            <div class="chart-title">每日播放时间段（近 {{ timePeriodDays }} 天）</div>
+            <div v-if="dailyTimePeriods.length === 0" class="empty-chart">暂无数据</div>
+            <div v-else class="timeline-container">
+                <!-- 时间轴刻度 -->
+                <div class="timeline-axis">
+                    <div class="timeline-label-spacer"></div>
+                    <div class="timeline-bar-area">
+                        <span v-for="h in [0,6,12,18,24]" :key="h" class="timeline-tick"
+                            :style="{ left: (h/24*100) + '%' }">{{ h }}:00</span>
+                    </div>
+                </div>
+                <!-- 每日行 -->
+                <div v-for="day in dailyTimePeriods" :key="day.date" class="timeline-row">
+                    <div class="timeline-date">{{ formatDateLabel(day.date) }}</div>
+                    <div class="timeline-bar-area">
+                        <div v-for="(seg, si) in day.segments" :key="si"
+                            class="timeline-segment"
+                            :class="seg.is_gap ? 'seg-gap' : 'seg-play'"
+                            :style="getSegmentStyle(seg)"
+                            :title="seg.is_gap ? '未观看 ' + seg.duration + '秒' : '播放 ' + seg.duration + '秒'">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="timeline-legend">
+                <span class="legend-item"><span class="legend-color" style="background:#e74c3c;"></span> 播放时段</span>
+                <span class="legend-item"><span class="legend-color" style="background:#27ae60;"></span> 未观看间隙</span>
+            </div>
+        </div>
+
         <!-- 详细记录列表 -->
         <div class="history-section">
             <div class="chart-title">观看记录</div>
@@ -143,6 +175,10 @@ export default defineComponent({
         // 图表数据
         const dailyChart = ref([])
         const galleryStats = ref([])
+
+        // 每日时间段
+        const dailyTimePeriods = ref([])
+        const timePeriodDays = ref(30)
 
         // 历史列表
         const historyList = ref([])
@@ -341,9 +377,44 @@ export default defineComponent({
             }).catch(() => { })
         }
 
+        // 获取每日播放时间段
+        function fetchDailyTimePeriods() {
+            const params = getDateParams()
+            const qs = buildQuery(params)
+            apiPost(`${proxy.COMMON.apiUrl}/v1/api/play-history/daily-time-periods?${qs}`).then(res => {
+                if (res.data.code === 200) {
+                    dailyTimePeriods.value = res.data.data || []
+                }
+            }).catch(() => { })
+        }
+
+        // 计算时间段在24小时轴上的位置和宽度
+        function getSegmentStyle(seg) {
+            const toMinutes = (t) => {
+                const [h, m] = t.split(':').map(Number)
+                return h * 60 + m
+            }
+            const startMin = toMinutes(seg.start)
+            const endMin = toMinutes(seg.end)
+            const left = (startMin / 1440) * 100
+            const width = Math.max(((endMin - startMin) / 1440) * 100, 0.3)
+            return { left: left + '%', width: width + '%' }
+        }
+
+        function formatDateLabel(dateStr) {
+            const d = new Date(dateStr)
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const diff = Math.floor((today - d) / 86400000)
+            if (diff === 0) return '今天'
+            if (diff === 1) return '昨天'
+            return `${d.getMonth() + 1}/${d.getDate()}`
+        }
+
         function fetchAll() {
             fetchStats()
             fetchGalleryStats()
+            fetchDailyTimePeriods()
             fetchHistory()
         }
 
@@ -369,6 +440,8 @@ export default defineComponent({
             totalCount,
             dailyChart,
             galleryStats,
+            dailyTimePeriods,
+            timePeriodDays,
             historyList,
             historyLoading,
             historyPage,
@@ -378,6 +451,8 @@ export default defineComponent({
             formatDuration,
             barHeight,
             galleryPercent,
+            getSegmentStyle,
+            formatDateLabel,
             handleClean,
             fetchHistory,
             fetchAll
@@ -598,5 +673,96 @@ export default defineComponent({
 
 .data-footer {
     margin-top: 12px;
+}
+
+/* 每日播放时间段时间轴 */
+.timeline-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.timeline-axis {
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 4px;
+}
+
+.timeline-label-spacer {
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.timeline-bar-area {
+    flex: 1;
+    position: relative;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+}
+
+.timeline-tick {
+    position: absolute;
+    bottom: -18px;
+    font-size: 10px;
+    color: #999;
+    transform: translateX(-50%);
+}
+
+.timeline-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timeline-date {
+    width: 80px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #666;
+    text-align: right;
+}
+
+.timeline-row .timeline-bar-area {
+    height: 24px;
+}
+
+.timeline-segment {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+}
+
+.seg-play {
+    background: #e74c3c;
+}
+
+.seg-gap {
+    background: #27ae60;
+    opacity: 0.7;
+}
+
+.timeline-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    justify-content: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #666;
+}
+
+.legend-color {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
 }
 </style>
