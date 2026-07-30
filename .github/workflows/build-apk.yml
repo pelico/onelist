@@ -24,15 +24,13 @@ jobs:
 
       - name: Setup Gradle
         run: |
-          cd android-tv
-          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o gradle.zip
-          unzip -q gradle.zip
-          ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5
-          rm -rf gradle.zip gradle-8.5
+          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          echo "/tmp/gradle-8.5/bin" >> $GITHUB_PATH
 
       - name: Build Debug APK
         working-directory: android-tv
-        run: ./gradlew assembleDebug
+        run: gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
