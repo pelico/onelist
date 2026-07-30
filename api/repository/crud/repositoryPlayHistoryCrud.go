@@ -139,6 +139,39 @@ func (r *RepositoryPlayHistoryCRUD) GetGalleryStats(userId string, startDate str
 	return nil, retErr
 }
 
+// GetTopMovies 按影片分组统计Top排行
+func (r *RepositoryPlayHistoryCRUD) GetTopMovies(userId string, galleryUid string, startDate string, endDate string, limit int) ([]repository.MoviePlayStat, error) {
+	var stats []repository.MoviePlayStat
+	var retErr error
+	done := make(chan bool)
+	go func(ch chan<- bool) {
+		defer close(ch)
+		query := r.db.Model(&models.PlayHistory{}).
+			Select("data_id, data_type, title, gallery_uid, gallery_title, COALESCE(SUM(duration),0) as total_seconds, COUNT(*) as play_count")
+		if userId != "" {
+			query = query.Where("user_id = ?", userId)
+		}
+		if galleryUid != "" {
+			query = query.Where("gallery_uid = ?", galleryUid)
+		}
+		if startDate != "" {
+			query = query.Where("started_at >= ?", startDate)
+		}
+		if endDate != "" {
+			query = query.Where("started_at < ?", endDate)
+		}
+		if limit <= 0 {
+			limit = 10
+		}
+		retErr = query.Group("data_id, data_type, title, gallery_uid, gallery_title").Order("total_seconds desc").Limit(limit).Scan(&stats).Error
+		ch <- retErr == nil
+	}(done)
+	if channels.OK(done) {
+		return stats, retErr
+	}
+	return nil, retErr
+}
+
 // GetHistoryList 分页获取播放历史
 func (r *RepositoryPlayHistoryCRUD) GetHistoryList(userId string, page int, size int) ([]models.PlayHistory, int, error) {
 	var list []models.PlayHistory

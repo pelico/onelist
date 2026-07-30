@@ -69,6 +69,28 @@ func PlayHistoryGalleryStats(c *gin.Context) {
 	}(repo)
 }
 
+// PlayHistoryTopMovies 影片Top排行（管理员）
+func PlayHistoryTopMovies(c *gin.Context) {
+	userId := c.Query("user_id")
+	galleryUid := c.Query("gallery_uid")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	limit, err := strconv.Atoi(c.Query("limit"))
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	db := database.NewDb()
+	repo := crud.NewRepositoryPlayHistoryCRUD(db)
+	func(hRepo repository.PlayHistoryRepository) {
+		stats, err := hRepo.GetTopMovies(userId, galleryUid, startDate, endDate, limit)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
+	}(repo)
+}
+
 // PlayHistoryList 播放历史列表（管理员）
 func PlayHistoryList(c *gin.Context) {
 	userId := c.Query("user_id")

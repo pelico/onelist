@@ -343,6 +343,7 @@ func Run() {
 	playHistory.GET("/today", auth.JWTAuth(), controllers.PlayHistoryTodayDuration)
 	playHistory.POST("/stats", auth.JWTAuthAdmin(), controllers.PlayHistoryStats)
 	playHistory.POST("/gallery-stats", auth.JWTAuthAdmin(), controllers.PlayHistoryGalleryStats)
+	playHistory.POST("/top-movies", auth.JWTAuthAdmin(), controllers.PlayHistoryTopMovies)
 	playHistory.POST("/list", auth.JWTAuthAdmin(), controllers.PlayHistoryList)
 	playHistory.POST("/clean", auth.JWTAuthAdmin(), controllers.PlayHistoryClean)
 	playHistory.POST("/daily-time-periods", auth.JWTAuthAdmin(), controllers.PlayHistoryDailyTimePeriods)
