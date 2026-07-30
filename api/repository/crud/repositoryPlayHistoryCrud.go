@@ -264,7 +264,7 @@ func (r *RepositoryPlayHistoryCRUD) GetDailyTimePeriods(userId string, startDate
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		query := r.db.Model(&models.PlayHistory{}).Select("started_at, duration")
+		query := r.db.Model(&models.PlayHistory{}).Select("started_at, updated_at, duration")
 		if userId != "" {
 			query = query.Where("user_id = ?", userId)
 		}
@@ -304,19 +304,19 @@ func (r *RepositoryPlayHistoryCRUD) GetDailyTimePeriods(userId string, startDate
 			totalDur int // 累加实际播放秒数
 		}
 		var segments []seg
-		cur := seg{start: hbs[0].StartedAt, end: hbs[0].StartedAt, totalDur: hbs[0].Duration}
+		cur := seg{start: hbs[0].StartedAt, end: hbs[0].UpdatedAt, totalDur: hbs[0].Duration}
 		for i := 1; i < len(hbs); i++ {
 			gap := hbs[i].StartedAt.Sub(cur.end)
 			if gap <= 5*time.Minute {
 				// 连续播放，扩展当前段
-				if hbs[i].StartedAt.After(cur.end) {
-					cur.end = hbs[i].StartedAt
+				if hbs[i].UpdatedAt.After(cur.end) {
+					cur.end = hbs[i].UpdatedAt
 				}
 				cur.totalDur += hbs[i].Duration
 			} else {
 				// 间隙超过5分钟，结束当前段，开始新段
 				segments = append(segments, cur)
-				cur = seg{start: hbs[i].StartedAt, end: hbs[i].StartedAt, totalDur: hbs[i].Duration}
+				cur = seg{start: hbs[i].StartedAt, end: hbs[i].UpdatedAt, totalDur: hbs[i].Duration}
 			}
 		}
 		segments = append(segments, cur)
