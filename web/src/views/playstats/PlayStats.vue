@@ -71,9 +71,16 @@
 
         <!-- 图表区域 -->
         <div class="charts-row">
-            <!-- 每日观看时长柱状图 -->
-            <div class="chart-card">
-                <div class="chart-title">近 7 天观看时长</div>
+            <!-- 每日观看时长 + 播放时间段（集成） -->
+            <div class="chart-card chart-card-wide">
+                <div class="chart-title-row">
+                    <span class="chart-title">近 {{ timePeriodDays }} 天观看时长</span>
+                    <n-radio-group v-model:value="timePeriodDays" size="small" @update:value="onPeriodChange">
+                        <n-radio-button :value="7">7 天</n-radio-button>
+                        <n-radio-button :value="30">30 天</n-radio-button>
+                    </n-radio-group>
+                </div>
+                <!-- 柱状图 -->
                 <div class="bar-chart">
                     <div v-for="day in dailyChart" :key="day.label" class="bar-item">
                         <div class="bar-value">{{ formatDuration(day.seconds) }}</div>
@@ -82,6 +89,33 @@
                                 :class="{ 'bar-zero': day.seconds === 0 }"></div>
                         </div>
                         <div class="bar-label">{{ day.label }}</div>
+                    </div>
+                </div>
+                <!-- 纵向播放时间段 -->
+                <div v-if="dailyTimePeriods.length > 0" class="v-timeline-section">
+                    <div class="v-timeline-title">每日播放时间段</div>
+                    <div class="v-timeline">
+                        <!-- 时间轴 -->
+                        <div class="v-axis">
+                            <span v-for="t in axisTicks" :key="t" class="v-axis-label"
+                                :style="{ top: tickPosition(t) + '%' }">{{ formatAxisTime(t) }}</span>
+                        </div>
+                        <!-- 每日列 -->
+                        <div v-for="day in dailyTimePeriods" :key="day.date" class="v-day-col">
+                            <div class="v-day-label">{{ formatDateLabel(day.date) }}</div>
+                            <div class="v-day-track">
+                                <div v-for="(seg, si) in day.segments" :key="si"
+                                    class="v-seg"
+                                    :class="seg.is_gap ? 'v-seg-gap' : 'v-seg-play'"
+                                    :style="getVSegStyle(seg)"
+                                    :title="seg.is_gap ? '未观看 ' + seg.duration + '秒' : '播放 ' + seg.duration + '秒'">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="timeline-legend">
+                        <span class="legend-item"><span class="legend-color" style="background:#5c6bc0;"></span> 播放时段</span>
+                        <span class="legend-item"><span class="legend-color" style="background:#bdbdbd;"></span> 未观看间隙</span>
                     </div>
                 </div>
             </div>
@@ -104,38 +138,6 @@
                         <div class="gallery-value">{{ formatDuration(item.total_seconds) }} ({{ item.play_count }}次)</div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- 每日播放时间段 -->
-        <div class="chart-card" style="margin-bottom: 24px;">
-            <div class="chart-title">每日播放时间段（近 {{ timePeriodDays }} 天）</div>
-            <div v-if="dailyTimePeriods.length === 0" class="empty-chart">暂无数据</div>
-            <div v-else class="timeline-container">
-                <!-- 时间轴刻度 -->
-                <div class="timeline-axis">
-                    <div class="timeline-label-spacer"></div>
-                    <div class="timeline-bar-area">
-                        <span v-for="h in [0,6,12,18,24]" :key="h" class="timeline-tick"
-                            :style="{ left: (h/24*100) + '%' }">{{ h }}:00</span>
-                    </div>
-                </div>
-                <!-- 每日行 -->
-                <div v-for="day in dailyTimePeriods" :key="day.date" class="timeline-row">
-                    <div class="timeline-date">{{ formatDateLabel(day.date) }}</div>
-                    <div class="timeline-bar-area">
-                        <div v-for="(seg, si) in day.segments" :key="si"
-                            class="timeline-segment"
-                            :class="seg.is_gap ? 'seg-gap' : 'seg-play'"
-                            :style="getSegmentStyle(seg)"
-                            :title="seg.is_gap ? '未观看 ' + seg.duration + '秒' : '播放 ' + seg.duration + '秒'">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="timeline-legend">
-                <span class="legend-item"><span class="legend-color" style="background:#5c6bc0;"></span> 播放时段</span>
-                <span class="legend-item"><span class="legend-color" style="background:#bdbdbd;"></span> 未观看间隙</span>
             </div>
         </div>
 
@@ -178,7 +180,7 @@ export default defineComponent({
 
         // 每日时间段
         const dailyTimePeriods = ref([])
-        const timePeriodDays = ref(30)
+        const timePeriodDays = ref(7)
 
         // 历史列表
         const historyList = ref([])
@@ -292,19 +294,16 @@ export default defineComponent({
             const params = getDateParams()
             const qs = buildQuery(params)
 
-            // 获取全部记录用于计算概览
             apiPost(`${proxy.COMMON.apiUrl}/v1/api/play-history/stats?${qs}`).then(res => {
                 if (res.data.code === 200) {
                     const list = res.data.data || []
                     totalCount.value = list.length
 
-                    // 今日统计
                     const today = new Date().toISOString().split('T')[0]
                     const todayRecords = list.filter(r => r.started_at && r.started_at.startsWith(today))
                     todayTotal.value = todayRecords.reduce((sum, r) => sum + (r.duration || 0), 0)
                     todayCount.value = todayRecords.length
 
-                    // 本周统计
                     const now = new Date()
                     const weekStart = new Date(now)
                     weekStart.setDate(now.getDate() - now.getDay())
@@ -315,21 +314,23 @@ export default defineComponent({
                     })
                     weekTotal.value = weekRecords.reduce((sum, r) => sum + (r.duration || 0), 0)
 
-                    // 每日柱状图（近7天）
+                    // 每日柱状图（根据 timePeriodDays 动态天数）
                     const days = []
                     const dayNames = ['日', '一', '二', '三', '四', '五', '六']
-                    for (let i = 6; i >= 0; i--) {
+                    const totalDays = timePeriodDays.value
+                    for (let i = totalDays - 1; i >= 0; i--) {
                         const d = new Date()
                         d.setDate(d.getDate() - i)
                         const dateStr = d.toISOString().split('T')[0]
                         const daySeconds = list
                             .filter(r => r.started_at && r.started_at.startsWith(dateStr))
                             .reduce((sum, r) => sum + (r.duration || 0), 0)
-                        days.push({
-                            label: i === 0 ? '今天' : `周${dayNames[d.getDay()]}`,
-                            seconds: daySeconds,
-                            date: dateStr
-                        })
+                        let label
+                        if (i === 0) label = '今天'
+                        else if (i === 1) label = '昨天'
+                        else if (totalDays <= 7) label = `周${dayNames[d.getDay()]}`
+                        else label = `${d.getMonth() + 1}/${d.getDate()}`
+                        days.push({ label, seconds: daySeconds, date: dateStr })
                     }
                     dailyChart.value = days
                 }
@@ -388,17 +389,68 @@ export default defineComponent({
             }).catch(() => { })
         }
 
-        // 计算时间段在24小时轴上的位置和宽度
-        function getSegmentStyle(seg) {
-            const toMinutes = (t) => {
+        // 纵向时间轴：动态计算时间范围
+        const vTimeMin = computed(() => {
+            let min = 1440
+            dailyTimePeriods.value.forEach(day => {
+                day.segments.forEach(seg => {
+                    if (!seg.is_gap) {
+                        const [h, m] = seg.start.split(':').map(Number)
+                        min = Math.min(min, h * 60 + m)
+                    }
+                })
+            })
+            return min === 1440 ? 0 : min
+        })
+
+        const vTimeMax = computed(() => {
+            let max = 0
+            dailyTimePeriods.value.forEach(day => {
+                day.segments.forEach(seg => {
+                    const [h, m] = seg.end.split(':').map(Number)
+                    max = Math.max(max, h * 60 + m)
+                })
+            })
+            return max === 0 ? 1440 : max
+        })
+
+        const vTimeRange = computed(() => Math.max(vTimeMax.value - vTimeMin.value, 60))
+
+        // 时间轴刻度（取整点到整点）
+        const axisTicks = computed(() => {
+            const startHour = Math.floor(vTimeMin.value / 60)
+            const endHour = Math.ceil(vTimeMax.value / 60)
+            const ticks = []
+            for (let h = startHour; h <= endHour; h++) {
+                ticks.push(h * 60)
+            }
+            return ticks
+        })
+
+        function tickPosition(minutes) {
+            const range = vTimeRange.value
+            const min = vTimeMin.value
+            return ((minutes - min) / range) * 100
+        }
+
+        function formatAxisTime(minutes) {
+            const h = Math.floor(minutes / 60)
+            return `${h}:00`
+        }
+
+        // 纵向 segment 样式
+        function getVSegStyle(seg) {
+            const toMin = (t) => {
                 const [h, m] = t.split(':').map(Number)
                 return h * 60 + m
             }
-            const startMin = toMinutes(seg.start)
-            const endMin = toMinutes(seg.end)
-            const left = (startMin / 1440) * 100
-            const width = Math.max(((endMin - startMin) / 1440) * 100, 0.3)
-            return { left: left + '%', width: width + '%' }
+            const startMin = toMin(seg.start)
+            const endMin = toMin(seg.end)
+            const range = vTimeRange.value
+            const min = vTimeMin.value
+            const top = ((startMin - min) / range) * 100
+            const height = Math.max(((endMin - startMin) / range) * 100, 0.5)
+            return { top: top + '%', height: height + '%' }
         }
 
         function formatDateLabel(dateStr) {
@@ -411,6 +463,12 @@ export default defineComponent({
             return `${d.getMonth() + 1}/${d.getDate()}`
         }
 
+        function onPeriodChange(val) {
+            timePeriodDays.value = val
+            fetchStats()
+            fetchDailyTimePeriods()
+        }
+
         function fetchAll() {
             fetchStats()
             fetchGalleryStats()
@@ -418,7 +476,6 @@ export default defineComponent({
             fetchHistory()
         }
 
-        // 监听筛选条件变化
         watch([selectedUser, dateRange], () => {
             historyPage.value = 1
             fetchAll()
@@ -448,11 +505,15 @@ export default defineComponent({
             historyPageCount,
             columns,
             pieColors,
+            axisTicks,
             formatDuration,
             barHeight,
             galleryPercent,
-            getSegmentStyle,
+            getVSegStyle,
+            tickPosition,
+            formatAxisTime,
             formatDateLabel,
+            onPeriodChange,
             handleClean,
             fetchHistory,
             fetchAll
@@ -545,9 +606,19 @@ export default defineComponent({
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
+.chart-card-wide {
+    grid-column: 1 / -1;
+}
+
 .chart-title {
     font-size: 15px;
     font-weight: 600;
+}
+
+.chart-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
 }
 
@@ -597,6 +668,86 @@ export default defineComponent({
 .bar-label {
     font-size: 12px;
     opacity: 0.7;
+}
+
+/* 纵向播放时间段 */
+.v-timeline-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.v-timeline-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+.v-timeline {
+    display: flex;
+    gap: 0;
+    height: 220px;
+}
+
+.v-axis {
+    position: relative;
+    width: 44px;
+    flex-shrink: 0;
+}
+
+.v-axis-label {
+    position: absolute;
+    right: 6px;
+    font-size: 10px;
+    color: #999;
+    transform: translateY(-50%);
+    white-space: nowrap;
+}
+
+.v-day-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.v-day-label {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: center;
+}
+
+.v-day-track {
+    flex: 1;
+    position: relative;
+    width: 70%;
+    max-width: 40px;
+    background: rgba(0,0,0,0.03);
+    border-radius: 4px;
+}
+
+.v-seg {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-radius: 3px;
+    min-height: 2px;
+}
+
+.v-seg-play {
+    background: #5c6bc0;
+}
+
+.v-seg-gap {
+    background: #bdbdbd;
+    opacity: 0.6;
 }
 
 /* 媒体库比例 */
@@ -673,75 +824,6 @@ export default defineComponent({
 
 .data-footer {
     margin-top: 12px;
-}
-
-/* 每日播放时间段时间轴 */
-.timeline-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.timeline-axis {
-    display: flex;
-    align-items: flex-end;
-    margin-bottom: 4px;
-}
-
-.timeline-label-spacer {
-    width: 80px;
-    flex-shrink: 0;
-}
-
-.timeline-bar-area {
-    flex: 1;
-    position: relative;
-    height: 28px;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 4px;
-}
-
-.timeline-tick {
-    position: absolute;
-    bottom: -18px;
-    font-size: 10px;
-    color: #999;
-    transform: translateX(-50%);
-}
-
-.timeline-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.timeline-date {
-    width: 80px;
-    flex-shrink: 0;
-    font-size: 13px;
-    color: #666;
-    text-align: right;
-}
-
-.timeline-row .timeline-bar-area {
-    height: 24px;
-}
-
-.timeline-segment {
-    position: absolute;
-    top: 0;
-    height: 100%;
-    border-radius: 3px;
-    min-width: 2px;
-}
-
-.seg-play {
-    background: #5c6bc0;
-}
-
-.seg-gap {
-    background: #bdbdbd;
-    opacity: 0.7;
 }
 
 .timeline-legend {
