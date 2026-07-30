@@ -100,7 +100,7 @@ func Run() {
 
 	// 用户
 	user := r.Group("/v1/api/user")
-	user.POST("/create", controllers.CreateUser)
+	user.POST("/create", auth.JWTAuthAdmin(), controllers.CreateUser)
 	user.POST("/login", controllers.LoginUser)
 	user.GET("/captcha", controllers.GetCaptcha)
 	user.GET("/data", auth.JWTAuth(), controllers.UserData)
