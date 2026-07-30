@@ -46,8 +46,8 @@
                 />
                 <!-- 无素材时的默认提示 -->
                 <div v-else class="screensaver-default">
-                    <div class="screensaver-default-icon">&#127769;</div>
-                    <div>休息一下，保护眼睛</div>
+                    <div class="screensaver-default-icon">&#127811;</div>
+                    <div class="screensaver-default-text">爱护眼睛，先休息一会吧</div>
                 </div>
             </div>
         </div>
@@ -215,14 +215,30 @@ export default defineComponent({
 }
 
 .screensaver-default {
-    color: #666;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 50%, #c5e1a5 100%);
+    color: #2e7d32;
     font-size: 1.6em;
     text-align: center;
     user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .screensaver-default-icon {
     font-size: 3em;
     margin-bottom: 16px;
+}
+
+.screensaver-default-text {
+    font-size: 1em;
+    font-weight: 500;
+    letter-spacing: 0.05em;
 }
 </style>

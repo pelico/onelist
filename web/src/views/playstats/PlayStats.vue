@@ -134,8 +134,8 @@
                 </div>
             </div>
             <div class="timeline-legend">
-                <span class="legend-item"><span class="legend-color" style="background:#e74c3c;"></span> 播放时段</span>
-                <span class="legend-item"><span class="legend-color" style="background:#27ae60;"></span> 未观看间隙</span>
+                <span class="legend-item"><span class="legend-color" style="background:#5c6bc0;"></span> 播放时段</span>
+                <span class="legend-item"><span class="legend-color" style="background:#bdbdbd;"></span> 未观看间隙</span>
             </div>
         </div>
 
@@ -736,11 +736,11 @@ export default defineComponent({
 }
 
 .seg-play {
-    background: #e74c3c;
+    background: #5c6bc0;
 }
 
 .seg-gap {
-    background: #27ae60;
+    background: #bdbdbd;
     opacity: 0.7;
 }
 
