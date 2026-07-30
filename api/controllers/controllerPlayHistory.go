@@ -138,3 +138,20 @@ func PlayHistoryTodayDuration(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": total})
 	}(repo)
 }
+
+// PlayHistoryDailyTimePeriods 获取每日播放时间段（管理员）
+func PlayHistoryDailyTimePeriods(c *gin.Context) {
+	userId := c.Query("user_id")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	db := database.NewDb()
+	repo := crud.NewRepositoryPlayHistoryCRUD(db)
+	func(hRepo repository.PlayHistoryRepository) {
+		periods, err := hRepo.GetDailyTimePeriods(userId, startDate, endDate)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": periods})
+	}(repo)
+}

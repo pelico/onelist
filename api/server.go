@@ -345,6 +345,7 @@ func Run() {
 	playHistory.POST("/gallery-stats", auth.JWTAuthAdmin(), controllers.PlayHistoryGalleryStats)
 	playHistory.POST("/list", auth.JWTAuthAdmin(), controllers.PlayHistoryList)
 	playHistory.POST("/clean", auth.JWTAuthAdmin(), controllers.PlayHistoryClean)
+	playHistory.POST("/daily-time-periods", auth.JWTAuthAdmin(), controllers.PlayHistoryDailyTimePeriods)
 
 	// 护眼屏保素材
 	wallpaper := r.Group("/v1/api/wallpaper", auth.JWTAuth())

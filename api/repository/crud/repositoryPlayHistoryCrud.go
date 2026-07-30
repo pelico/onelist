@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"sort"
 	"time"
 
 	"github.com/msterzhang/onelist/api/models"
@@ -221,4 +222,108 @@ func (r *RepositoryPlayHistoryCRUD) GetTodayDuration(userId string) (int, error)
 		return total, retErr
 	}
 	return total, retErr
+}
+
+// GetDailyTimePeriods 获取每日播放时间段（用于时间段统计图表）
+func (r *RepositoryPlayHistoryCRUD) GetDailyTimePeriods(userId string, startDate string, endDate string) ([]repository.DailyTimePeriod, error) {
+	var heartbeats []models.PlayHistory
+	var retErr error
+	done := make(chan bool)
+	go func(ch chan<- bool) {
+		defer close(ch)
+		query := r.db.Model(&models.PlayHistory{}).Select("started_at, duration")
+		if userId != "" {
+			query = query.Where("user_id = ?", userId)
+		}
+		if startDate != "" {
+			query = query.Where("started_at >= ?", startDate)
+		}
+		if endDate != "" {
+			query = query.Where("started_at < ?", endDate)
+		}
+		retErr = query.Order("started_at asc").Find(&heartbeats).Error
+		ch <- retErr == nil
+	}(done)
+	if !channels.OK(done) {
+		return nil, retErr
+	}
+
+	// 按日期分组
+	dayMap := make(map[string][]models.PlayHistory)
+	for _, h := range heartbeats {
+		day := h.StartedAt.Format("2006-01-02")
+		dayMap[day] = append(dayMap[day], h)
+	}
+
+	var result []repository.DailyTimePeriod
+	for day, hbs := range dayMap {
+		if len(hbs) == 0 {
+			continue
+		}
+		// 已按 started_at asc 排序
+		firstTime := hbs[0].StartedAt
+		lastTime := hbs[len(hbs)-1].StartedAt
+
+		// 合并连续心跳为播放段（间隔≤5分钟视为连续）
+		type seg struct {
+			start time.Time
+			end   time.Time
+		}
+		var segments []seg
+		cur := seg{start: hbs[0].StartedAt, end: hbs[0].StartedAt}
+		for i := 1; i < len(hbs); i++ {
+			gap := hbs[i].StartedAt.Sub(cur.end)
+			if gap <= 5*time.Minute {
+				// 连续播放，扩展当前段
+				if hbs[i].StartedAt.After(cur.end) {
+					cur.end = hbs[i].StartedAt
+				}
+			} else {
+				// 间隙超过5分钟，结束当前段，开始新段
+				segments = append(segments, cur)
+				cur = seg{start: hbs[i].StartedAt, end: hbs[i].StartedAt}
+			}
+		}
+		segments = append(segments, cur)
+
+		// 构建时间段列表：播放段 + 间隙交替
+		var timeSegments []repository.TimeSegment
+		for i, s := range segments {
+			dur := int(s.end.Sub(s.start).Seconds())
+			if dur < 30 {
+				dur = 30 // 最小30秒
+			}
+			timeSegments = append(timeSegments, repository.TimeSegment{
+				Start:    s.start.Format("15:04"),
+				End:      s.end.Format("15:04"),
+				Duration: dur,
+				IsGap:    false,
+			})
+			// 在两个播放段之间添加间隙
+			if i < len(segments)-1 {
+				nextStart := segments[i+1].start
+				gapDur := int(nextStart.Sub(s.end).Seconds())
+				timeSegments = append(timeSegments, repository.TimeSegment{
+					Start:    s.end.Format("15:04"),
+					End:      nextStart.Format("15:04"),
+					Duration: gapDur,
+					IsGap:    true,
+				})
+			}
+		}
+
+		result = append(result, repository.DailyTimePeriod{
+			Date:     day,
+			Earliest: firstTime.Format("15:04"),
+			Latest:   lastTime.Format("15:04"),
+			Segments: timeSegments,
+		})
+	}
+
+	// 按日期排序
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Date < result[j].Date
+	})
+
+	return result, nil
 }
