@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import VueCookies from 'vue-cookies';
 
 const routes = [
     {
@@ -9,12 +10,14 @@ const routes = [
     {
         path: '/gallerys',
         name: 'GalleryIndex',
-        component: () => import('../views/gallery/GalleryIndex.vue')
+        component: () => import('../views/gallery/GalleryIndex.vue'),
+        meta: { requiresAdmin: true }
     },
     {
         path: '/gallerys/works',
         name: 'WorkIndex',
-        component: () => import('../views/gallery/work/WorkIndex.vue')
+        component: () => import('../views/gallery/work/WorkIndex.vue'),
+        meta: { requiresAdmin: true }
     },
     {
         path: '/list',
@@ -59,7 +62,8 @@ const routes = [
     {
         path: '/users',
         name: 'UserIndex',
-        component: () => import('../views/user/UserIndex.vue')
+        component: () => import('../views/user/UserIndex.vue'),
+        meta: { requiresAdmin: true }
     },
     {
         path: '/search',
@@ -69,17 +73,20 @@ const routes = [
     {
         path: '/setting',
         name: 'SettingIndex',
-        component: () => import('../views/setting/SettingIndex.vue')
+        component: () => import('../views/setting/SettingIndex.vue'),
+        meta: { requiresAdmin: true }
     },
     {
         path: '/logs',
         name: 'LogIndex',
-        component: () => import('../views/log/LogIndex.vue')
+        component: () => import('../views/log/LogIndex.vue'),
+        meta: { requiresAdmin: true }
     },
     {
         path: '/play-stats',
         name: 'PlayStats',
-        component: () => import('../views/playstats/PlayStats.vue')
+        component: () => import('../views/playstats/PlayStats.vue'),
+        meta: { requiresAdmin: true }
     },
 ];
 
@@ -90,6 +97,18 @@ const router = createRouter({
     scrollBehavior(to, from, savedPosition) {
         return { x: 0, y: 0 }
     }
+});
+
+// 路由守卫：非管理员禁止访问管理页面
+router.beforeEach((to, from, next) => {
+    if (to.meta.requiresAdmin) {
+        const isAdmin = VueCookies.get('is_admin') === 'true';
+        if (!isAdmin) {
+            next('/');
+            return;
+        }
+    }
+    next();
 });
 
 router.afterEach((to, from, next) => {
