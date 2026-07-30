@@ -71,29 +71,17 @@
 
         <!-- 图表区域 -->
         <div class="charts-row">
-            <!-- 每日观看时长 + 播放时间段（集成） -->
+            <!-- 每日播放时间段与时长（合并） -->
             <div class="chart-card chart-card-wide">
                 <div class="chart-title-row">
-                    <span class="chart-title">近 {{ timePeriodDays }} 天观看时长</span>
+                    <span class="chart-title">每日播放时间段与时长</span>
                     <n-radio-group v-model:value="timePeriodDays" size="small" @update:value="onPeriodChange">
                         <n-radio-button :value="7">7 天</n-radio-button>
                         <n-radio-button :value="30">30 天</n-radio-button>
                     </n-radio-group>
                 </div>
-                <!-- 柱状图 -->
-                <div class="bar-chart">
-                    <div v-for="day in dailyChart" :key="day.label" class="bar-item">
-                        <div class="bar-value">{{ formatDuration(day.seconds) }}</div>
-                        <div class="bar-wrapper">
-                            <div class="bar" :style="{ height: barHeight(day.seconds) + '%' }"
-                                :class="{ 'bar-zero': day.seconds === 0 }"></div>
-                        </div>
-                        <div class="bar-label">{{ day.label }}</div>
-                    </div>
-                </div>
                 <!-- 纵向播放时间段 -->
                 <div v-if="dailyTimePeriods.length > 0" class="v-timeline-section">
-                    <div class="v-timeline-title">每日播放时间段</div>
                     <div class="v-timeline">
                         <!-- 时间轴 -->
                         <div class="v-axis">
@@ -103,6 +91,7 @@
                         <!-- 每日列 -->
                         <div v-for="day in dailyTimePeriods" :key="day.date" class="v-day-col">
                             <div class="v-day-label">{{ formatDateLabel(day.date) }}</div>
+                            <div class="v-day-total">{{ formatDuration(dayTotalSeconds(day.date)) }}</div>
                             <div class="v-day-track">
                                 <div v-for="(seg, si) in day.segments" :key="si"
                                     class="v-seg"
@@ -118,24 +107,36 @@
                         <span class="legend-item"><span class="legend-color" style="background:#bdbdbd;"></span> 未观看间隙</span>
                     </div>
                 </div>
+                <div v-else class="empty-chart">暂无播放记录</div>
             </div>
 
             <!-- 媒体库观看比例 -->
             <div class="chart-card">
-                <div class="chart-title">媒体库观看比例</div>
+                <div class="chart-title-row">
+                    <span class="chart-title">媒体库观看比例</span>
+                    <n-radio-group v-model:value="galleryPieMode" size="small">
+                        <n-radio-button value="duration">时长占比</n-radio-button>
+                        <n-radio-button value="count">播放次数</n-radio-button>
+                    </n-radio-group>
+                </div>
                 <div v-if="galleryStats.length === 0" class="empty-chart">暂无数据</div>
-                <div v-else class="gallery-list">
-                    <div v-for="(item, index) in galleryStats" :key="index" class="gallery-item">
-                        <div class="gallery-info">
-                            <span class="gallery-dot" :style="{ background: pieColors[index % pieColors.length] }"></span>
-                            <span class="gallery-name">{{ item.gallery_title || item.gallery_uid || '未知' }}</span>
-                        </div>
-                        <div class="gallery-bar-wrap">
-                            <div class="gallery-bar"
-                                :style="{ width: galleryPercent(item.total_seconds) + '%', background: pieColors[index % pieColors.length] }">
+                <div v-else class="gallery-combined">
+                    <div class="gallery-list">
+                        <div v-for="(item, index) in galleryStats" :key="index" class="gallery-item">
+                            <div class="gallery-info">
+                                <span class="gallery-dot" :style="{ background: pieColors[index % pieColors.length] }"></span>
+                                <span class="gallery-name">{{ item.gallery_title || item.gallery_uid || '未知' }}</span>
                             </div>
+                            <div class="gallery-bar-wrap">
+                                <div class="gallery-bar"
+                                    :style="{ width: galleryPercent(item, galleryPieMode) + '%', background: pieColors[index % pieColors.length] }">
+                                </div>
+                            </div>
+                            <div class="gallery-value">{{ galleryPieMode === 'duration' ? formatDuration(item.total_seconds) : item.play_count + '次' }}</div>
                         </div>
-                        <div class="gallery-value">{{ formatDuration(item.total_seconds) }} ({{ item.play_count }}次)</div>
+                    </div>
+                    <div class="pie-chart-wrap">
+                        <div class="pie-chart" :style="{ background: pieGradient }"></div>
                     </div>
                 </div>
             </div>
@@ -175,8 +176,8 @@ export default defineComponent({
         const totalCount = ref(0)
 
         // 图表数据
-        const dailyChart = ref([])
         const galleryStats = ref([])
+        const galleryPieMode = ref('duration') // 'duration' | 'count'
 
         // 每日时间段
         const dailyTimePeriods = ref([])
@@ -223,19 +224,43 @@ export default defineComponent({
             return `${m}分钟`
         }
 
-        // 柱状图高度百分比
-        function barHeight(seconds) {
-            if (!dailyChart.value || dailyChart.value.length === 0) return 0
-            const max = Math.max(...dailyChart.value.map(d => d.seconds), 1)
-            return Math.max((seconds / max) * 100, seconds > 0 ? 4 : 0)
+        // 媒体库比例（根据模式计算）
+        function galleryPercent(item, mode) {
+            if (!galleryStats.value || galleryStats.value.length === 0) return 0
+            const values = galleryStats.value.map(d => mode === 'count' ? d.play_count : d.total_seconds)
+            const max = Math.max(...values, 1)
+            const val = mode === 'count' ? item.play_count : item.total_seconds
+            return Math.max((val / max) * 100, val > 0 ? 5 : 0)
         }
 
-        // 媒体库比例
-        function galleryPercent(seconds) {
-            if (!galleryStats.value || galleryStats.value.length === 0) return 0
-            const max = Math.max(...galleryStats.value.map(d => d.total_seconds), 1)
-            return Math.max((seconds / max) * 100, seconds > 0 ? 5 : 0)
+        // 每日总时长（从时间段数据计算）
+        function dayTotalSeconds(dateStr) {
+            const day = dailyTimePeriods.value.find(d => d.date === dateStr)
+            if (!day) return 0
+            return day.segments
+                .filter(s => !s.is_gap)
+                .reduce((sum, s) => sum + (s.duration || 0), 0)
         }
+
+        // 饼图渐变
+        const pieGradient = computed(() => {
+            const stats = galleryStats.value
+            if (!stats || stats.length === 0) return 'transparent'
+            const total = stats.reduce((sum, d) => {
+                return sum + (galleryPieMode.value === 'count' ? d.play_count : d.total_seconds)
+            }, 0)
+            if (total === 0) return 'transparent'
+            if (stats.length === 1) return pieColors[0]
+            let cumulative = 0
+            const stops = []
+            stats.forEach((item, i) => {
+                const val = galleryPieMode.value === 'count' ? item.play_count : item.total_seconds
+                const pct = (val / total) * 100
+                stops.push(`${pieColors[i % pieColors.length]} ${cumulative}% ${cumulative + pct}%`)
+                cumulative += pct
+            })
+            return `conic-gradient(${stops.join(', ')})`
+        })
 
         // 表格列定义
         const columns = [
@@ -314,25 +339,7 @@ export default defineComponent({
                     })
                     weekTotal.value = weekRecords.reduce((sum, r) => sum + (r.duration || 0), 0)
 
-                    // 每日柱状图（根据 timePeriodDays 动态天数）
-                    const days = []
-                    const dayNames = ['日', '一', '二', '三', '四', '五', '六']
-                    const totalDays = timePeriodDays.value
-                    for (let i = totalDays - 1; i >= 0; i--) {
-                        const d = new Date()
-                        d.setDate(d.getDate() - i)
-                        const dateStr = d.toISOString().split('T')[0]
-                        const daySeconds = list
-                            .filter(r => r.started_at && r.started_at.startsWith(dateStr))
-                            .reduce((sum, r) => sum + (r.duration || 0), 0)
-                        let label
-                        if (i === 0) label = '今天'
-                        else if (i === 1) label = '昨天'
-                        else if (totalDays <= 7) label = `周${dayNames[d.getDay()]}`
-                        else label = `${d.getMonth() + 1}/${d.getDate()}`
-                        days.push({ label, seconds: daySeconds, date: dateStr })
-                    }
-                    dailyChart.value = days
+                    // 每日柱状图数据不再需要，仅保留概览统计
                 }
             }).catch(() => { })
         }
@@ -495,8 +502,8 @@ export default defineComponent({
             weekTotal,
             todayCount,
             totalCount,
-            dailyChart,
             galleryStats,
+            galleryPieMode,
             dailyTimePeriods,
             timePeriodDays,
             historyList,
@@ -505,10 +512,11 @@ export default defineComponent({
             historyPageCount,
             columns,
             pieColors,
+            pieGradient,
             axisTicks,
             formatDuration,
-            barHeight,
             galleryPercent,
+            dayTotalSeconds,
             getVSegStyle,
             tickPosition,
             formatAxisTime,
@@ -597,6 +605,13 @@ export default defineComponent({
     .charts-row {
         grid-template-columns: 1fr;
     }
+    .gallery-combined {
+        flex-direction: column;
+    }
+    .pie-chart {
+        width: 110px;
+        height: 110px;
+    }
 }
 
 .chart-card {
@@ -622,66 +637,9 @@ export default defineComponent({
     margin-bottom: 16px;
 }
 
-/* 柱状图 */
-.bar-chart {
-    display: flex;
-    justify-content: space-around;
-    align-items: flex-end;
-    height: 180px;
-    padding-top: 20px;
-}
-
-.bar-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex: 1;
-    gap: 6px;
-}
-
-.bar-value {
-    font-size: 11px;
-    opacity: 0.7;
-    white-space: nowrap;
-}
-
-.bar-wrapper {
-    width: 28px;
-    height: 120px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-}
-
-.bar {
-    width: 100%;
-    border-radius: 4px 4px 0 0;
-    background: linear-gradient(180deg, #4caf50, #81c784);
-    transition: height 0.4s ease;
-    min-height: 2px;
-}
-
-.bar-zero {
-    background: #e0e0e0;
-}
-
-.bar-label {
-    font-size: 12px;
-    opacity: 0.7;
-}
-
 /* 纵向播放时间段 */
 .v-timeline-section {
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(0,0,0,0.06);
-}
-
-.v-timeline-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #666;
-    margin-bottom: 12px;
+    margin-top: 8px;
 }
 
 .v-timeline {
@@ -716,11 +674,20 @@ export default defineComponent({
 .v-day-label {
     font-size: 11px;
     color: #888;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    text-align: center;
+}
+
+.v-day-total {
+    font-size: 10px;
+    color: #5c6bc0;
+    font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap;
     text-align: center;
 }
 
@@ -812,6 +779,32 @@ export default defineComponent({
     white-space: nowrap;
     min-width: 100px;
     text-align: right;
+}
+
+/* 媒体库：列表 + 饼图 */
+.gallery-combined {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.gallery-combined .gallery-list {
+    flex: 1;
+    min-width: 0;
+}
+
+.pie-chart-wrap {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pie-chart {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    transition: background 0.4s ease;
 }
 
 /* 历史记录 */
