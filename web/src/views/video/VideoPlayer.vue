@@ -357,6 +357,8 @@ export default {
         function playNextInPlaylist() {
             if (!playlist.value || playlistIndex.value >= playlist.value.length - 1) return;
             playlistIndex.value++;
+            // 重置心跳计数器，新文件从 0 开始计时
+            lastHeartbeatPosition = 0;
             let nextUrl = playlist.value[playlistIndex.value];
             let title = nextUrl.split('/').pop().replace(/\.[^/.]+$/, "");
             document.title = title;
@@ -826,7 +828,7 @@ export default {
 
         // 播放心跳上报
         function sendHeartbeat() {
-            if (!art || !data.value || !data.value.id) return;
+            if (!art) return;
             try {
                 const video = art.video;
                 const currentPosition = Math.floor(video.currentTime);
@@ -838,15 +840,38 @@ export default {
                     return;
                 }
                 lastHeartbeatPosition = currentPosition;
-                let api = `${proxy.COMMON.apiUrl}/v1/api/play-history/heartbeat`;
-                proxy.axios.post(api, {
+
+                // 判断是否在播放列表模式（连播）
+                const inPlaylist = playlist.value && playlist.value.length > 0;
+                let heartbeatData = {
                     "data_type": gallery_type.value,
-                    "data_id": data.value.id,
-                    "gallery_uid": data.value.gallery_uid || "",
+                    "gallery_uid": data.value ? data.value.gallery_uid || "" : "",
                     "duration": delta,
                     "position": currentPosition,
                     "total_duration": duration
-                }, {
+                };
+
+                if (inPlaylist) {
+                    // 播放列表模式：用当前文件路径的 hash 作为 data_id，文件名作为标题
+                    const currentFile = playlist.value[playlistIndex.value] || '';
+                    const fileName = currentFile.split('/').pop().replace(/\.[^/.]+$/, "");
+                    // 简单 hash：用文件路径字符累加取模，确保同文件同 ID
+                    let hash = 0;
+                    for (let i = 0; i < currentFile.length; i++) {
+                        hash = ((hash << 5) - hash + currentFile.charCodeAt(i)) | 0;
+                    }
+                    heartbeatData.data_id = Math.abs(hash);
+                    heartbeatData.title = fileName;
+                } else if (data.value && data.value.id) {
+                    // 单片模式：用 TMDB ID
+                    heartbeatData.data_id = data.value.id;
+                    heartbeatData.title = gallery_type.value == "tv" ? data.value.name : data.value.title;
+                } else {
+                    return;
+                }
+
+                let api = `${proxy.COMMON.apiUrl}/v1/api/play-history/heartbeat`;
+                proxy.axios.post(api, heartbeatData, {
                     headers: {
                         'content-type': 'application/json',
                         'Authorization': proxy.$cookies.get("Authorization")
