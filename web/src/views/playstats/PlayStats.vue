@@ -9,6 +9,8 @@
                 <n-space justify="end" align="center">
                     <n-select v-model:value="selectedUser" :options="userOptions" placeholder="全部用户" clearable
                         style="width: 140px" size="small" />
+                    <n-select v-model:value="selectedGallery" :options="galleryOptions" placeholder="全部媒体库" clearable
+                        style="width: 160px" size="small" />
                     <n-date-picker v-model:value="dateRange" type="daterange" clearable size="small"
                         style="width: 260px" />
                     <n-button @click="fetchAll" type="info" size="small">
@@ -140,6 +142,28 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 影片Top排行 -->
+            <div class="chart-card">
+                <div class="chart-title-row">
+                    <span class="chart-title">影片 Top 排行</span>
+                    <n-radio-group v-model:value="topMoviesMode" size="small">
+                        <n-radio-button value="duration">时长</n-radio-button>
+                        <n-radio-button value="count">次数</n-radio-button>
+                    </n-radio-group>
+                </div>
+                <div v-if="topMovies.length === 0" class="empty-chart">暂无数据</div>
+                <div v-else class="top-movies-list">
+                    <div v-for="(item, index) in topMovies" :key="index" class="top-movie-item">
+                        <span class="top-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
+                        <div class="top-movie-info">
+                            <span class="top-movie-title">{{ item.title || '未知影片' }}</span>
+                            <span class="top-movie-meta">{{ item.data_type === 'tv' ? '电视剧' : '电影' }} · {{ item.gallery_title || '' }}</span>
+                        </div>
+                        <span class="top-movie-value">{{ topMoviesMode === 'duration' ? formatDuration(item.total_seconds) : item.play_count + '次' }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 详细记录列表 -->
@@ -166,6 +190,8 @@ export default defineComponent({
         const { proxy } = getCurrentInstance()
         const selectedUser = ref(null)
         const userOptions = ref([])
+        const selectedGallery = ref(null)
+        const galleryOptions = ref([])
         const dateRange = ref(null)
         const cleanDays = ref(30)
 
@@ -178,6 +204,8 @@ export default defineComponent({
         // 图表数据
         const galleryStats = ref([])
         const galleryPieMode = ref('duration') // 'duration' | 'count'
+        const topMovies = ref([])
+        const topMoviesMode = ref('duration') // 'duration' | 'count'
 
         // 每日时间段
         const dailyTimePeriods = ref([])
@@ -203,6 +231,9 @@ export default defineComponent({
             }
             if (selectedUser.value) {
                 params.user_id = selectedUser.value
+            }
+            if (selectedGallery.value) {
+                params.gallery_uid = selectedGallery.value
             }
             return params
         }
@@ -355,6 +386,29 @@ export default defineComponent({
             }).catch(() => { })
         }
 
+        // 获取媒体库选项列表（从gallery-stats提取）
+        function fetchGalleryOptions() {
+            apiPost(`${proxy.COMMON.apiUrl}/v1/api/play-history/gallery-stats`).then(res => {
+                if (res.data.code === 200 && res.data.data) {
+                    galleryOptions.value = res.data.data.map(g => ({
+                        label: g.gallery_title || g.gallery_uid,
+                        value: g.gallery_uid
+                    }))
+                }
+            }).catch(() => { })
+        }
+
+        // 获取影片Top排行
+        function fetchTopMovies() {
+            const params = getDateParams()
+            const qs = buildQuery(params)
+            apiPost(`${proxy.COMMON.apiUrl}/v1/api/play-history/top-movies?${qs}&limit=10`).then(res => {
+                if (res.data.code === 200) {
+                    topMovies.value = res.data.data || []
+                }
+            }).catch(() => { })
+        }
+
         // 获取历史记录列表
         function fetchHistory() {
             historyLoading.value = true
@@ -479,23 +533,27 @@ export default defineComponent({
         function fetchAll() {
             fetchStats()
             fetchGalleryStats()
+            fetchTopMovies()
             fetchDailyTimePeriods()
             fetchHistory()
         }
 
-        watch([selectedUser, dateRange], () => {
+        watch([selectedUser, selectedGallery, dateRange], () => {
             historyPage.value = 1
             fetchAll()
         })
 
         onMounted(() => {
             fetchUsers()
+            fetchGalleryOptions()
             fetchAll()
         })
 
         return {
             selectedUser,
             userOptions,
+            selectedGallery,
+            galleryOptions,
             dateRange,
             cleanDays,
             todayTotal,
@@ -504,6 +562,8 @@ export default defineComponent({
             totalCount,
             galleryStats,
             galleryPieMode,
+            topMovies,
+            topMoviesMode,
             dailyTimePeriods,
             timePeriodDays,
             historyList,
@@ -843,5 +903,84 @@ export default defineComponent({
     width: 12px;
     height: 12px;
     border-radius: 2px;
+}
+
+/* Top 10 影片排行 */
+.top-movies-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.top-movie-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.02);
+    transition: background 0.2s;
+}
+
+.top-movie-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.top-rank {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #999;
+    background: rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+}
+
+.top-rank.rank-1 {
+    background: linear-gradient(135deg, #ffd700, #ffb300);
+    color: #fff;
+}
+
+.top-rank.rank-2 {
+    background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
+    color: #fff;
+}
+
+.top-rank.rank-3 {
+    background: linear-gradient(135deg, #cd7f32, #b8690e);
+    color: #fff;
+}
+
+.top-movie-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.top-movie-title {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.top-movie-meta {
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.top-movie-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #5c6bc0;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 </style>
