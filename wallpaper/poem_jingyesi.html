@@ -1,0 +1,317 @@
+<!--
+==============================================================================
+  屏保 HTML 开发规范（Screensaver HTML Development Guide）
+==============================================================================
+
+  【加载机制】
+  - HTML 屏保文件放在项目根目录的 wallpaper/ 文件夹下
+  - 后端扫描该目录，识别 .html / .htm 文件，类型标记为 "html"
+  - 前端通过 <iframe> 加载，地址为 /v1/api/wallpaper/file/{文件名}
+  - iframe 属性：sandbox="allow-same-origin"，width/height 均为 100%
+
+  【沙箱限制 — 禁止事项】
+  sandbox="allow-same-origin" 意味着以下功能全部被浏览器禁止：
+    ✗ JavaScript（<script> 标签不会执行）
+    ✗ 表单提交（<form>）
+    ✗ 弹窗（alert / confirm / prompt / window.open）
+    ✗ 跳转导航（top-level navigation）
+     外部资源加载（跨域图片、字体、CSS 等可能受限）
+    ✗ localStorage / sessionStorage / IndexedDB
+    ✗ fetch / XMLHttpRequest / WebSocket
+    ✗ 音频/视频自动播放（autoplay 可能被阻止，但 muted 视频通常可以）
+
+  【允许事项 — 可以使用的技术】
+    ✓ 纯 HTML 结构
+    ✓ 内联 CSS（<style> 标签）
+    ✓ CSS 动画（@keyframes、transition、animation）
+    ✓ CSS 渐变、阴影、滤镜（filter）、变换（transform）
+    ✓ Unicode 字符 / Emoji
+    ✓ 内联 SVG（<svg> 标签，纯矢量图形）
+    ✓ 响应式布局（vw/vh 单位、flexbox、grid）
+    ✓ data URI 嵌入小图片（base64 编码）
+
+  【页面尺寸】
+  - iframe 铺满整个屏保覆盖层，即 100vw × 100vh（全屏）
+  - 建议使用 vw/vh 单位，确保在不同分辨率下都能正常显示
+  - 最小适配建议：1280×720（720p），推荐适配 1920×1080（1080p）
+
+  【交互限制】
+  - 屏保期间所有用户输入（点击、按键、触摸）都被父组件拦截
+  - 屏保内容应为纯展示性质，不需要任何交互
+  - 屏保结束后自动消失，无需用户操作
+
+  【展示时长】
+  - 默认 180 秒（3 分钟），可在设置页修改
+  - 内容设计应考虑循环播放或长时间静止展示的观感
+
+  【性能建议】
+  - 避免过多 CSS 动画同时运行，尤其是 filter: blur() 等开销大的效果
+  - 避免使用超大 base64 图片（建议单文件 < 500KB）
+  - 动画帧率建议用 will-change 提示浏览器优化
+  - 避免使用 CSS 3D transform（perspective），部分设备性能差
+
+  【文件命名】
+  - 建议使用英文文件名，如 poem_spring.html、landscape.html
+  - 避免中文文件名（URL 编码可能导致问题）
+  - 文件名不能包含 .. 或 \（后端安全检查会拒绝）
+
+  【快速模板】
+  复制以下骨架开始新屏保开发：
+
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>屏保标题</title>
+    <style>
+      /* 全屏重置 */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        color: #fff;
+        font-family: "STKaiti", "KaiTi", "SimSun", serif;
+      }
+      /* 在此添加你的内容和动画 */
+    </style>
+  </head>
+  <body>
+    <!-- 在此添加你的内容 -->
+  </body>
+  </html>
+
+==============================================================================
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>静夜思 - 李白</title>
+    <style>
+        /* ===== 基础重置 ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* ===== 页面主体 ===== */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 深色水墨背景：从深蓝黑到墨绿渐变 */
+            background: linear-gradient(160deg, #0a0e17 0%, #111827 40%, #0f1a15 100%);
+            color: #e8dcc8;
+            font-family: "STKaiti", "KaiTi", "楷体", "SimSun", "宋体", serif;
+            user-select: none;
+        }
+
+        /* ===== 背景装饰：模拟月光光晕 ===== */
+        .moon-glow {
+            position: fixed;
+            top: 12%;
+            right: 18%;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,248,220,0.25) 0%, rgba(255,248,220,0.08) 40%, transparent 70%);
+            animation: moonPulse 6s ease-in-out infinite;
+        }
+
+        @keyframes moonPulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 1; }
+        }
+
+        /* ===== 背景装饰：远山剪影 ===== */
+        .mountains {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 35%;
+            opacity: 0.12;
+        }
+
+        .mountain {
+            position: absolute;
+            bottom: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+
+        .mountain-1 {
+            left: -5%;
+            border-width: 0 200px 180px 200px;
+            border-color: transparent transparent #4a6741 transparent;
+        }
+
+        .mountain-2 {
+            left: 20%;
+            border-width: 0 280px 220px 280px;
+            border-color: transparent transparent #3d5a35 transparent;
+        }
+
+        .mountain-3 {
+            right: -8%;
+            border-width: 0 240px 160px 240px;
+            border-color: transparent transparent #4a6741 transparent;
+        }
+
+        /* ===== 诗词容器 ===== */
+        .poem-container {
+            text-align: center;
+            padding: 40px;
+            animation: fadeInUp 3s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== 诗题 ===== */
+        .poem-title {
+            font-size: clamp(28px, 4vw, 52px);
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+            color: #f5edd6;
+            text-shadow: 0 0 30px rgba(255, 248, 220, 0.15);
+        }
+
+        /* ===== 作者 ===== */
+        .poem-author {
+            font-size: clamp(14px, 1.8vw, 22px);
+            color: #a89880;
+            letter-spacing: 0.1em;
+            margin-bottom: 40px;
+        }
+
+        /* ===== 诗句 ===== */
+        .poem-lines {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(16px, 2.5vw, 28px);
+        }
+
+        .poem-line {
+            font-size: clamp(20px, 3vw, 38px);
+            letter-spacing: 0.2em;
+            line-height: 1.6;
+            color: #e8dcc8;
+            opacity: 0;
+            animation: lineReveal 1.5s ease-out forwards;
+        }
+
+        /* 每行依次延迟出现 */
+        .poem-line:nth-child(1) { animation-delay: 1.5s; }
+        .poem-line:nth-child(2) { animation-delay: 3s; }
+        .poem-line:nth-child(3) { animation-delay: 4.5s; }
+        .poem-line:nth-child(4) { animation-delay: 6s; }
+
+        @keyframes lineReveal {
+            0% { opacity: 0; transform: translateY(12px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== 装饰线 ===== */
+        .divider {
+            width: clamp(60px, 8vw, 120px);
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(232,220,200,0.4), transparent);
+            margin: 0 auto 36px;
+            animation: fadeInUp 3s ease-out;
+        }
+
+        /* ===== 底部印章效果 ===== */
+        .seal {
+            margin-top: 48px;
+            display: inline-block;
+            width: clamp(36px, 4vw, 52px);
+            height: clamp(36px, 4vw, 52px);
+            border: 2px solid rgba(180, 60, 50, 0.6);
+            border-radius: 4px;
+            color: rgba(180, 60, 50, 0.7);
+            font-size: clamp(14px, 1.6vw, 20px);
+            line-height: clamp(32px, 3.6vw, 48px);
+            text-align: center;
+            opacity: 0;
+            animation: sealStamp 0.6s ease-out 8s forwards;
+        }
+
+        @keyframes sealStamp {
+            0% { opacity: 0; transform: scale(1.5); }
+            60% { opacity: 0.8; transform: scale(0.95); }
+            100% { opacity: 0.7; transform: scale(1); }
+        }
+
+        /* ===== 飘落的粒子（模拟萤火虫/花瓣） ===== */
+        .particle {
+            position: fixed;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: rgba(255, 248, 220, 0.3);
+            animation: float linear infinite;
+        }
+
+        .particle:nth-child(1) { left: 10%; animation-duration: 12s; animation-delay: 0s; }
+        .particle:nth-child(2) { left: 25%; animation-duration: 15s; animation-delay: 3s; width: 2px; height: 2px; }
+        .particle:nth-child(3) { left: 45%; animation-duration: 10s; animation-delay: 1s; }
+        .particle:nth-child(4) { left: 65%; animation-duration: 14s; animation-delay: 5s; width: 2px; height: 2px; }
+        .particle:nth-child(5) { left: 80%; animation-duration: 11s; animation-delay: 2s; }
+        .particle:nth-child(6) { left: 90%; animation-duration: 13s; animation-delay: 4s; width: 2px; height: 2px; }
+
+        @keyframes float {
+            0% { top: -5%; opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { top: 105%; opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景装饰 -->
+    <div class="moon-glow"></div>
+
+    <div class="mountains">
+        <div class="mountain mountain-1"></div>
+        <div class="mountain mountain-2"></div>
+        <div class="mountain mountain-3"></div>
+    </div>
+
+    <!-- 飘落粒子 -->
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+
+    <!-- 诗词内容 -->
+    <div class="poem-container">
+        <div class="poem-title">静夜思</div>
+        <div class="poem-author">唐 · 李白</div>
+        <div class="divider"></div>
+        <div class="poem-lines">
+            <div class="poem-line">床前明月光</div>
+            <div class="poem-line">疑是地上霜</div>
+            <div class="poem-line">举头望明月</div>
+            <div class="poem-line">低头思故乡</div>
+        </div>
+        <div class="seal">诗</div>
+    </div>
+
+</body>
+</html>
