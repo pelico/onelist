@@ -123,3 +123,18 @@ func PlayHistoryClean(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 200, "msg": "清理成功", "data": count})
 	}(repo)
 }
+
+// PlayHistoryTodayDuration 获取当前用户今日累计播放秒数（所有登录用户）
+func PlayHistoryTodayDuration(c *gin.Context) {
+	userId := c.GetString("UserId")
+	db := database.NewDb()
+	repo := crud.NewRepositoryPlayHistoryCRUD(db)
+	func(hRepo repository.PlayHistoryRepository) {
+		total, err := hRepo.GetTodayDuration(userId)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": 0})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": total})
+	}(repo)
+}

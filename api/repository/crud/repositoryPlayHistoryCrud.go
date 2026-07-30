@@ -200,3 +200,25 @@ func (r *RepositoryPlayHistoryCRUD) CleanAll() (int64, error) {
 	}
 	return count, retErr
 }
+
+// GetTodayDuration 获取用户今日累计播放秒数
+func (r *RepositoryPlayHistoryCRUD) GetTodayDuration(userId string) (int, error) {
+	var total int
+	var retErr error
+	done := make(chan bool)
+	go func(ch chan<- bool) {
+		defer close(ch)
+		today := time.Now().Format("2006-01-02")
+		startDate, _ := time.Parse("2006-01-02", today)
+		endDate := startDate.AddDate(0, 0, 1)
+		retErr = r.db.Model(&models.PlayHistory{}).
+			Where("user_id = ? AND started_at >= ? AND started_at < ?", userId, startDate, endDate).
+			Select("COALESCE(SUM(duration),0)").
+			Scan(&total).Error
+		ch <- retErr == nil
+	}(done)
+	if channels.OK(done) {
+		return total, retErr
+	}
+	return total, retErr
+}

@@ -340,10 +340,16 @@ func Run() {
 	// 播放历史（播放统计）
 	playHistory := r.Group("/v1/api/play-history")
 	playHistory.POST("/heartbeat", auth.JWTAuth(), controllers.PlayHistoryHeartbeat)
+	playHistory.GET("/today", auth.JWTAuth(), controllers.PlayHistoryTodayDuration)
 	playHistory.POST("/stats", auth.JWTAuthAdmin(), controllers.PlayHistoryStats)
 	playHistory.POST("/gallery-stats", auth.JWTAuthAdmin(), controllers.PlayHistoryGalleryStats)
 	playHistory.POST("/list", auth.JWTAuthAdmin(), controllers.PlayHistoryList)
 	playHistory.POST("/clean", auth.JWTAuthAdmin(), controllers.PlayHistoryClean)
+
+	// 护眼屏保素材
+	wallpaper := r.Group("/v1/api/wallpaper", auth.JWTAuth())
+	wallpaper.GET("/list", controllers.ListWallpaper)
+	wallpaper.GET("/file/*path", controllers.ServeWallpaper)
 
 	//客户端首屏api
 	app := r.Group("/v1/api/app", auth.JWTAuth())
