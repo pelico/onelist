@@ -1,12 +1,12 @@
 /**
- * 电视遥控器导航插件 (Spatial Navigation 版)
- * 支持 Android TV / 智能电视 / 遥控器 / 键盘方向键操作
+ * 鐢佃閬ユ帶鍣ㄥ鑸彃浠?(Spatial Navigation 鐗?
+ * 鏀寔 Android TV / 鏅鸿兘鐢佃 / 閬ユ帶鍣?/ 閿洏鏂瑰悜閿搷浣?
  *
- * 按键映射:
- * - ArrowUp/ArrowDown/ArrowLeft/ArrowRight: 方向导航
- * - Enter/Space: 确认
- * - Escape/Backspace: 返回/关闭弹窗
- * - MediaPlayPause/MediaPlay/MediaPause: 媒体控制
+ * 鎸夐敭鏄犲皠:
+ * - ArrowUp/ArrowDown/ArrowLeft/ArrowRight: 鏂瑰悜瀵艰埅
+ * - Enter/Space: 纭
+ * - Escape/Backspace: 杩斿洖/鍏抽棴寮圭獥
+ * - MediaPlayPause/MediaPlay/MediaPause: 濯掍綋鎺у埗
  */
 
 class TvNavigation {
@@ -44,14 +44,14 @@ class TvNavigation {
     this._lastDirection = null;
     this._mutationObserver = null;
 
-    // 绑定 this
+    // 缁戝畾 this
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleFocus = this.handleFocus.bind(this);
     this.handleResize = this.handleResize.bind(this);
     this.refresh = this.refresh.bind(this);
   }
 
-  // 检测是否为电视环境，URL ?tv=1 会自动持久化到 localStorage
+  // 妫€娴嬫槸鍚︿负鐢佃鐜锛孶RL ?tv=1 浼氳嚜鍔ㄦ寔涔呭寲鍒?localStorage
   detectTvMode() {
     const ua = navigator.userAgent.toLowerCase();
     const isTv = /tv|smart-tv|smarttv|googletv|appletv|hbbtv|netcast|viera|nettv|roku|firetv|fire-tv|aft|aftb|aftt|aftm|aftd|android tv/i.test(ua);
@@ -62,7 +62,7 @@ class TvNavigation {
     const urlParams = new URLSearchParams(window.location.search);
     const forceTvFromUrl = urlParams.get('tv') === '1' || urlParams.get('tv') === 'true';
 
-    // URL 参数开启时，自动持久化，避免跳转后丢失
+    // URL 鍙傛暟寮€鍚椂锛岃嚜鍔ㄦ寔涔呭寲锛岄伩鍏嶈烦杞悗涓㈠け
     if (forceTvFromUrl) {
       try { localStorage.setItem('forceTvMode', 'true'); } catch (e) {}
     }
@@ -70,7 +70,7 @@ class TvNavigation {
     const forceTvFromStorage = (() => {
       try {
         const val = localStorage.getItem('forceTvMode');
-        // 未设置过时默认启用，管理员可在设置中关闭
+        // 鏈缃繃鏃堕粯璁ゅ惎鐢紝绠＄悊鍛樺彲鍦ㄨ缃腑鍏抽棴
         return val === null || val === 'true';
       } catch (e) { return true; }
     })();
@@ -79,7 +79,7 @@ class TvNavigation {
     return this.isTvMode;
   }
 
-  // 切换 TV 模式（供设置页调用）
+  // 鍒囨崲 TV 妯″紡锛堜緵璁剧疆椤佃皟鐢級
   setTvMode(enabled) {
     this.isTvMode = !!enabled;
     try { localStorage.setItem('forceTvMode', this.isTvMode ? 'true' : 'false'); } catch (e) {}
@@ -96,7 +96,7 @@ class TvNavigation {
     return this;
   }
 
-  // 初始化
+  // 鍒濆鍖?
   init(config = {}) {
     this.config = { ...this.config, ...config };
     this.detectTvMode();
@@ -110,7 +110,7 @@ class TvNavigation {
     this.startMutationObserver();
 
     if (this.isTvMode) {
-      // 页面加载后自动聚焦第一个可聚焦元素
+      // 椤甸潰鍔犺浇鍚庤嚜鍔ㄨ仛鐒︾涓€涓彲鑱氱劍鍏冪礌
       setTimeout(() => {
         this.refresh();
         const first = this.getFirstFocusable();
@@ -122,7 +122,7 @@ class TvNavigation {
     return this;
   }
 
-  // 绑定全局键盘事件
+  // 缁戝畾鍏ㄥ眬閿洏浜嬩欢
   bindGlobalEvents() {
     document.addEventListener('keydown', this.handleKeyDown, true);
     document.addEventListener('focus', this.handleFocus, true);
@@ -130,7 +130,7 @@ class TvNavigation {
     window.addEventListener('scroll', this.refresh, true);
   }
 
-  // 创建焦点指示器
+  // 鍒涘缓鐒︾偣鎸囩ず鍣?
   createFocusIndicator() {
     if (document.getElementById('tv-focus-indicator')) return;
 
@@ -142,12 +142,12 @@ class TvNavigation {
     this._indicator = indicator;
   }
 
-  // 监听 DOM 变化，自动刷新焦点列表
+  // 鐩戝惉 DOM 鍙樺寲锛岃嚜鍔ㄥ埛鏂扮劍鐐瑰垪琛?
   startMutationObserver() {
     if (this._mutationObserver || typeof MutationObserver === 'undefined') return;
 
     this._mutationObserver = new MutationObserver((mutations) => {
-      // DOM 变化较大时延迟刷新，避免频繁扫描
+      // DOM 鍙樺寲杈冨ぇ鏃跺欢杩熷埛鏂帮紝閬垮厤棰戠箒鎵弿
       clearTimeout(this._mutationTimer);
       this._mutationTimer = setTimeout(() => {
         this.refresh();
@@ -162,11 +162,19 @@ class TvNavigation {
     });
   }
 
-  // 键盘事件处理
+  // 閿洏浜嬩欢澶勭悊
   handleKeyDown(e) {
     if (!this.isTvMode && !this.config.forceTvMode) return;
 
     const key = e.key;
+
+    // 杈撳叆妗?鏂囨湰鍩熷唴锛氫笉鎷︽埅 Enter/Space锛堜繚鐣欏師鐢熻緭鍏ヨ涓猴級锛屾柟鍚戦敭浠嶅彲鐢ㄤ簬瀵艰埅
+    const tag = (e.target.tagName || '').toLowerCase();
+    const isInputField = tag === 'input' || tag === 'textarea';
+    if (isInputField && (key === 'Enter' || key === ' ')) {
+      return;
+    }
+
     const handlers = {
       'ArrowUp': () => this.navigate('up'),
       'ArrowDown': () => this.navigate('down'),
@@ -195,7 +203,7 @@ class TvNavigation {
     }
   }
 
-  // 焦点变化处理
+  // 鐒︾偣鍙樺寲澶勭悊
   handleFocus(e) {
     if (!this.isTvMode) return;
     if (e.target === this.currentFocus) {
@@ -207,7 +215,7 @@ class TvNavigation {
     }
   }
 
-  // 窗口大小变化处理
+  // 绐楀彛澶у皬鍙樺寲澶勭悊
   handleResize() {
     clearTimeout(this._resizeTimer);
     this._resizeTimer = setTimeout(() => {
@@ -216,7 +224,7 @@ class TvNavigation {
     }, 100);
   }
 
-  // 注册焦点元素组（兼容旧 API，元素会被纳入全局导航）
+  // 娉ㄥ唽鐒︾偣鍏冪礌缁勶紙鍏煎鏃?API锛屽厓绱犱細琚撼鍏ュ叏灞€瀵艰埅锛?
   registerGroup(name, elements, options = {}) {
     const arr = Array.isArray(elements) ? elements.filter(Boolean) : [elements].filter(Boolean);
     arr.forEach((el, index) => {
@@ -228,7 +236,7 @@ class TvNavigation {
     return this;
   }
 
-  // 取消注册焦点组
+  // 鍙栨秷娉ㄥ唽鐒︾偣缁?
   unregisterGroup(name) {
     this.focusables.forEach(el => {
       if (el.getAttribute('data-tv-group') === name) {
@@ -240,20 +248,20 @@ class TvNavigation {
     return this;
   }
 
-  // 设置当前焦点组（兼容旧 API）
+  // 璁剧疆褰撳墠鐒︾偣缁勶紙鍏煎鏃?API锛?
   setCurrentGroup(name) {
     const el = this.focusables.find(el => el.getAttribute('data-tv-group') === name);
     if (el) this.setFocus(el);
     return this;
   }
 
-  // 刷新可聚焦元素列表
+  // 鍒锋柊鍙仛鐒﹀厓绱犲垪琛?
   refresh() {
     this.focusables = this.scanFocusables();
     return this;
   }
 
-  // 扫描页面上所有可聚焦元素
+  // 鎵弿椤甸潰涓婃墍鏈夊彲鑱氱劍鍏冪礌
   scanFocusables() {
     const candidates = document.querySelectorAll(
       'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
@@ -266,7 +274,7 @@ class TvNavigation {
       }
     });
 
-    // 按 DOM 位置排序，作为兜底
+    // 鎸?DOM 浣嶇疆鎺掑簭锛屼綔涓哄厹搴?
     list.sort((a, b) => {
       const pos = a.compareDocumentPosition(b);
       return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
@@ -275,7 +283,7 @@ class TvNavigation {
     return list;
   }
 
-  // 检查元素是否可聚焦
+  // 妫€鏌ュ厓绱犳槸鍚﹀彲鑱氱劍
   isFocusable(el) {
     if (!el || el === document.body) return false;
 
@@ -290,12 +298,12 @@ class TvNavigation {
     return true;
   }
 
-  // 获取第一个可聚焦元素
+  // 鑾峰彇绗竴涓彲鑱氱劍鍏冪礌
   getFirstFocusable() {
     return this.focusables[0] || null;
   }
 
-  // 方向导航（Spatial Navigation）
+  // 鏂瑰悜瀵艰埅锛圫patial Navigation锛?
   navigate(direction) {
     this.refresh();
 
@@ -317,7 +325,7 @@ class TvNavigation {
     }
   }
 
-  // 找到指定方向上最近的元素（网格对齐优先算法）
+  // 鎵惧埌鎸囧畾鏂瑰悜涓婃渶杩戠殑鍏冪礌锛堢綉鏍煎榻愪紭鍏堢畻娉曪級
   findNearestInDirection(current, direction, candidates) {
     const currentRect = this.getFocusNavElement(current).getBoundingClientRect();
     const isVertical = direction === 'up' || direction === 'down';
@@ -329,7 +337,7 @@ class TvNavigation {
       const navEl = this.getFocusNavElement(el);
       const rect = navEl.getBoundingClientRect();
 
-      // 方向过滤：候选元素必须整体在目标方向一侧（边界判断）
+      // 鏂瑰悜杩囨护锛氬€欓€夊厓绱犲繀椤绘暣浣撳湪鐩爣鏂瑰悜涓€渚э紙杈圭晫鍒ゆ柇锛?
       switch (direction) {
         case 'right': if (rect.left < currentRect.right - 4) return; break;
         case 'left':  if (rect.right > currentRect.left + 4) return; break;
@@ -354,7 +362,7 @@ class TvNavigation {
         overlap = Math.max(0, overlapEnd - overlapStart);
       }
 
-      // 同列/同行候选享有绝对优先，斜对角候选附加更大偏移惩罚
+      // 鍚屽垪/鍚岃鍊欓€変韩鏈夌粷瀵逛紭鍏堬紝鏂滃瑙掑€欓€夐檮鍔犳洿澶у亸绉绘儵缃?
       const crossOffset = isVertical
         ? Math.abs((rect.left + rect.width / 2) - (currentRect.left + currentRect.width / 2))
         : Math.abs((rect.top + rect.height / 2) - (currentRect.top + currentRect.height / 2));
@@ -369,21 +377,21 @@ class TvNavigation {
     return best;
   }
 
-  // 获取焦点显示目标元素（优先找外层容器，比如 .view-item / li 等）
+  // 鑾峰彇鐒︾偣鏄剧ず鐩爣鍏冪礌锛堜紭鍏堟壘澶栧眰瀹瑰櫒锛屾瘮濡?.view-item / li 绛夛級
   getFocusVisualElement(element) {
     if (!element) return null;
     const container = element.closest('.view-item, .tab-item, .dir-item, .show-card-item, .season-card, .episode-card-item, .gallery-card');
     return container || element;
   }
 
-  // 获取导航定位用的元素（计算位置用外层容器，避免 scale 偏移影响方向判断）
+  // 鑾峰彇瀵艰埅瀹氫綅鐢ㄧ殑鍏冪礌锛堣绠椾綅缃敤澶栧眰瀹瑰櫒锛岄伩鍏?scale 鍋忕Щ褰卞搷鏂瑰悜鍒ゆ柇锛?
   getFocusNavElement(element) {
     if (!element) return null;
     const container = element.closest('.view-item, .tab-item, .dir-item, .show-card-item, .season-card, .episode-card-item, .gallery-card');
     return container || element;
   }
 
-  // 设置焦点
+  // 璁剧疆鐒︾偣
   setFocus(element, scroll = true) {
     if (!element || !this.isFocusable(element)) return;
 
@@ -406,7 +414,7 @@ class TvNavigation {
     this.emit('focus', { element });
   }
 
-  // 清除焦点
+  // 娓呴櫎鐒︾偣
   clearFocus() {
     const prev = document.querySelector('.' + this.config.focusVisibleClass);
     if (prev) {
@@ -415,10 +423,25 @@ class TvNavigation {
     this.currentFocus = null;
   }
 
-  // 更新焦点指示器
+  // 妫€鏌ュ厓绱犳垨鍏跺瓙鍏冪礌鏄惁涓鸿緭鍏ユ帶浠?
+  containsInput(el) {
+    if (!el) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    return !!(el.querySelector && el.querySelector('input, textarea, select'));
+  }
+
+  // 鏇存柊鐒︾偣鎸囩ず鍣?
   updateFocusIndicator(element) {
     if (!this._indicator || !element) return;
     if (!this.isTvMode) {
+      this._indicator.style.display = 'none';
+      return;
+    }
+
+    // 杈撳叆妗?鏂囨湰鍩燂細闅愯棌鎸囩ず鍣ㄨ鐩栧眰锛岄伩鍏嶉伄鎸¤緭鍏ュ尯鍩?
+    // 杩欎簺鍏冪礌宸叉湁 CSS box-shadow 鐒︾偣鏍峰紡锛坱v-focus.css 涓畾涔夛級
+    if (this.containsInput(element)) {
       this._indicator.style.display = 'none';
       return;
     }
@@ -434,7 +457,7 @@ class TvNavigation {
     this._indicator.style.height = (rect.height + padding * 2) + 'px';
   }
 
-  // 确认/选择
+  // 纭/閫夋嫨
   confirm(e) {
     const focused = this.currentFocus || document.activeElement;
     if (focused && focused !== document.body) {
@@ -445,9 +468,9 @@ class TvNavigation {
     }
   }
 
-  // 返回
+  // 杩斿洖
   back() {
-    // 检查是否有打开的模态框
+    // 妫€鏌ユ槸鍚︽湁鎵撳紑鐨勬ā鎬佹
     const modal = document.querySelector('.n-modal-container:not([style*="display: none"])');
     if (modal) {
       const closeBtn = modal.querySelector('.n-card-header-extra button, [data-action="close"]');
@@ -469,7 +492,7 @@ class TvNavigation {
     this.emit('back');
   }
 
-  // 播放器控制（保持原有 API）
+  // 鎾斁鍣ㄦ帶鍒讹紙淇濇寔鍘熸湁 API锛?
   setPlayerInstance(player) {
     this.playerInstance = player;
     return this;
@@ -579,7 +602,7 @@ class TvNavigation {
     }
   }
 
-  // 事件系统
+  // 浜嬩欢绯荤粺
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -604,7 +627,7 @@ class TvNavigation {
     return this;
   }
 
-  // 销毁
+  // 閿€姣?
   destroy() {
     document.removeEventListener('keydown', this.handleKeyDown, true);
     document.removeEventListener('focus', this.handleFocus, true);
@@ -624,10 +647,10 @@ class TvNavigation {
   }
 }
 
-// 导出单例
+// 瀵煎嚭鍗曚緥
 export const tvNavigation = new TvNavigation();
 
-// 导出 Vue 插件
+// 瀵煎嚭 Vue 鎻掍欢
 export default {
   install(app, options = {}) {
     tvNavigation.init(options);
