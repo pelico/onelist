@@ -94,6 +94,16 @@ const routes = [
         component: () => import('../views/message/MessageCenter.vue'),
         meta: { requiresAdmin: true }
     },
+    {
+        path: '/games',
+        name: 'GameList',
+        component: () => import('../views/game/GameList.vue')
+    },
+    {
+        path: '/game',
+        name: 'GamePlayer',
+        component: () => import('../views/game/GamePlayer.vue')
+    },
 ];
 
 const router = createRouter({
