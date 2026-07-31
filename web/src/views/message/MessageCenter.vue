@@ -105,6 +105,36 @@
             </div>
         </div>
 
+        <!-- 消息设置 -->
+        <div class="msg-setting-section showContainer">
+            <div class="show-header">
+                <div class="show-title"><h3>消息设置</h3></div>
+            </div>
+            <div style="padding: 16px 24px;">
+                <n-form label-placement="left" label-width="auto">
+                    <n-form-item label="发送者名称">
+                        <n-input
+                            v-model:value="senderName"
+                            placeholder="管理员"
+                            size="large"
+                            style="width: 240px"
+                            @keydown.enter="saveSenderName()"
+                        />
+                        <n-button
+                            type="info"
+                            size="medium"
+                            style="margin-left: 12px"
+                            :loading="senderNameSaving"
+                            @click="saveSenderName()"
+                        >保存</n-button>
+                        <span style="margin-left: 12px; color: #999; font-size: 0.85em;">
+                            显示为"{{ senderName || '管理员' }}发来一条消息"，留空默认"管理员"
+                        </span>
+                    </n-form-item>
+                </n-form>
+            </div>
+        </div>
+
         <!-- Webhook 配置 -->
         <div class="webhook-section showContainer">
             <div class="show-header">
@@ -144,7 +174,7 @@
 <script>
 import { computed, getCurrentInstance, h, onMounted, reactive, ref } from "vue";
 import { NButton, NTag, useMessage } from "naive-ui";
-import { getUserList, sendMessage, getMessageHistory, clearMessages, getWebhookInfo, toggleWebhook, regenerateWebhookToken } from "../../api/index";
+import { getUserList, sendMessage, getMessageHistory, clearMessages, getWebhookInfo, toggleWebhook, regenerateWebhookToken, getConfig, saveConfig } from "../../api/index";
 
 export default {
     name: "MessageCenter",
@@ -186,6 +216,10 @@ export default {
         const webhookToken = ref("");
         const webhookUrl = ref("");
         const regenerating = ref(false);
+
+        // 发送者名称配置
+        const senderName = ref("管理员");
+        const senderNameSaving = ref(false);
 
         const webhookExample = computed(() => {
             return JSON.stringify({
@@ -338,6 +372,40 @@ export default {
             regenerating.value = false;
         }
 
+        // 加载发送者名称
+        async function loadSenderName() {
+            try {
+                const res = await getConfig();
+                if (res.code === 200 && res.data) {
+                    senderName.value = res.data.sender_name || "管理员";
+                }
+            } catch (e) {
+                console.error("加载发送者名称失败:", e);
+            }
+        }
+
+        // 保存发送者名称
+        async function saveSenderNameAction() {
+            senderNameSaving.value = true;
+            try {
+                // 先获取完整配置，再更新 sender_name
+                const res = await getConfig();
+                if (res.code === 200 && res.data) {
+                    const cfg = res.data;
+                    cfg.sender_name = senderName.value;
+                    const saveRes = await saveConfig(cfg);
+                    if (saveRes.code === 200) {
+                        message.success("发送者名称已保存！");
+                    } else {
+                        message.error(saveRes.msg || "保存失败");
+                    }
+                }
+            } catch (e) {
+                message.error("保存失败: " + (e.message || e));
+            }
+            senderNameSaving.value = false;
+        }
+
         // 消息记录表格列
         const historyColumns = [
             {
@@ -353,6 +421,15 @@ export default {
                 key: "user_name",
                 width: 140,
                 ellipsis: { tooltip: true }
+            },
+            {
+                title: "发送者",
+                key: "sender_name",
+                width: 100,
+                ellipsis: { tooltip: true },
+                render(row) {
+                    return h("span", {}, row.sender_name || "管理员");
+                }
             },
             {
                 title: "内容",
@@ -403,6 +480,7 @@ export default {
             loadUsers();
             loadHistory();
             loadWebhookInfo();
+            loadSenderName();
         });
 
         return {
@@ -426,7 +504,10 @@ export default {
             webhookExample,
             regenerating,
             toggleWebhook: toggleWebhookAction,
-            regenerateToken: regenerateTokenAction
+            regenerateToken: regenerateTokenAction,
+            senderName,
+            senderNameSaving,
+            saveSenderName: saveSenderNameAction
         };
     }
 };

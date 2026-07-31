@@ -4,7 +4,7 @@
         <div v-if="forcedVisible" class="msg-overlay msg-forced" @keydown="blockInput" @click="blockInput">
             <div class="msg-forced-box">
                 <div class="msg-forced-icon">&#9993;</div>
-                <div class="msg-forced-title">管理员发来一条消息</div>
+                <div class="msg-forced-title">{{ senderLabel(forcedMessage) }}发来一条消息</div>
                 <div class="msg-forced-content">{{ forcedMessage.content }}</div>
                 <div class="msg-forced-time">{{ formatTime(forcedMessage.created_at) }}</div>
                 <n-button ref="forcedBtnRef" type="info" size="large" class="msg-forced-btn" @click="ackForced">我知道了</n-button>
@@ -22,7 +22,7 @@
                 >
                     <div class="msg-toast-icon">&#128172;</div>
                     <div class="msg-toast-body">
-                        <div class="msg-toast-title">管理员消息</div>
+                        <div class="msg-toast-title">{{ senderLabel(msg) }}消息</div>
                         <div class="msg-toast-content">{{ msg.content }}</div>
                         <div class="msg-toast-time">{{ formatTime(msg.created_at) }}</div>
                     </div>
@@ -35,6 +35,7 @@
 
 <script>
 import { defineComponent, ref, computed, watch, nextTick } from 'vue';
+import { tvNavigation } from '../../plugins/tvNavigation';
 
 export default defineComponent({
     name: 'MessageOverlay',
@@ -49,12 +50,22 @@ export default defineComponent({
         const forcedVisible = computed(() => !!props.forcedMessage);
         const forcedBtnRef = ref(null);
 
+        // 获取发送者名称，兼容旧消息没有 sender_name 字段的情况
+        function senderLabel(msg) {
+            return (msg && msg.sender_name) || '管理员';
+        }
+
         // 强制弹窗出现时自动聚焦按钮，TV 遥控器可直接按 OK 关闭
         watch(forcedVisible, (visible) => {
             if (visible) {
                 nextTick(() => {
                     const btn = forcedBtnRef.value?.$el || forcedBtnRef.value;
-                    if (btn && typeof btn.focus === 'function') {
+                    if (!btn) return;
+                    // 优先使用 TV 导航插件的 setFocus，确保遥控器焦点指示器正常显示
+                    if (tvNavigation && tvNavigation.isTvMode && typeof tvNavigation.setFocus === 'function') {
+                        tvNavigation.refresh();
+                        tvNavigation.setFocus(btn);
+                    } else if (typeof btn.focus === 'function') {
                         btn.focus();
                     }
                 });
@@ -91,6 +102,7 @@ export default defineComponent({
         return {
             forcedVisible,
             forcedBtnRef,
+            senderLabel,
             ackForced,
             dismissToast,
             formatTime,
@@ -133,15 +145,18 @@ export default defineComponent({
     font-size: 3em;
     margin-bottom: 12px;
 }
+/* 标题弱化：小字、浅色 */
 .msg-forced-title {
-    font-size: 1.2em;
-    font-weight: 600;
-    color: #333;
+    font-size: 0.88em;
+    font-weight: 400;
+    color: #999;
     margin-bottom: 16px;
 }
+/* 消息内容加粗突出 */
 .msg-forced-content {
-    font-size: 1.05em;
-    color: #555;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #333;
     line-height: 1.6;
     margin-bottom: 12px;
     white-space: pre-wrap;
@@ -194,15 +209,18 @@ export default defineComponent({
     flex: 1;
     min-width: 0;
 }
+/* toast 标题弱化 */
 .msg-toast-title {
-    font-weight: 600;
-    font-size: 0.9em;
-    color: #333;
+    font-weight: 400;
+    font-size: 0.82em;
+    color: #999;
     margin-bottom: 4px;
 }
+/* toast 内容加粗 */
 .msg-toast-content {
-    font-size: 0.88em;
-    color: #555;
+    font-size: 0.92em;
+    font-weight: 600;
+    color: #333;
     line-height: 1.4;
     word-break: break-word;
     white-space: pre-wrap;
@@ -237,12 +255,12 @@ export default defineComponent({
     background: #2a2a2a;
     color: #eee;
 }
-.dark .msg-forced-title { color: #eee; }
-.dark .msg-forced-content { color: #ccc; }
+.dark .msg-forced-title { color: #888; }
+.dark .msg-forced-content { color: #eee; }
 .dark .msg-toast {
     background: #2a2a2a;
     border-left-color: #4098fc;
 }
-.dark .msg-toast-title { color: #eee; }
-.dark .msg-toast-content { color: #ccc; }
+.dark .msg-toast-title { color: #888; }
+.dark .msg-toast-content { color: #eee; }
 </style>
