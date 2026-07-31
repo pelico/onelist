@@ -9,6 +9,7 @@ import (
 func GetWebConfig(c *gin.Context) {
 	configData := config.GetConfig()
 	configData.KeyDb=""
+	configData.WebhookToken=""
 	c.JSON(200, gin.H{"code": 200, "msg": "获取成功!", "data": configData})
 }
 
