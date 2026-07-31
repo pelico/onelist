@@ -141,6 +141,14 @@
                                             <span class="title">播放统计</span>
                                         </router-link>
                                     </li>
+                                    <li>
+                                        <router-link to="/messages">
+                                            <span class="icon">
+                                                <i class='bx bx-message-square-dots'></i>
+                                            </span>
+                                            <span class="title">消息中心</span>
+                                        </router-link>
+                                    </li>
                                 </ul>
                             </div>
                         </div>
