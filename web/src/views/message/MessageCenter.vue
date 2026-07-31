@@ -139,7 +139,7 @@
 </template>
 
 <script>
-import { computed, getCurrentInstance, h, onMounted, ref } from "vue";
+import { computed, getCurrentInstance, h, onMounted, reactive, ref } from "vue";
 import { NButton, NTag, useMessage } from "naive-ui";
 import { getUserList, sendMessage, getMessageHistory, clearMessages, getWebhookInfo, toggleWebhook, regenerateWebhookToken } from "../../api/index";
 
@@ -165,17 +165,17 @@ export default {
         const historyLoading = ref(false);
         const filterUserId = ref(null);
         const clearing = ref(false);
-        const historyPagination = {
-            page: ref(1),
-            pageSize: ref(20),
-            pageCount: ref(1),
-            itemCount: ref(0),
+        const historyPagination = reactive({
+            page: 1,
+            pageSize: 20,
+            pageCount: 1,
+            itemCount: 0,
             showSizePicker: false,
             onUpdatePage: (page) => {
-                historyPagination.page.value = page;
+                historyPagination.page = page;
                 loadHistory();
             }
-        };
+        });
 
         // Webhook
         const webhookEnabled = ref(false);
@@ -247,8 +247,8 @@ export default {
             historyLoading.value = true;
             try {
                 const params = {
-                    page: historyPagination.page.value,
-                    page_size: historyPagination.pageSize.value
+                    page: historyPagination.page,
+                    page_size: historyPagination.pageSize
                 };
                 if (filterUserId.value) {
                     params.user_id = filterUserId.value;
@@ -256,8 +256,8 @@ export default {
                 const res = await getMessageHistory(params);
                 if (res.code === 200 && res.data) {
                     historyData.value = res.data.list || [];
-                    historyPagination.itemCount.value = res.data.total || 0;
-                    historyPagination.pageCount.value = Math.ceil((res.data.total || 0) / historyPagination.pageSize.value);
+                    historyPagination.itemCount = res.data.total || 0;
+                    historyPagination.pageCount = Math.ceil((res.data.total || 0) / historyPagination.pageSize);
                 }
             } catch (e) {
                 console.error("鍔犺浇娑堟伅璁板綍澶辫触:", e);
