@@ -353,10 +353,10 @@ func Run() {
 	wallpaper.GET("/list", controllers.ListWallpaper)
 	wallpaper.GET("/file/*path", controllers.ServeWallpaper)
 
-	// 小游戏
+	// 小游戏（列表需鉴权，文件服务不需要——iframe 无法携带 token）
 	game := r.Group("/v1/api/game", auth.JWTAuth())
 	game.GET("/list", controllers.ListGames)
-	game.GET("/file/*path", controllers.ServeGame)
+	r.GET("/v1/api/game/file/*path", controllers.ServeGame)
 
 	// 消息推送
 	message := r.Group("/v1/api/message", auth.JWTAuth())
