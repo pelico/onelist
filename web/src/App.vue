@@ -71,6 +71,14 @@
                                                     <span class="title">已播放</span>
                                                 </router-link>
                                             </li>
+                                            <li>
+                                                <router-link to="/games">
+                                                    <span class="icon">
+                                                        <i class='bx bx-joystick'></i>
+                                                    </span>
+                                                    <span class="title">玩游戏</span>
+                                                </router-link>
+                                            </li>
                                         </ul>
                                     </div>
                                 </div>
