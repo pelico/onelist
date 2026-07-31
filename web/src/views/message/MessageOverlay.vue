@@ -1,17 +1,17 @@
 <template>
     <teleport to="body">
-        <!-- 强制弹窗模式 -->
+        <!-- 寮哄埗寮圭獥妯″紡 -->
         <div v-if="forcedVisible" class="msg-overlay msg-forced" @keydown="blockInput" @click="blockInput">
             <div class="msg-forced-box">
                 <div class="msg-forced-icon">&#9993;</div>
-                <div class="msg-forced-title">管理员发来一条消息</div>
+                <div class="msg-forced-title">绠＄悊鍛樺彂鏉ヤ竴鏉℃秷鎭?/div>
                 <div class="msg-forced-content">{{ forcedMessage.content }}</div>
                 <div class="msg-forced-time">{{ formatTime(forcedMessage.created_at) }}</div>
-                <n-button type="info" size="large" class="msg-forced-btn" @click="ackForced">我知道了</n-button>
+                <n-button ref="forcedBtnRef" type="info" size="large" class="msg-forced-btn" @click="ackForced">鎴戠煡閬撲簡</n-button>
             </div>
         </div>
 
-        <!-- 普通通知（右上角堆叠 toast） -->
+        <!-- 鏅€氶€氱煡锛堝彸涓婅鍫嗗彔 toast锛?-->
         <div v-if="normalMessages.length > 0" class="msg-toast-container">
             <transition-group name="msg-toast">
                 <div
@@ -22,7 +22,7 @@
                 >
                     <div class="msg-toast-icon">&#128172;</div>
                     <div class="msg-toast-body">
-                        <div class="msg-toast-title">管理员消息</div>
+                        <div class="msg-toast-title">绠＄悊鍛樻秷鎭?/div>
                         <div class="msg-toast-content">{{ msg.content }}</div>
                         <div class="msg-toast-time">{{ formatTime(msg.created_at) }}</div>
                     </div>
@@ -34,19 +34,32 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, watch, nextTick } from 'vue';
 
 export default defineComponent({
     name: 'MessageOverlay',
     props: {
-        // 强制消息（一次只显示一条）
+        // 寮哄埗娑堟伅锛堜竴娆″彧鏄剧ず涓€鏉★級
         forcedMessage: { type: Object, default: null },
-        // 普通通知列表
+        // 鏅€氶€氱煡鍒楄〃
         normalMessages: { type: Array, default: () => [] }
     },
     emits: ['ack-forced', 'dismiss-toast'],
     setup(props, { emit }) {
         const forcedVisible = computed(() => !!props.forcedMessage);
+        const forcedBtnRef = ref(null);
+
+        // 寮哄埗寮圭獥鍑虹幇鏃惰嚜鍔ㄨ仛鐒︽寜閽紝TV 閬ユ帶鍣ㄥ彲鐩存帴鎸?OK 鍏抽棴
+        watch(forcedVisible, (visible) => {
+            if (visible) {
+                nextTick(() => {
+                    const btn = forcedBtnRef.value?.$el || forcedBtnRef.value;
+                    if (btn && typeof btn.focus === 'function') {
+                        btn.focus();
+                    }
+                });
+            }
+        });
 
         function ackForced() {
             emit('ack-forced', props.forcedMessage);
@@ -61,15 +74,14 @@ export default defineComponent({
             const d = new Date(t);
             const now = new Date();
             const diff = now - d;
-            if (diff < 60000) return '刚刚';
-            if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
-            if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+            if (diff < 60000) return '鍒氬垰';
+            if (diff < 3600000) return Math.floor(diff / 60000) + ' 鍒嗛挓鍓?;
+            if (diff < 86400000) return Math.floor(diff / 3600000) + ' 灏忔椂鍓?;
             return d.toLocaleDateString('zh-CN');
         }
 
         function blockInput(e) {
-            // 强制模式下，阻止除按钮外的所有交互
-            if (e.target.classList.contains('msg-forced-btn')) return;
+            // 寮哄埗妯″紡涓嬶紝闃绘闄ゆ寜閽鐨勬墍鏈変氦浜?            if (e.target.classList.contains('msg-forced-btn')) return;
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
@@ -77,6 +89,7 @@ export default defineComponent({
 
         return {
             forcedVisible,
+            forcedBtnRef,
             ackForced,
             dismissToast,
             formatTime,
@@ -87,9 +100,9 @@ export default defineComponent({
 </script>
 
 <style>
-/* 非 scoped：teleport 到 body 的元素不在组件 DOM 树内 */
+/* 闈?scoped锛歵eleport 鍒?body 鐨勫厓绱犱笉鍦ㄧ粍浠?DOM 鏍戝唴 */
 
-/* ===== 强制弹窗 ===== */
+/* ===== 寮哄埗寮圭獥 ===== */
 .msg-overlay.msg-forced {
     position: fixed;
     top: 0; left: 0;
@@ -142,7 +155,7 @@ export default defineComponent({
     min-width: 160px;
 }
 
-/* ===== 普通通知 toast ===== */
+/* ===== 鏅€氶€氱煡 toast ===== */
 .msg-toast-container {
     position: fixed;
     top: 20px;
@@ -210,7 +223,7 @@ export default defineComponent({
     color: #999;
 }
 
-/* toast 过渡动画 */
+/* toast 杩囨浮鍔ㄧ敾 */
 .msg-toast-enter-active {
     animation: msg-toast-in 0.3s ease-out;
 }
@@ -218,7 +231,7 @@ export default defineComponent({
     animation: msg-toast-in 0.25s ease-in reverse;
 }
 
-/* ===== 暗色模式适配 ===== */
+/* ===== 鏆楄壊妯″紡閫傞厤 ===== */
 .dark .msg-forced-box {
     background: #2a2a2a;
     color: #eee;
