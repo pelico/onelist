@@ -49,6 +49,7 @@ func SendMessage(c *gin.Context) {
 		Content:    req.Content,
 		Priority:   req.Priority,
 		SenderType: "admin",
+		SenderName: config.SenderName,
 	}
 	if err := db.Create(&msg).Error; err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": "发送失败: " + err.Error(), "data": nil})
@@ -111,6 +112,7 @@ func WebhookMessage(c *gin.Context) {
 		Content:    req.Content,
 		Priority:   req.Priority,
 		SenderType: "webhook",
+		SenderName: config.SenderName,
 	}
 	if err := db.Create(&msg).Error; err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": "发送失败: " + err.Error(), "data": nil})

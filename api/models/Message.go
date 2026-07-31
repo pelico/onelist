@@ -9,6 +9,7 @@ type Message struct {
 	Content    string     `json:"content" gorm:"type:text"`      // 消息内容
 	Priority   string     `json:"priority" gorm:"default:normal"` // normal=角标通知, forced=强制覆盖层
 	SenderType string     `json:"sender_type" gorm:"default:admin"` // admin / webhook
+	SenderName string     `json:"sender_name"`                      // 发送者名称，如"管理员"、"爸爸"
 	ReadAt     *time.Time `json:"read_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
