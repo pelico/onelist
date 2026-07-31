@@ -1,56 +1,57 @@
 <template>
     <div class="content">
         <div class="content-header">
-            <div class="content-header-title">消息中心</div>
+            <div class="content-header-title">娑堟伅涓績</div>
             <div class="content-header-tool">
                 <n-space justify="end" size="medium">
                     <n-button @click="loadHistory()" type="info">
                         <template #icon><i class='bx bx-analyse'></i></template>
-                        刷新
+                        鍒锋柊
                     </n-button>
                 </n-space>
             </div>
         </div>
 
-        <!-- 发送消息区域 -->
+        <!-- 鍙戦€佹秷鎭尯鍩?-->
         <div class="send-section showContainer">
             <div class="show-header">
-                <div class="show-title"><h3>发送消息</h3></div>
+                <div class="show-title"><h3>鍙戦€佹秷鎭?/h3></div>
             </div>
             <div style="padding: 16px 24px;">
                 <n-form :model="sendForm" label-placement="left" label-width="auto">
-                    <n-form-item label="选择用户">
+                    <n-form-item label="閫夋嫨鐢ㄦ埛">
                         <n-select
                             v-model:value="sendForm.user_id"
                             :options="userOptions"
-                            placeholder="选择要发送消息的用户"
+                            placeholder="閫夋嫨瑕佸彂閫佹秷鎭殑鐢ㄦ埛"
                             filterable
                             size="large"
                             :loading="usersLoading"
                         />
                     </n-form-item>
-                    <n-form-item label="消息内容">
+                    <n-form-item label="娑堟伅鍐呭">
                         <n-input
                             v-model:value="sendForm.content"
                             type="textarea"
-                            placeholder="输入消息内容，例如：您已经看了很久了，请注意休息！"
+                            placeholder="杈撳叆娑堟伅鍐呭锛屼緥濡傦細鎮ㄥ凡缁忕湅浜嗗緢涔呬簡锛岃娉ㄦ剰浼戞伅锛?
                             :rows="3"
                             size="large"
+                            @keydown="onContentKeydown"
                         />
                     </n-form-item>
-                    <n-form-item label="消息类型">
+                    <n-form-item label="娑堟伅绫诲瀷">
                         <n-radio-group v-model:value="sendForm.priority">
                             <n-space>
                                 <n-radio value="normal">
                                     <n-tooltip trigger="hover">
-                                        <template #trigger>普通通知（右上角角标提示）</template>
-                                        普通通知
+                                        <template #trigger>鏅€氶€氱煡锛堝彸涓婅瑙掓爣鎻愮ず锛?/template>
+                                        鏅€氶€氱煡
                                     </n-tooltip>
                                 </n-radio>
                                 <n-radio value="forced">
                                     <n-tooltip trigger="hover">
-                                        <template #trigger>强制弹窗（全屏覆盖，需确认关闭）</template>
-                                        强制弹窗
+                                        <template #trigger>寮哄埗寮圭獥锛堝叏灞忚鐩栵紝闇€纭鍏抽棴锛?/template>
+                                        寮哄埗寮圭獥
                                     </n-tooltip>
                                 </n-radio>
                             </n-space>
@@ -59,23 +60,22 @@
                     <n-form-item>
                         <n-button type="info" size="large" :loading="sending" @click="sendMessage()"
                             :disabled="!sendForm.user_id || !sendForm.content">
-                            发送
-                        </n-button>
+                            鍙戦€?                        </n-button>
                     </n-form-item>
                 </n-form>
             </div>
         </div>
 
-        <!-- 消息记录 -->
+        <!-- 娑堟伅璁板綍 -->
         <div class="history-section showContainer">
             <div class="show-header">
-                <div class="show-title"><h3>消息记录</h3></div>
+                <div class="show-title"><h3>娑堟伅璁板綍</h3></div>
                 <div class="show-header-tool">
                     <n-space>
                         <n-select
                             v-model:value="filterUserId"
                             :options="userOptions"
-                            placeholder="筛选用户"
+                            placeholder="绛涢€夌敤鎴?
                             clearable
                             filterable
                             size="small"
@@ -85,11 +85,10 @@
                         <n-popconfirm @positive-click="clearMessages()" :disabled="clearing">
                             <template #trigger>
                                 <n-button size="small" type="warning" :loading="clearing">
-                                    清空记录
+                                    娓呯┖璁板綍
                                 </n-button>
                             </template>
-                            确定清空所有消息记录？此操作不可恢复。
-                        </n-popconfirm>
+                            纭畾娓呯┖鎵€鏈夋秷鎭褰曪紵姝ゆ搷浣滀笉鍙仮澶嶃€?                        </n-popconfirm>
                     </n-space>
                 </div>
             </div>
@@ -104,19 +103,18 @@
             </div>
         </div>
 
-        <!-- Webhook 配置 -->
+        <!-- Webhook 閰嶇疆 -->
         <div class="webhook-section showContainer">
             <div class="show-header">
-                <div class="show-title"><h3>Webhook 接口</h3></div>
+                <div class="show-title"><h3>Webhook 鎺ュ彛</h3></div>
             </div>
             <div style="padding: 16px 24px;">
                 <n-alert type="info" :bordered="false" style="margin-bottom: 16px;">
-                    通过 Webhook 接口，外部软件可以直接推送消息给指定用户，无需登录管理界面。
-                </n-alert>
+                    閫氳繃 Webhook 鎺ュ彛锛屽閮ㄨ蒋浠跺彲浠ョ洿鎺ユ帹閫佹秷鎭粰鎸囧畾鐢ㄦ埛锛屾棤闇€鐧诲綍绠＄悊鐣岄潰銆?                </n-alert>
                 <n-form label-placement="left" label-width="auto">
-                    <n-form-item label="启用状态">
+                    <n-form-item label="鍚敤鐘舵€?>
                         <n-switch :value="webhookEnabled" @update:value="toggleWebhook" />
-                        <span style="margin-left: 8px; color: #999;">{{ webhookEnabled ? '已启用' : '未启用' }}</span>
+                        <span style="margin-left: 8px; color: #999;">{{ webhookEnabled ? '宸插惎鐢? : '鏈惎鐢? }}</span>
                     </n-form-item>
                     <n-form-item label="Webhook URL" v-if="webhookEnabled">
                         <n-input :value="webhookUrl" readonly copyable size="large" />
@@ -127,11 +125,11 @@
                     <n-form-item v-if="webhookEnabled">
                         <n-space>
                             <n-button @click="regenerateToken()" :loading="regenerating" type="warning" size="small">
-                                重新生成 Token
+                                閲嶆柊鐢熸垚 Token
                             </n-button>
                         </n-space>
                     </n-form-item>
-                    <n-form-item label="调用示例" v-if="webhookEnabled">
+                    <n-form-item label="璋冪敤绀轰緥" v-if="webhookEnabled">
                         <n-code :code="webhookExample" language="json" />
                     </n-form-item>
                 </n-form>
@@ -151,19 +149,18 @@ export default {
         const { proxy } = getCurrentInstance();
         const message = useMessage();
 
-        // 用户列表
+        // 鐢ㄦ埛鍒楄〃
         const userOptions = ref([]);
         const usersLoading = ref(false);
 
-        // 发送表单
-        const sendForm = ref({
+        // 鍙戦€佽〃鍗?        const sendForm = ref({
             user_id: null,
             content: "",
             priority: "normal"
         });
         const sending = ref(false);
 
-        // 消息记录
+        // 娑堟伅璁板綍
         const historyData = ref([]);
         const historyLoading = ref(false);
         const filterUserId = ref(null);
@@ -191,14 +188,14 @@ export default {
                 "POST": webhookUrl.value,
                 "Header": { "X-Webhook-Token": webhookToken.value || "YOUR_TOKEN" },
                 "Body": {
-                    "user_id": "用户UUID",
-                    "content": "消息内容",
-                    "priority": "normal 或 forced"
+                    "user_id": "鐢ㄦ埛UUID",
+                    "content": "娑堟伅鍐呭",
+                    "priority": "normal 鎴?forced"
                 }
             }, null, 2);
         });
 
-        // 加载用户列表
+        // 鍔犺浇鐢ㄦ埛鍒楄〃
         async function loadUsers() {
             usersLoading.value = true;
             try {
@@ -211,13 +208,12 @@ export default {
                     }));
                 }
             } catch (e) {
-                console.error("加载用户列表失败:", e);
+                console.error("鍔犺浇鐢ㄦ埛鍒楄〃澶辫触:", e);
             }
             usersLoading.value = false;
         }
 
-        // 发送消息
-        async function sendMessageAction() {
+        // 鍙戦€佹秷鎭?        async function sendMessageAction() {
             if (!sendForm.value.user_id || !sendForm.value.content) return;
             sending.value = true;
             try {
@@ -227,19 +223,26 @@ export default {
                     priority: sendForm.value.priority
                 });
                 if (res.code === 200) {
-                    message.success("消息发送成功！");
+                    message.success("娑堟伅鍙戦€佹垚鍔燂紒");
                     sendForm.value.content = "";
                     loadHistory();
                 } else {
-                    message.error(res.msg || "发送失败");
+                    message.error(res.msg || "鍙戦€佸け璐?);
                 }
             } catch (e) {
-                message.error("发送失败: " + (e.message || e));
+                message.error("鍙戦€佸け璐? " + (e.message || e));
             }
             sending.value = false;
         }
 
-        // 加载消息记录
+        // Enter 鍙戦€侊紙闃绘鎹㈣锛?        function onContentKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessageAction();
+            }
+        }
+
+        // 鍔犺浇娑堟伅璁板綍
         async function loadHistory() {
             historyLoading.value = true;
             try {
@@ -257,12 +260,12 @@ export default {
                     historyPagination.pageCount.value = Math.ceil((res.data.total || 0) / historyPagination.pageSize.value);
                 }
             } catch (e) {
-                console.error("加载消息记录失败:", e);
+                console.error("鍔犺浇娑堟伅璁板綍澶辫触:", e);
             }
             historyLoading.value = false;
         }
 
-        // 清空消息
+        // 娓呯┖娑堟伅
         async function clearMessagesAction() {
             clearing.value = true;
             try {
@@ -272,67 +275,66 @@ export default {
                 }
                 const res = await clearMessages(params);
                 if (res.code === 200) {
-                    message.success(res.msg || "已清空");
+                    message.success(res.msg || "宸叉竻绌?);
                     loadHistory();
                 } else {
-                    message.error(res.msg || "清空失败");
+                    message.error(res.msg || "娓呯┖澶辫触");
                 }
             } catch (e) {
-                message.error("清空失败");
+                message.error("娓呯┖澶辫触");
             }
             clearing.value = false;
         }
 
-        // 加载 Webhook 信息
+        // 鍔犺浇 Webhook 淇℃伅
         async function loadWebhookInfo() {
             try {
                 const res = await getWebhookInfo();
                 if (res.code === 200 && res.data) {
-                    webhookEnabled.value = res.data.enabled === "是";
+                    webhookEnabled.value = res.data.enabled === "鏄?;
                     webhookToken.value = res.data.token || "";
                     webhookUrl.value = res.data.url || "";
                 }
             } catch (e) {
-                console.error("加载 Webhook 信息失败:", e);
+                console.error("鍔犺浇 Webhook 淇℃伅澶辫触:", e);
             }
         }
 
-        // 切换 Webhook
+        // 鍒囨崲 Webhook
         async function toggleWebhookAction(val) {
             try {
-                const res = await toggleWebhook({ enabled: val ? "是" : "否" });
+                const res = await toggleWebhook({ enabled: val ? "鏄? : "鍚? });
                 if (res.code === 200) {
                     webhookEnabled.value = val;
-                    message.success(val ? "Webhook 已启用" : "Webhook 已关闭");
+                    message.success(val ? "Webhook 宸插惎鐢? : "Webhook 宸插叧闂?);
                 } else {
-                    message.error(res.msg || "操作失败");
+                    message.error(res.msg || "鎿嶄綔澶辫触");
                 }
             } catch (e) {
-                message.error("操作失败");
+                message.error("鎿嶄綔澶辫触");
             }
         }
 
-        // 重新生成 Token
+        // 閲嶆柊鐢熸垚 Token
         async function regenerateTokenAction() {
             regenerating.value = true;
             try {
                 const res = await regenerateWebhookToken();
                 if (res.code === 200 && res.data) {
                     webhookToken.value = res.data.token;
-                    message.success("Token 已重新生成");
+                    message.success("Token 宸查噸鏂扮敓鎴?);
                 } else {
-                    message.error(res.msg || "生成失败");
+                    message.error(res.msg || "鐢熸垚澶辫触");
                 }
             } catch (e) {
-                message.error("生成失败");
+                message.error("鐢熸垚澶辫触");
             }
             regenerating.value = false;
         }
 
-        // 消息记录表格列
-        const historyColumns = [
+        // 娑堟伅璁板綍琛ㄦ牸鍒?        const historyColumns = [
             {
-                title: "时间",
+                title: "鏃堕棿",
                 key: "created_at",
                 width: 170,
                 render(row) {
@@ -340,36 +342,36 @@ export default {
                 }
             },
             {
-                title: "用户",
+                title: "鐢ㄦ埛",
                 key: "user_name",
                 width: 140,
                 ellipsis: { tooltip: true }
             },
             {
-                title: "内容",
+                title: "鍐呭",
                 key: "content",
                 ellipsis: { tooltip: true }
             },
             {
-                title: "类型",
+                title: "绫诲瀷",
                 key: "priority",
                 width: 100,
                 render(row) {
                     const typeMap = {
-                        normal: { label: "普通", type: "info" },
-                        forced: { label: "强制", type: "error" }
+                        normal: { label: "鏅€?, type: "info" },
+                        forced: { label: "寮哄埗", type: "error" }
                     };
                     const t = typeMap[row.priority] || typeMap.normal;
                     return h(NTag, { type: t.type, size: "small", bordered: false }, { default: () => t.label });
                 }
             },
             {
-                title: "来源",
+                title: "鏉ユ簮",
                 key: "sender_type",
                 width: 90,
                 render(row) {
                     const typeMap = {
-                        admin: { label: "管理员", type: "success" },
+                        admin: { label: "绠＄悊鍛?, type: "success" },
                         webhook: { label: "Webhook", type: "warning" }
                     };
                     const t = typeMap[row.sender_type] || { label: row.sender_type, type: "default" };
@@ -377,7 +379,7 @@ export default {
                 }
             },
             {
-                title: "状态",
+                title: "鐘舵€?,
                 key: "read_at",
                 width: 90,
                 render(row) {
@@ -385,7 +387,7 @@ export default {
                         type: row.read_at ? "default" : "warning",
                         size: "small",
                         bordered: false
-                    }, { default: () => row.read_at ? "已读" : "未读" });
+                    }, { default: () => row.read_at ? "宸茶" : "鏈" });
                 }
             }
         ];
@@ -402,6 +404,7 @@ export default {
             sendForm,
             sending,
             sendMessage: sendMessageAction,
+            onContentKeydown,
             historyData,
             historyLoading,
             historyColumns,
