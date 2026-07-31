@@ -275,7 +275,7 @@ class TvNavigation {
   // 扫描页面上所有可聚焦元素
   scanFocusables() {
     const candidates = document.querySelectorAll(
-      'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
+      'a, button, input, textarea, select, iframe, [tabindex]:not([tabindex="-1"])'
     );
 
     const list = [];
