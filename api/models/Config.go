@@ -19,4 +19,6 @@ type Config struct {
 	// Webhook 消息推送
 	WebhookEnabled string `json:"webhook_enabled"` // 是/否
 	WebhookToken   string `json:"webhook_token"`   // Webhook 固定 Token
+	// 消息发送者名称
+	SenderName string `json:"sender_name"` // 自定义发送者名称，默认"管理员"
 }

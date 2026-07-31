@@ -43,6 +43,8 @@ var (
 	// Webhook 消息推送
 	WebhookEnabled          = "否"
 	WebhookToken            = ""
+	// 消息发送者名称
+	SenderName              = "管理员"
 	Version                 = "v1.0 @2026 Optimized by wanchuan"
 	db                    *gorm.DB
 )
@@ -147,6 +149,7 @@ func GetConfig() models.Config {
 		ScreensaverDailyLimit: ScreensaverDailyLimit,
 		WebhookEnabled:       WebhookEnabled,
 		WebhookToken:         WebhookToken,
+		SenderName:           SenderName,
 	}
 	return config
 }
@@ -185,6 +188,8 @@ func SetConfig(config models.Config) {
 	if config.WebhookToken != "" {
 		WebhookToken = config.WebhookToken
 	}
+	// 消息发送者名称（允许设为空字符串，表示使用默认"管理员"）
+	SenderName = config.SenderName
 }
 
 // 保存配置
@@ -207,6 +212,7 @@ func SaveConfig(config models.Config) (models.Config, error) {
 			"ScreensaverDailyLimit":  config.ScreensaverDailyLimit,
 			"WebhookEnabled":       config.WebhookEnabled,
 			"WebhookToken":         config.WebhookToken,
+			"SenderName":           config.SenderName,
 		}
 		for key, value := range settings {
 			setting := models.Setting{}
@@ -288,5 +294,9 @@ func LoadFromDB() {
 	}
 	if v, ok := settingMap["WebhookToken"]; ok {
 		WebhookToken = v
+	}
+	// 消息发送者名称
+	if v, ok := settingMap["SenderName"]; ok && v != "" {
+		SenderName = v
 	}
 }
