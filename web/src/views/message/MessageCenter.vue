@@ -12,13 +12,33 @@
             </div>
         </div>
 
+        <!-- 移动端 Tab 切换 -->
+        <div class="mobile-tabs">
+            <div class="mobile-tab" :class="{ active: activeTab === 'send' }" @click="activeTab = 'send'">
+                <i class='bx bx-send'></i>
+                <span>发消息</span>
+            </div>
+            <div class="mobile-tab" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'">
+                <i class='bx bx-list-ul'></i>
+                <span>记录</span>
+            </div>
+            <div class="mobile-tab" :class="{ active: activeTab === 'setting' }" @click="activeTab = 'setting'">
+                <i class='bx bx-cog'></i>
+                <span>设置</span>
+            </div>
+            <div class="mobile-tab" :class="{ active: activeTab === 'webhook' }" @click="activeTab = 'webhook'">
+                <i class='bx bx-link-alt'></i>
+                <span>Webhook</span>
+            </div>
+        </div>
+
         <!-- 发送消息区域 -->
-        <div class="send-section showContainer">
+        <div class="send-section showContainer" :class="{ 'mobile-hide': isMobile && activeTab !== 'send' }">
             <div class="show-header">
                 <div class="show-title"><h3>发送消息</h3></div>
             </div>
-            <div style="padding: 16px 24px;">
-                <n-form :model="sendForm" label-placement="left" label-width="auto">
+            <div class="form-body">
+                <n-form :model="sendForm" label-placement="top" :label-width="undefined">
                     <n-form-item label="选择用户">
                         <n-select
                             v-model:value="sendForm.user_id"
@@ -42,24 +62,14 @@
                     <n-form-item label="消息类型">
                         <n-radio-group v-model:value="sendForm.priority">
                             <n-space>
-                                <n-radio value="normal">
-                                    <n-tooltip trigger="hover">
-                                        <template #trigger>普通通知（右上角角标提示）</template>
-                                        普通通知
-                                    </n-tooltip>
-                                </n-radio>
-                                <n-radio value="forced">
-                                    <n-tooltip trigger="hover">
-                                        <template #trigger>强制弹窗（全屏覆盖，需确认关闭）</template>
-                                        强制弹窗
-                                    </n-tooltip>
-                                </n-radio>
+                                <n-radio value="normal">普通通知</n-radio>
+                                <n-radio value="forced">强制弹窗</n-radio>
                             </n-space>
                         </n-radio-group>
                     </n-form-item>
                     <n-form-item>
                         <n-button type="info" size="large" :loading="sending" @click="sendMessage()"
-                            :disabled="!sendForm.user_id || !sendForm.content">
+                            :disabled="!sendForm.user_id || !sendForm.content" style="width: 100%">
                             发送
                         </n-button>
                     </n-form-item>
@@ -68,7 +78,7 @@
         </div>
 
         <!-- 消息记录 -->
-        <div class="history-section showContainer">
+        <div class="history-section showContainer" :class="{ 'mobile-hide': isMobile && activeTab !== 'history' }">
             <div class="show-header">
                 <div class="show-title"><h3>消息记录</h3></div>
                 <div class="show-header-tool">
@@ -80,13 +90,13 @@
                             clearable
                             filterable
                             size="small"
-                            style="width: 180px"
+                            style="width: 140px"
                             @update:value="loadHistory()"
                         />
                         <n-popconfirm @positive-click="clearMessages()" :disabled="clearing">
                             <template #trigger>
                                 <n-button size="small" type="warning" :loading="clearing">
-                                    清空记录
+                                    清空
                                 </n-button>
                             </template>
                             确定清空所有消息记录？此操作不可恢复。
@@ -101,53 +111,57 @@
                     :pagination="historyPagination"
                     :bordered="true"
                     :loading="historyLoading"
+                    :single-line="false"
                 />
             </div>
         </div>
 
         <!-- 消息设置 -->
-        <div class="msg-setting-section showContainer">
+        <div class="msg-setting-section showContainer" :class="{ 'mobile-hide': isMobile && activeTab !== 'setting' }">
             <div class="show-header">
                 <div class="show-title"><h3>消息设置</h3></div>
             </div>
-            <div style="padding: 16px 24px;">
-                <n-form label-placement="left" label-width="auto">
+            <div class="form-body">
+                <n-form label-placement="top" :label-width="undefined">
                     <n-form-item label="发送者名称">
-                        <n-input
-                            v-model:value="senderName"
-                            placeholder="管理员"
-                            size="large"
-                            style="width: 240px"
-                            @keydown.enter="saveSenderName()"
-                        />
-                        <n-button
-                            type="info"
-                            size="medium"
-                            style="margin-left: 12px"
-                            :loading="senderNameSaving"
-                            @click="saveSenderName()"
-                        >保存</n-button>
-                        <span style="margin-left: 12px; color: #999; font-size: 0.85em;">
+                        <n-space :wrap="false" style="width: 100%">
+                            <n-input
+                                v-model:value="senderName"
+                                placeholder="管理员"
+                                size="large"
+                                style="flex: 1"
+                                @keydown.enter="saveSenderName()"
+                            />
+                            <n-button
+                                type="info"
+                                size="large"
+                                :loading="senderNameSaving"
+                                @click="saveSenderName()"
+                            >保存</n-button>
+                        </n-space>
+                        <div style="margin-top: 8px; color: #999; font-size: 0.85em;">
                             显示为"{{ senderName || '管理员' }}发来一条消息"，留空默认"管理员"
-                        </span>
+                        </div>
                     </n-form-item>
                 </n-form>
             </div>
         </div>
 
         <!-- Webhook 配置 -->
-        <div class="webhook-section showContainer">
+        <div class="webhook-section showContainer" :class="{ 'mobile-hide': isMobile && activeTab !== 'webhook' }">
             <div class="show-header">
                 <div class="show-title"><h3>Webhook 接口</h3></div>
             </div>
-            <div style="padding: 16px 24px;">
+            <div class="form-body">
                 <n-alert type="info" :bordered="false" style="margin-bottom: 16px;">
                     通过 Webhook 接口，外部软件可以直接推送消息给指定用户，无需登录管理界面。
                 </n-alert>
-                <n-form label-placement="left" label-width="auto">
+                <n-form label-placement="top" :label-width="undefined">
                     <n-form-item label="启用状态">
-                        <n-switch :value="webhookEnabled" @update:value="toggleWebhook" />
-                        <span style="margin-left: 8px; color: #999;">{{ webhookEnabled ? '已启用' : '未启用' }}</span>
+                        <n-space>
+                            <n-switch :value="webhookEnabled" @update:value="toggleWebhook" />
+                            <span style="color: #999;">{{ webhookEnabled ? '已启用' : '未启用' }}</span>
+                        </n-space>
                     </n-form-item>
                     <n-form-item label="Webhook URL" v-if="webhookEnabled">
                         <n-input :value="webhookUrl" readonly copyable size="large" />
@@ -156,11 +170,9 @@
                         <n-input :value="webhookToken" readonly type="password" show-password-on="click" size="large" />
                     </n-form-item>
                     <n-form-item v-if="webhookEnabled">
-                        <n-space>
-                            <n-button @click="regenerateToken()" :loading="regenerating" type="warning" size="small">
-                                重新生成 Token
-                            </n-button>
-                        </n-space>
+                        <n-button @click="regenerateToken()" :loading="regenerating" type="warning" size="medium">
+                            重新生成 Token
+                        </n-button>
                     </n-form-item>
                     <n-form-item label="调用示例" v-if="webhookEnabled">
                         <n-code :code="webhookExample" language="json" />
@@ -181,6 +193,10 @@ export default {
     setup() {
         const { proxy } = getCurrentInstance();
         const message = useMessage();
+
+        // 移动端 Tab 切换
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        const activeTab = ref('send');
 
         // 用户列表
         const userOptions = ref([]);
@@ -484,6 +500,8 @@ export default {
         });
 
         return {
+            isMobile,
+            activeTab,
             userOptions,
             usersLoading,
             sendForm,
@@ -549,7 +567,76 @@ export default {
 .data-table {
     padding: 0 24px 16px;
 }
-.send-section, .history-section, .webhook-section {
+.form-body {
+    padding: 16px 24px;
+}
+.send-section, .history-section, .msg-setting-section, .webhook-section {
     margin-bottom: 8px;
+}
+
+/* 移动端 Tab 切换 */
+.mobile-tabs {
+    display: none;
+}
+
+/* 移动端优化 */
+@media screen and (max-width: 768px) {
+    .content-header {
+        padding: 0 12px;
+        min-height: 50px;
+    }
+    .content-header-title {
+        font-size: 1.1em;
+    }
+    .showContainer {
+        margin: 8px 12px;
+    }
+    .show-header {
+        padding: 10px 14px;
+    }
+    .data-table {
+        padding: 0 12px 12px;
+        overflow-x: auto;
+    }
+    .form-body {
+        padding: 12px 14px;
+    }
+
+    /* Tab 切换栏 */
+    .mobile-tabs {
+        display: flex;
+        margin: 8px 12px;
+        background: var(--n-color, #fff);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.08);
+    }
+    .mobile-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 4px;
+        cursor: pointer;
+        color: #999;
+        font-size: 12px;
+        gap: 3px;
+        transition: all 0.2s;
+        border-bottom: 2px solid transparent;
+    }
+    .mobile-tab i {
+        font-size: 20px;
+    }
+    .mobile-tab.active {
+        color: #2080f0;
+        border-bottom-color: #2080f0;
+        background: rgba(32, 128, 240, 0.04);
+    }
+
+    /* 隐藏非当前 Tab 的内容 */
+    .mobile-hide {
+        display: none !important;
+    }
 }
 </style>
