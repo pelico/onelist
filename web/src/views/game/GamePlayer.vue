@@ -39,6 +39,7 @@
 <script>
 import { defineComponent, getCurrentInstance, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { tvNavigation } from '../../plugins/tvNavigation';
 
 export default defineComponent({
     name: 'GamePlayer',
@@ -65,6 +66,11 @@ export default defineComponent({
 
         function onIframeLoad() {
             startHeartbeat();
+            // iframe 加载完成后自动聚焦，让游戏立即获得键盘控制权
+            if (tvNavigation.isTvMode && gameIframe.value) {
+                tvNavigation.refresh();
+                tvNavigation.setFocus(gameIframe.value);
+            }
         }
 
         function startHeartbeat() {
@@ -142,9 +148,18 @@ export default defineComponent({
         }
 
         onMounted(() => {
+            // 注册 iframe 为 TV 导航可聚焦元素
+            if (tvNavigation.isTvMode && gameIframe.value) {
+                tvNavigation.registerGroup('game-player', [gameIframe.value]);
+            }
+
             // 如果 iframe 已经加载（缓存），手动触发
             if (gameIframe.value && gameIframe.value.contentDocument && gameIframe.value.contentDocument.readyState === 'complete') {
                 startHeartbeat();
+                if (tvNavigation.isTvMode) {
+                    tvNavigation.refresh();
+                    tvNavigation.setFocus(gameIframe.value);
+                }
             }
         });
 
@@ -240,5 +255,13 @@ export default defineComponent({
 
 :deep(.n-button.n-button--quaternary:hover) {
     background: rgba(255, 255, 255, 0.1);
+}
+</style>
+
+<style>
+/* 非 scoped：游戏 iframe 的 TV 焦点指示器 */
+.game-iframe.tv-focus-visible {
+    outline: 3px solid #4ecca3;
+    outline-offset: -3px;
 }
 </style>
