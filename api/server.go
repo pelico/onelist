@@ -92,6 +92,10 @@ func Run() {
 	r.Use(middleware.CORSMiddleware())
 	Static(r)
 	r.GET("/favicon.ico", Faviconico)
+	// TV 轻量前端（纯 ES5，兼容老浏览器/老电视）
+	r.GET("/tv", func(c *gin.Context) {
+		c.File("tv/index.html")
+	})
 	r.GET("/", IndexView)
 	r.NoRoute(IndexView)
 

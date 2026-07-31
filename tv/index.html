@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onelist TV</title>
+<style>
+/* ========== Reset ========== */
+*{margin:0;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{background:#0d0d1a;color:#e0e0e0;font-family:sans-serif;font-size:16px}
+a{color:inherit;text-decoration:none}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+
+/* ========== Focus ========== */
+.focused{outline:3px solid #e50914;outline-offset:-2px;border-radius:6px}
+.no-focus{outline:none}
+
+/* ========== Loading ========== */
+#loading{position:fixed;top:0;left:0;right:0;bottom:0;background:#0d0d1a;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:22px;color:#666;z-index:9999}
+.spinner{width:36px;height:36px;border:3px solid #333;border-top-color:#e50914;border-radius:50%;-webkit-animation:spin .8s linear infinite;animation:spin .8s linear infinite;margin:0 auto 12px}
+@-webkit-keyframes spin{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+@keyframes spin{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+
+/* ========== Header ========== */
+#header{position:fixed;top:0;left:0;right:0;height:54px;background:rgba(13,13,26,0.96);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:0 28px;z-index:100;border-bottom:1px solid #1a1a2e}
+.logo{font-size:22px;font-weight:bold;color:#e50914;margin-right:36px;letter-spacing:1px}
+.nav-tabs{display:-webkit-flex;display:flex}
+.nav-tab{padding:7px 18px;margin-right:6px;border-radius:4px;font-size:15px;color:#888;cursor:pointer}
+.nav-tab.active{color:#fff;background:#e50914}
+.header-right{margin-left:auto;font-size:13px;color:#555}
+
+/* ========== Page ========== */
+#page{position:fixed;top:54px;left:0;right:0;bottom:0;overflow:hidden}
+
+/* ========== Home ========== */
+.hero-banner{height:340px;background-size:cover;background-position:center top;position:relative;margin:0 0 8px 0}
+.hero-overlay{position:absolute;bottom:0;left:0;right:0;padding:30px 40px;background:-webkit-linear-gradient(top,transparent,rgba(0,0,0,0.85));background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.85))}
+.hero-title{font-size:34px;font-weight:bold;color:#fff;margin-bottom:8px;text-shadow:0 2px 8px rgba(0,0,0,0.6)}
+.hero-info{font-size:14px;color:#aaa;margin-bottom:8px}
+.hero-overview{font-size:14px;color:#bbb;max-width:600px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hero-play{display:inline-block;margin-top:12px;padding:8px 28px;background:#e50914;color:#fff;border-radius:4px;font-size:15px}
+
+.content-row{margin:10px 0 14px 0}
+.row-title{font-size:17px;font-weight:bold;color:#ccc;margin-bottom:8px;padding-left:28px}
+.row-scroll{display:-webkit-flex;display:flex;overflow-x:auto;padding:4px 28px 8px 28px}
+.card{width:155px;min-width:155px;margin-right:10px;cursor:pointer;border-radius:6px;overflow:hidden;background:#151528;-webkit-transition:outline 0.12s;transition:outline 0.12s}
+.card-poster{width:155px;height:232px;background-size:cover;background-position:center;background-color:#1a1a2e;position:relative}
+.card-no-poster{width:155px;height:232px;background:#1a1a2e;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;color:#444;font-size:40px}
+.card-title{padding:6px 8px;font-size:13px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{padding:0 8px 6px;font-size:11px;color:#666}
+.card-badge{position:absolute;top:5px;right:5px;background:rgba(229,9,20,0.85);color:#fff;font-size:10px;padding:2px 5px;border-radius:2px}
+.card-played{position:absolute;bottom:0;left:0;right:0;height:3px;background:#333}
+.card-played-bar{height:100%;background:#e50914}
+
+/* ========== List ========== */
+.list-wrap{padding:16px 28px;overflow-y:auto;height:100%}
+.list-grid{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}
+.list-grid .card{margin:0 10px 12px 0}
+.load-more{text-align:center;padding:20px;color:#555;font-size:14px}
+
+/* ========== Detail ========== */
+.detail-wrap{overflow-y:auto;height:100%;padding:24px 36px}
+.detail-back{font-size:14px;color:#666;cursor:pointer;margin-bottom:14px;display:inline-block;padding:4px 10px;border-radius:4px}
+.detail-layout{display:-webkit-flex;display:flex}
+.detail-poster{width:210px;min-width:210px;height:315px;background-size:cover;background-position:center;border-radius:8px;margin-right:28px;background-color:#1a1a2e}
+.detail-info{padding-top:4px;-webkit-flex:1;flex:1}
+.detail-title{font-size:30px;font-weight:bold;color:#fff;margin-bottom:8px}
+.detail-meta{font-size:14px;color:#888;margin-bottom:10px}
+.detail-meta span{margin-right:14px}
+.detail-genres{margin-bottom:10px}
+.detail-genre{display:inline-block;padding:3px 10px;background:#1e1e38;border-radius:12px;font-size:12px;color:#aaa;margin-right:6px;margin-bottom:4px}
+.detail-overview{font-size:14px;color:#aaa;line-height:1.7;margin-top:12px;max-width:620px}
+.detail-actions{margin-top:16px}
+.btn-play{display:inline-block;padding:10px 34px;background:#e50914;color:#fff;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-right:10px;border:none}
+.btn-secondary{display:inline-block;padding:10px 22px;background:#2a2a40;color:#ccc;border-radius:6px;font-size:14px;cursor:pointer;margin-right:8px;border:none}
+
+/* ========== Episodes ========== */
+.episodes-section{margin-top:24px}
+.season-tabs{display:-webkit-flex;display:flex;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+.season-tab{padding:5px 16px;margin-right:6px;background:#1a1a2e;border-radius:4px;font-size:13px;color:#777;cursor:pointer;white-space:nowrap}
+.season-tab.active{background:#e50914;color:#fff}
+.episode-list{max-height:360px;overflow-y:auto}
+.episode-item{display:-webkit-flex;display:flex;padding:10px 12px;margin-bottom:3px;background:#151528;border-radius:6px;cursor:pointer;-webkit-align-items:center;align-items:center}
+.episode-item:hover{background:#1a1a30}
+.ep-num{font-size:15px;font-weight:bold;color:#e50914;margin-right:14px;min-width:32px}
+.ep-info{-webkit-flex:1;flex:1}
+.ep-name{font-size:14px;color:#ddd}
+.ep-overview{font-size:11px;color:#666;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px}
+
+/* ========== Player ========== */
+.player-wrap{width:100%;height:100%;background:#000;position:relative}
+.player-video{width:100%;height:100%}
+.player-overlay{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.75);padding:14px 24px;opacity:0;-webkit-transition:opacity 0.3s;transition:opacity 0.3s}
+.player-overlay.show{opacity:1}
+.player-title{font-size:16px;color:#fff;margin-bottom:6px}
+.player-progress{width:100%;height:5px;background:#444;border-radius:3px;margin:8px 0;cursor:pointer;position:relative}
+.player-progress-fill{height:100%;background:#e50914;border-radius:3px;width:0%}
+.player-progress-pos{position:absolute;top:-3px;width:11px;height:11px;background:#e50914;border-radius:50%;left:0;margin-left:-5px}
+.player-time{font-size:12px;color:#aaa}
+.player-controls{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;margin-top:6px}
+.player-btn{padding:5px 14px;margin-right:8px;background:#2a2a40;border:none;color:#ddd;border-radius:4px;font-size:13px;cursor:pointer}
+
+/* ========== Search ========== */
+.search-wrap{padding:16px 28px;overflow-y:auto;height:100%}
+.search-input{width:100%;max-width:480px;padding:10px 16px;font-size:16px;background:#1a1a2e;border:2px solid #2a2a40;border-radius:8px;color:#fff;outline:none;margin-bottom:16px}
+.search-hint{color:#555;font-size:14px;padding:20px 0}
+
+/* ========== Gallery ========== */
+.gallery-card{width:200px;min-width:200px;margin-right:12px;cursor:pointer;border-radius:6px;overflow:hidden;background:#151528}
+.gallery-card-img{width:200px;height:130px;background-size:cover;background-position:center;background-color:#1a1a2e}
+.gallery-card-info{padding:8px 10px}
+.gallery-card-title{font-size:14px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gallery-card-type{font-size:11px;color:#666;margin-top:3px}
+
+/* ========== Empty ========== */
+.empty-state{text-align:center;padding:50px 20px;color:#555}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state .text{font-size:15px}
+
+/* ========== Login ========== */
+.login-wrap{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;height:100%}
+.login-box{background:#151528;padding:36px 44px;border-radius:12px;width:380px}
+.login-title{font-size:26px;font-weight:bold;color:#e50914;margin-bottom:24px;text-align:center}
+.login-field{margin-bottom:14px}
+.login-label{font-size:13px;color:#777;margin-bottom:5px}
+.login-input{width:100%;padding:10px 12px;font-size:15px;background:#0d0d1a;border:1px solid #2a2a40;border-radius:6px;color:#fff;outline:none}
+.login-btn{width:100%;padding:11px;background:#e50914;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;margin-top:6px}
+.login-error{color:#e50914;font-size:13px;margin-top:10px;text-align:center;display:none}
+
+/* ========== Toast ========== */
+#toast{position:fixed;bottom:50px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:10px 28px;border-radius:6px;font-size:14px;z-index:9000;display:none}
+</style>
+</head>
+<body>
+
+<div id="loading"><div><div class="spinner"></div><div style="text-align:center">加载中...</div></div></div>
+
+<div id="app" style="display:none">
+  <div id="header">
+    <div class="logo">Onelist</div>
+    <div class="nav-tabs" id="navTabs"></div>
+    <div class="header-right" id="headerRight"></div>
+  </div>
+  <div id="page"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================================================================
+   Onelist TV — 轻量前端 (ES5 only, 兼容老浏览器)
+   ================================================================ */
+
+// ==================== State ====================
+var S = {
+  token: null,
+  user: null,
+  page: '',
+  history: [],
+  home: null,
+  movies: [],
+  tvs: [],
+  detail: null,
+  detailType: '',
+  detailGalleryUid: '',
+  seasons: [],
+  curSeason: null,
+  curEpisode: null,
+  searchResults: [],
+  searchQuery: '',
+  listPage: 1,
+  listTotal: 0,
+  listType: 'movie',
+  listGalleryUid: '',
+  // Navigation
+  focusSection: 0,
+  focusRow: 0,
+  focusCol: 0,
+  navSections: [],
+  // Player
+  playerTimer: null,
+  heartbeatTimer: null,
+  controlsTimer: null,
+  // Gallery filter
+  galleries: [],
+  galleryFilter: ''
+};
+
+// ==================== Utilities ====================
+function $(id) { return document.getElementById(id); }
+
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = String(text);
+  return e;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(function(){ t.style.display = 'none'; }, 2200);
+}
+
+function imgUrl(path) {
+  if (!path) return '';
+  if (path.indexOf('http') === 0) return path;
+  return '/t/p/' + path.replace(/^\//, '');
+}
+
+function videoUrl(url, galleryUid) {
+  if (!url) return '';
+  if (url.indexOf('http') === 0) return url;
+  if (url.charAt(0) === '/') return url;
+  if (galleryUid) return '/alist/proxy/' + galleryUid + '/' + url;
+  return url;
+}
+
+function truncate(s, n) {
+  if (!s) return '';
+  s = String(s);
+  return s.length > n ? s.substring(0, n) + '...' : s;
+}
+
+// ==================== API ====================
+function api(method, path, body, cb) {
+  var xhr = new XMLHttpRequest();
+  xhr.open(method, path, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  if (S.token) {
+    xhr.setRequestHeader('Authorization', 'Bearer ' + S.token);
+  }
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4) return;
+    if (xhr.status === 0 || xhr.status >= 500) {
+      cb({code: 500, msg: '网络请求失败'}, null);
+      return;
+    }
+    try {
+      var r = JSON.parse(xhr.responseText);
+      cb(null, r);
+    } catch(e) {
+      cb({code: 0, msg: '响应解析失败'}, null);
+    }
+  };
+  xhr.onerror = function() {
+    cb({code: 500, msg: '网络连接失败'}, null);
+  };
+  if (body) {
+    xhr.send(JSON.stringify(body));
+  } else {
+    xhr.send();
+  }
+}
+
+function apiLogin(email, password, cb) {
+  api('POST', '/v1/api/user/login', {user_email: email, user_password: password}, cb);
+}
+
+function apiHome(cb) {
+  api('GET', '/v1/api/home?size=30&gallery_size=30', null, cb);
+}
+
+function apiMovieList(page, size, cb) {
+  api('POST', '/v1/api/themovie/list?page=' + page + '&size=' + (size||18), {}, cb);
+}
+
+function apiTvList(page, size, cb) {
+  api('POST', '/v1/api/thetv/list?page=' + page + '&size=' + (size||18), {}, cb);
+}
+
+function apiMovieDetail(id, cb) {
+  api('POST', '/v1/api/themovie/id?id=' + id, {}, cb);
+}
+
+function apiTvDetail(id, cb) {
+  api('POST', '/v1/api/thetv/id?id=' + id, {}, cb);
+}
+
+function apiSeasonDetail(id, cb) {
+  api('POST', '/v1/api/theseason/id?id=' + id, {}, cb);
+}
+
+function apiConfigs(cb) {
+  api('GET', '/v1/api/configs', null, cb);
+}
+
+function apiSearchMovie(q, cb) {
+  api('POST', '/v1/api/themovie/search?q=' + encodeURIComponent(q) + '&size=20', {}, cb);
+}
+
+function apiSearchTv(q, cb) {
+  api('POST', '/v1/api/thetv/search?q=' + encodeURIComponent(q) + '&size=20', {}, cb);
+}
+
+function apiMovieListByGallery(galleryUid, page, size, cb) {
+  api('POST', '/v1/api/themovie/gallery/list?id=' + encodeURIComponent(galleryUid) + '&page=' + page + '&size=' + (size||18), {}, cb);
+}
+
+function apiTvListByGallery(galleryUid, page, size, cb) {
+  api('POST', '/v1/api/thetv/gallery/list?id=' + encodeURIComponent(galleryUid) + '&page=' + page + '&size=' + (size||18), {}, cb);
+}
+
+function apiGameList(cb) {
+  api('GET', '/v1/api/game/list', null, cb);
+}
+
+// ==================== Navigation ====================
+var nav = {
+  push: function(page, params) {
+    S.history.push({page: S.page, params: getPageParams()});
+    nav.go(page, params);
+  },
+  back: function() {
+    if (S.history.length > 0) {
+      var prev = S.history.pop();
+      nav.go(prev.page, prev.params);
+    }
+  },
+  go: function(page, params) {
+    cleanupPage();
+    S.page = page;
+    S.focusSection = 0;
+    S.focusRow = 0;
+    S.focusCol = 0;
+    S.navSections = [];
+    renderPage(page, params || {});
+  },
+  focus: function() {
+    updateFocus();
+  }
+};
+
+function getPageParams() {
+  switch (S.page) {
+    case 'home': return {};
+    case 'list': return {type: S.listType, gallery: S.listGalleryUid};
+    case 'detail': return {id: S.detail ? (S.detail.id) : 0, type: S.detailType, galleryUid: S.detailGalleryUid};
+    case 'search': return {q: S.searchQuery};
+    default: return {};
+  }
+}
+
+function cleanupPage() {
+  if (S.playerTimer) { clearInterval(S.playerTimer); S.playerTimer = null; }
+  if (S.heartbeatTimer) { clearInterval(S.heartbeatTimer); S.heartbeatTimer = null; }
+  if (S.controlsTimer) { clearTimeout(S.controlsTimer); S.controlsTimer = null; }
+  var vid = $('videoPlayer');
+  if (vid) { try { vid.pause(); vid.removeAttribute('src'); vid.load(); } catch(e){} }
+}
+
+// ==================== Rendering ====================
+function renderPage(page, params) {
+  var pg = $('page');
+  pg.innerHTML = '';
+  pg.scrollTop = 0;
+
+  switch (page) {
+    case 'login': renderLogin(pg); break;
+    case 'home': renderHome(pg); break;
+    case 'list': renderList(pg, params); break;
+    case 'detail': renderDetail(pg, params); break;
+    case 'player': renderPlayer(pg, params); break;
+    case 'search': renderSearch(pg); break;
+    case 'games': renderGames(pg); break;
+    default: renderHome(pg);
+  }
+}
+
+function updateHeader() {
+  var tabs = $('navTabs');
+  var right = $('headerRight');
+  tabs.innerHTML = '';
+  if (!S.token) { right.textContent = ''; return; }
+
+  var tabDefs = [
+    {id: 'home', label: '首页'},
+    {id: 'list_movie', label: '电影'},
+    {id: 'list_tv', label: '电视剧'},
+    {id: 'search', label: '搜索'},
+    {id: 'games', label: '游戏'}
+  ];
+  for (var i = 0; i < tabDefs.length; i++) {
+    var t = tabDefs[i];
+    var d = el('div', 'nav-tab' + (isActiveTab(t.id) ? ' active' : ''), t.label);
+    d.setAttribute('data-tab', t.id);
+    d.onclick = (function(tab) { return function() { clickTab(tab); }; })(t.id);
+    tabs.appendChild(d);
+  }
+  right.textContent = S.user ? S.user.user_name : '';
+}
+
+function isActiveTab(tabId) {
+  if (tabId === 'home' && S.page === 'home') return true;
+  if (tabId === 'list_movie' && S.page === 'list' && S.listType === 'movie') return true;
+  if (tabId === 'list_tv' && S.page === 'list' && S.listType === 'tv') return true;
+  if (tabId === 'search' && S.page === 'search') return true;
+  if (tabId === 'games' && S.page === 'games') return true;
+  return false;
+}
+
+function clickTab(tabId) {
+  if (tabId === 'home') nav.go('home');
+  else if (tabId === 'list_movie') { S.listType = 'movie'; S.listGalleryUid = ''; nav.go('list', {type:'movie'}); }
+  else if (tabId === 'list_tv') { S.listType = 'tv'; S.listGalleryUid = ''; nav.go('list', {type:'tv'}); }
+  else if (tabId === 'search') nav.go('search');
+  else if (tabId === 'games') nav.go('games');
+}
+
+// ---- Login ----
+function renderLogin(container) {
+  updateHeader();
+  var wrap = el('div', 'login-wrap');
+  var box = el('div', 'login-box');
+  box.innerHTML =
+    '<div class="login-title">Onelist</div>' +
+    '<div class="login-field"><div class="login-label">邮箱</div>' +
+    '<input class="login-input" id="loginEmail" type="text" placeholder="请输入邮箱"></div>' +
+    '<div class="login-field"><div class="login-label">密码</div>' +
+    '<input class="login-input" id="loginPwd" type="password" placeholder="请输入密码"></div>' +
+    '<button class="login-btn" id="loginBtn">登 录</button>' +
+    '<div class="login-error" id="loginErr"></div>';
+  wrap.appendChild(box);
+  container.appendChild(wrap);
+
+  $('loginBtn').onclick = doLogin;
+  $('loginPwd').onkeydown = function(e) { if (e.keyCode === 13) doLogin(); };
+
+  // Focus sections for login
+  S.navSections = [
+    {selector: '.login-input', type: 'list', cols: 1},
+    {selector: '.login-btn', type: 'list', cols: 1}
+  ];
+  setTimeout(function(){
+    var inp = $('loginEmail');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function doLogin() {
+  var email = $('loginEmail').value;
+  var pwd = $('loginPwd').value;
+  var errEl = $('loginErr');
+  if (!email || !pwd) {
+    errEl.textContent = '请输入邮箱和密码';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  apiLogin(email, pwd, function(err, res) {
+    if (err) {
+      errEl.textContent = err.msg || '网络错误';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (res.code === 201) {
+      errEl.textContent = res.msg || '登录失败';
+      errEl.style.display = 'block';
+      return;
+    }
+    S.token = res.data;
+    S.user = res.user;
+    loadHome();
+  });
+}
+
+// ---- Home ----
+function renderHome(container) {
+  updateHeader();
+  if (!S.home) {
+    container.innerHTML = '<div style="text-align:center;padding:60px;color:#666"><div class="spinner"></div><div>加载中...</div></div>';
+    apiHome(function(err, res) {
+      if (err || res.code !== 200) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">!</div><div class="text">加载失败</div></div>';
+        return;
+      }
+      S.home = res.data;
+      S.galleries = S.home.galleries || [];
+      S.movies = S.home.latest_movies || [];
+      S.tvs = S.home.latest_tvs || [];
+      renderHomeContent(container);
+    });
+  } else {
+    renderHomeContent(container);
+  }
+}
+
+function renderHomeContent(container) {
+  container.innerHTML = '';
+
+  // Hero banner
+  var items = S.movies.length > 0 ? S.movies : S.tvs;
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">~</div><div class="text">暂无内容</div></div>';
+    return;
+  }
+  var heroIdx = Math.floor(Math.random() * Math.min(items.length, 5));
+  var hero = items[heroIdx];
+  var heroType = hero.title ? 'movie' : 'tv';
+  var heroBg = hero.backdrop_path ? imgUrl(hero.backdrop_path) : (hero.poster_path ? imgUrl(hero.poster_path) : '');
+  var heroTitle = hero.title || hero.name || '';
+  var heroYear = (hero.release_date || hero.first_air_date || '').substring(0, 4);
+
+  var banner = el('div', 'hero-banner');
+  banner.style.backgroundImage = heroBg ? 'url(' + heroBg + ')' : 'none';
+  banner.setAttribute('data-fi', '0');
+  banner.setAttribute('data-type', heroType);
+  banner.setAttribute('data-id', hero.id);
+  banner.setAttribute('data-gallery', hero.gallery_uid || '');
+  banner.innerHTML =
+    '<div class="hero-overlay">' +
+    '<div class="hero-title">' + esc(heroTitle) + '</div>' +
+    '<div class="hero-info">' + esc(heroYear) + (hero.vote_average ? ' &middot; ' + Number(hero.vote_average).toFixed(1) + '分' : '') + '</div>' +
+    '<div class="hero-overview">' + esc(hero.overview) + '</div>' +
+    '<div class="hero-play">播放</div>' +
+    '</div>';
+  banner.onclick = function() {
+    nav.push('detail', {id: hero.id, type: heroType, galleryUid: hero.gallery_uid || ''});
+  };
+  container.appendChild(banner);
+
+  // Movie row
+  if (S.movies.length > 0) {
+    container.appendChild(makeRow('最新电影', S.movies, 'movie', 1));
+  }
+
+  // TV row
+  if (S.tvs.length > 0) {
+    container.appendChild(makeRow('最新电视剧', S.tvs, 'tv', 2));
+  }
+
+  // Gallery rows
+  var galleryItems = S.home.gallery_items || {};
+  var sectionIdx = 3;
+  for (var gUid in galleryItems) {
+    if (galleryItems.hasOwnProperty(gUid) && galleryItems[gUid].length > 0) {
+      var gName = getGalleryName(gUid);
+      container.appendChild(makeRow(gName, galleryItems[gUid], null, sectionIdx, gUid));
+      sectionIdx++;
+    }
+  }
+
+  buildNavSections();
+  updateFocus();
+}
+
+function getGalleryName(uid) {
+  for (var i = 0; i < S.galleries.length; i++) {
+    if (S.galleries[i].gallery_uid === uid) return S.galleries[i].title || '媒体库';
+  }
+  return '媒体库';
+}
+
+function getGalleryType(uid) {
+  for (var i = 0; i < S.galleries.length; i++) {
+    if (S.galleries[i].gallery_uid === uid) {
+      if (S.galleries[i].gallery_type) return S.galleries[i].gallery_type;
+      return S.galleries[i].is_tv ? 'tv' : 'movie';
+    }
+  }
+  return '';
+}
+
+function makeRow(title, items, forceType, sectionIdx, galleryUid) {
+  var section = el('div', 'content-row');
+  section.setAttribute('data-section', sectionIdx);
+
+  var titleDiv = el('div', 'row-title', title);
+  if (galleryUid) {
+    titleDiv.style.cursor = 'pointer';
+    titleDiv.style.color = '#e50914';
+    titleDiv.onclick = (function(gUid, gType) {
+      return function() {
+        S.listType = gType || 'movie';
+        S.listGalleryUid = gUid;
+        nav.push('list', {type: gType || 'movie', gallery: gUid});
+      };
+    })(galleryUid, forceType || getGalleryType(galleryUid));
+  }
+  section.appendChild(titleDiv);
+
+  var scroll = el('div', 'row-scroll');
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    var type = forceType || (item.title ? 'movie' : 'tv');
+    var card = makeCard(item, type, galleryUid || item.gallery_uid || '');
+    scroll.appendChild(card);
+  }
+  section.appendChild(scroll);
+  return section;
+}
+
+function makeCard(item, type, galleryUid) {
+  var title = item.title || item.name || '';
+  var poster = item.poster_path ? imgUrl(item.poster_path) : '';
+  var year = (item.release_date || item.first_air_date || '').substring(0, 4);
+  var rating = item.vote_average ? Number(item.vote_average).toFixed(1) : '';
+
+  var card = el('div', 'card');
+  card.setAttribute('data-fi', '1');
+  card.setAttribute('data-type', type);
+  card.setAttribute('data-id', item.id);
+  card.setAttribute('data-gallery', galleryUid);
+
+  if (poster) {
+    var posterDiv = el('div', 'card-poster');
+    posterDiv.style.backgroundImage = 'url(' + poster + ')';
+    if (rating) {
+      posterDiv.innerHTML = '<div class="card-badge">' + esc(rating) + '</div>';
+    }
+    if (item.played && item.url) {
+      posterDiv.innerHTML += '<div class="card-played"><div class="card-played-bar" style="width:60%"></div></div>';
+    }
+    card.appendChild(posterDiv);
+  } else {
+    var noPoster = el('div', 'card-no-poster');
+    noPoster.innerHTML = '<span>' + esc(title.charAt(0)) + '</span>';
+    if (rating) {
+      var badge = el('div', 'card-badge', rating);
+      noPoster.appendChild(badge);
+    }
+    card.appendChild(noPoster);
+  }
+
+  card.appendChild(el('div', 'card-title', title));
+  card.appendChild(el('div', 'card-sub', year));
+
+  card.onclick = function() {
+    nav.push('detail', {id: item.id, type: type, galleryUid: galleryUid});
+  };
+  return card;
+}
+
+// ---- List ----
+function renderList(container, params) {
+  updateHeader();
+  S.listType = params.type || S.listType || 'movie';
+  S.listGalleryUid = params.gallery || '';
+  S.listPage = 1;
+  S.movies = [];
+  S.tvs = [];
+
+  var galleryName = '';
+  if (S.listGalleryUid) {
+    galleryName = getGalleryName(S.listGalleryUid);
+  }
+
+  var wrap = el('div', 'list-wrap');
+  wrap.id = 'listWrap';
+
+  if (galleryName) {
+    var titleBar = el('div', '');
+    titleBar.style.cssText = 'margin-bottom:12px';
+    titleBar.innerHTML = '<div class="detail-back" data-fi="back" onclick="nav.back()">&lt; 返回</div>' +
+      '<span style="font-size:18px;font-weight:bold;color:#ccc;margin-left:10px">' + esc(galleryName) + '</span>';
+    wrap.appendChild(titleBar);
+  }
+
+  var loading = el('div', '');
+  loading.id = 'listContent';
+  loading.style.cssText = 'text-align:center;padding:40px;color:#666';
+  loading.innerHTML = '<div class="spinner"></div><div>加载中...</div>';
+  wrap.appendChild(loading);
+
+  container.innerHTML = '';
+  container.appendChild(wrap);
+  fetchList();
+}
+
+function fetchList() {
+  var cb = function(err, res) {
+    var wrap = $('listWrap');
+    if (!wrap) return;
+    if (err || res.code !== 200) {
+      wrap.innerHTML = '<div class="empty-state"><div class="icon">!</div><div class="text">加载失败</div></div>';
+      return;
+    }
+    var items = res.data || [];
+    S.listTotal = res.num || 0;
+    if (S.listType === 'movie') {
+      S.movies = S.movies.concat(items);
+    } else {
+      S.tvs = S.tvs.concat(items);
+    }
+    renderListContent(wrap);
+  };
+
+  if (S.listGalleryUid) {
+    // Gallery-filtered browsing
+    if (S.listType === 'movie') {
+      apiMovieListByGallery(S.listGalleryUid, S.listPage, 18, cb);
+    } else {
+      apiTvListByGallery(S.listGalleryUid, S.listPage, 18, cb);
+    }
+  } else if (S.listType === 'movie') {
+    apiMovieList(S.listPage, 18, cb);
+  } else {
+    apiTvList(S.listPage, 18, cb);
+  }
+}
+
+function renderListContent(wrap) {
+  var content = $('listContent');
+  if (!content) return;
+  content.innerHTML = '';
+  content.style.cssText = '';
+
+  var items = S.listType === 'movie' ? S.movies : S.tvs;
+  var grid = el('div', 'list-grid');
+  for (var i = 0; i < items.length; i++) {
+    var card = makeCard(items[i], S.listType, items[i].gallery_uid || S.listGalleryUid);
+    grid.appendChild(card);
+  }
+  content.appendChild(grid);
+
+  if (items.length < S.listTotal) {
+    var more = el('div', 'load-more', '按 OK 键加载更多 (已加载 ' + items.length + ' / ' + S.listTotal + ')');
+    more.setAttribute('data-fi', 'loadmore');
+    content.appendChild(more);
+  }
+
+  buildNavSections();
+  updateFocus();
+}
+
+// ---- Detail ----
+function renderDetail(container, params) {
+  updateHeader();
+  var id = params.id;
+  S.detailType = params.type || 'movie';
+  S.detailGalleryUid = params.galleryUid || '';
+
+  container.innerHTML = '<div class="detail-wrap" id="detailWrap"><div style="text-align:center;padding:60px;color:#666"><div class="spinner"></div><div>加载中...</div></div>';
+
+  var detailCb = function(err, res) {
+    if (err || res.code !== 200) {
+      $('detailWrap').innerHTML = '<div class="empty-state"><div class="icon">!</div><div class="text">加载失败</div></div>';
+      return;
+    }
+    S.detail = res.data;
+    S.detailGalleryUid = S.detail.gallery_uid || S.detailGalleryUid;
+    var likeItems = res.like || [];
+    renderDetailContent(container, likeItems);
+  };
+
+  if (S.detailType === 'movie') {
+    apiMovieDetail(id, detailCb);
+  } else {
+    apiTvDetail(id, detailCb);
+  }
+}
+
+function renderDetailContent(container, likeItems) {
+  var wrap = el('div', 'detail-wrap');
+  wrap.id = 'detailWrap';
+  var d = S.detail;
+  var title = d.title || d.name || '';
+  var poster = d.poster_path ? imgUrl(d.poster_path) : '';
+  var year = (d.release_date || d.first_air_date || '').substring(0, 4);
+  var rating = d.vote_average ? Number(d.vote_average).toFixed(1) : '';
+  var runtime = d.runtime ? d.runtime + '分钟' : '';
+  var genres = d.genres || [];
+
+  // Back button
+  var back = el('div', 'detail-back', '< 返回');
+  back.setAttribute('data-fi', 'back');
+  back.onclick = function() { nav.back(); };
+  wrap.appendChild(back);
+
+  // Layout
+  var layout = el('div', 'detail-layout');
+
+  // Poster
+  var posterDiv = el('div', 'detail-poster');
+  if (poster) posterDiv.style.backgroundImage = 'url(' + poster + ')';
+  layout.appendChild(posterDiv);
+
+  // Info
+  var info = el('div', 'detail-info');
+  info.innerHTML =
+    '<div class="detail-title">' + esc(title) + '</div>' +
+    '<div class="detail-meta">' +
+    (rating ? '<span>' + esc(rating) + ' 分</span>' : '') +
+    (year ? '<span>' + esc(year) + '</span>' : '') +
+    (runtime ? '<span>' + esc(runtime) + '</span>' : '') +
+    '</div>';
+
+  if (genres.length > 0) {
+    var gHtml = '<div class="detail-genres">';
+    for (var i = 0; i < genres.length; i++) {
+      gHtml += '<span class="detail-genre">' + esc(genres[i].name) + '</span>';
+    }
+    gHtml += '</div>';
+    info.innerHTML += gHtml;
+  }
+
+  if (d.tagline) {
+    info.innerHTML += '<div style="font-size:13px;color:#777;font-style:italic;margin-bottom:8px">"' + esc(d.tagline) + '"</div>';
+  }
+
+  info.innerHTML += '<div class="detail-overview">' + esc(d.overview) + '</div>';
+
+  // Action buttons
+  var actions = el('div', 'detail-actions');
+  if (S.detailType === 'movie' && d.url) {
+    var playBtn = el('button', 'btn-play', '播放');
+    playBtn.setAttribute('data-fi', 'action');
+    playBtn.onclick = function() {
+      nav.push('player', {type: 'movie', data: d, galleryUid: S.detailGalleryUid});
+    };
+    actions.appendChild(playBtn);
+  }
+  var heartBtn = el('button', 'btn-secondary', d.heart ? '已收藏' : '收藏');
+  heartBtn.setAttribute('data-fi', 'action');
+  heartBtn.onclick = function() { toggleHeart(); };
+  actions.appendChild(heartBtn);
+  var starBtn = el('button', 'btn-secondary', d.star ? '已标记' : '已观看');
+  starBtn.setAttribute('data-fi', 'action');
+  starBtn.onclick = function() { togglePlayed(); };
+  actions.appendChild(starBtn);
+  info.appendChild(actions);
+
+  layout.appendChild(info);
+  wrap.appendChild(layout);
+
+  // TV: Seasons & Episodes
+  if (S.detailType === 'tv' && d.seasons && d.seasons.length > 0) {
+    S.seasons = d.seasons;
+    var epSection = el('div', 'episodes-section');
+    epSection.innerHTML = '<div style="font-size:17px;font-weight:bold;color:#ccc;margin-bottom:10px">分集</div>';
+
+    // Season tabs
+    var tabsDiv = el('div', 'season-tabs');
+    tabsDiv.id = 'seasonTabs';
+    for (var si = 0; si < d.seasons.length; si++) {
+      var s = d.seasons[si];
+      var tab = el('div', 'season-tab' + (si === 0 ? ' active' : ''), '第' + s.season_number + '季');
+      tab.setAttribute('data-fi', 'season');
+      tab.setAttribute('data-season-id', s.id);
+      tab.setAttribute('data-season-idx', si);
+      tab.onclick = (function(seasonId, idx) {
+        return function() { selectSeason(seasonId, idx); };
+      })(s.id, si);
+      tabsDiv.appendChild(tab);
+    }
+    epSection.appendChild(tabsDiv);
+
+    // Episode list
+    var epList = el('div', 'episode-list');
+    epList.id = 'episodeList';
+    epList.innerHTML = '<div style="text-align:center;padding:20px;color:#555">加载中...</div>';
+    epSection.appendChild(epList);
+
+    wrap.appendChild(epSection);
+
+    // Load first season
+    selectSeason(d.seasons[0].id, 0);
+  }
+
+  // Recommendations
+  if (likeItems && likeItems.length > 0) {
+    var recSection = el('div', '');
+    recSection.style.marginTop = '24px';
+    recSection.innerHTML = '<div style="font-size:17px;font-weight:bold;color:#ccc;margin-bottom:10px">相关推荐</div>';
+    var recScroll = el('div', 'row-scroll');
+    recScroll.style.paddingLeft = '0';
+    for (var ri = 0; ri < likeItems.length; ri++) {
+      var rCard = makeCard(likeItems[ri], S.detailType, likeItems[ri].gallery_uid || '');
+      recScroll.appendChild(rCard);
+    }
+    recSection.appendChild(recScroll);
+    wrap.appendChild(recSection);
+  }
+
+  container.innerHTML = '';
+  container.appendChild(wrap);
+
+  buildNavSections();
+  updateFocus();
+}
+
+function selectSeason(seasonId, idx) {
+  // Update tab styles
+  var tabs = $('seasonTabs');
+  if (tabs) {
+    var tabEls = tabs.children;
+    for (var i = 0; i < tabEls.length; i++) {
+      tabEls[i].className = 'season-tab' + (i === idx ? ' active' : '');
+    }
+  }
+
+  var epList = $('episodeList');
+  if (!epList) return;
+  epList.innerHTML = '<div style="text-align:center;padding:20px;color:#555">加载中...</div>';
+
+  apiSeasonDetail(seasonId, function(err, res) {
+    if (err || res.code !== 200 || !epList) return;
+    var season = res.data;
+    var episodes = season.episodes || [];
+    S.curSeason = season;
+    epList.innerHTML = '';
+
+    if (episodes.length === 0) {
+      epList.innerHTML = '<div style="padding:16px;color:#555">暂无剧集</div>';
+      return;
+    }
+
+    for (var i = 0; i < episodes.length; i++) {
+      var ep = episodes[i];
+      var item = el('div', 'episode-item');
+      item.setAttribute('data-fi', 'episode');
+      item.setAttribute('data-ep-idx', i);
+      item.innerHTML =
+        '<div class="ep-num">' + ep.episode_number + '</div>' +
+        '<div class="ep-info">' +
+        '<div class="ep-name">' + esc(ep.name || '第' + ep.episode_number + '集') + '</div>' +
+        (ep.overview ? '<div class="ep-overview">' + esc(ep.overview) + '</div>' : '') +
+        '</div>';
+      item.onclick = (function(episode) {
+        return function() {
+          nav.push('player', {type: 'tv', data: episode, galleryUid: S.detailGalleryUid});
+        };
+      })(ep);
+      epList.appendChild(item);
+    }
+
+    buildNavSections();
+  });
+}
+
+function toggleHeart() {
+  if (!S.detail) return;
+  var id = S.detail.id;
+  var type = S.detailType;
+  api('POST', '/v1/api/heart/renew', {id: id, type: type === 'movie' ? 'themovie' : 'thetv'}, function(err, res) {
+    if (!err && res.code === 200) {
+      S.detail.heart = !S.detail.heart;
+      toast(S.detail.heart ? '已收藏' : '取消收藏');
+    } else {
+      toast('操作失败');
+    }
+  });
+}
+
+function togglePlayed() {
+  if (!S.detail) return;
+  var id = S.detail.id;
+  var type = S.detailType;
+  api('POST', '/v1/api/played/renew', {id: id, type: type === 'movie' ? 'themovie' : 'thetv'}, function(err, res) {
+    if (!err && res.code === 200) {
+      S.detail.played = !S.detail.played;
+      toast(S.detail.played ? '已标记观看' : '取消标记');
+    } else {
+      toast('操作失败');
+    }
+  });
+}
+
+// ---- Player ----
+function renderPlayer(container, params) {
+  updateHeader();
+  var type = params.type;
+  var data = params.data;
+  var galleryUid = params.galleryUid || S.detailGalleryUid;
+
+  var videoSrc = '';
+  var titleText = '';
+  var subText = '';
+
+  if (type === 'movie') {
+    videoSrc = videoUrl(data.url, galleryUid);
+    titleText = data.title || data.original_title || '';
+    subText = (data.release_date || '').substring(0, 4);
+  } else {
+    videoSrc = videoUrl(data.url, galleryUid);
+    titleText = (S.detail ? (S.detail.name || '') : '') + ' S' + data.season_number + 'E' + data.episode_number;
+    subText = data.name || '';
+  }
+
+  var wrap = el('div', 'player-wrap');
+  wrap.id = 'playerWrap';
+
+  var vid = document.createElement('video');
+  vid.id = 'videoPlayer';
+  vid.className = 'player-video';
+  vid.setAttribute('controls', '');
+  vid.setAttribute('autoplay', '');
+  vid.style.cssText = 'width:100%;height:100%';
+  if (videoSrc) vid.src = videoSrc;
+  wrap.appendChild(vid);
+
+  // Custom overlay info
+  var overlay = el('div', 'player-overlay show');
+  overlay.id = 'playerOverlay';
+  overlay.innerHTML =
+    '<div class="player-title">' + esc(titleText) + '</div>' +
+    '<div style="font-size:12px;color:#aaa">' + esc(subText) + '</div>' +
+    '<div class="player-progress" id="progressBar">' +
+    '<div class="player-progress-fill" id="progressFill"></div>' +
+    '</div>' +
+    '<div class="player-time" id="playerTime">00:00 / 00:00</div>';
+  wrap.appendChild(overlay);
+
+  container.innerHTML = '';
+  container.appendChild(wrap);
+
+  // Video events
+  vid.ontimeupdate = function() {
+    var cur = vid.currentTime || 0;
+    var dur = vid.duration || 0;
+    $('playerTime').textContent = fmtTime(cur) + ' / ' + fmtTime(dur);
+    if (dur > 0) {
+      var pct = (cur / dur * 100).toFixed(1);
+      $('progressFill').style.width = pct + '%';
+    }
+  };
+
+  vid.onended = function() {
+    toast('播放结束');
+  };
+
+  // Heartbeat for play history
+  if (type === 'movie' && data.id) {
+    S.heartbeatTimer = setInterval(function() {
+      api('POST', '/v1/api/play-history/heartbeat', {
+        id: data.id,
+        type: 'themovie',
+        time: Math.floor(vid.currentTime || 0)
+      }, function(){});
+    }, 30000);
+  }
+
+  // Auto-hide overlay
+  showControlsTemporarily();
+
+  // Player nav sections (minimal)
+  S.navSections = [
+    {selector: '.player-overlay', type: 'list', cols: 1}
+  ];
+}
+
+function showControlsTemporarily() {
+  var ov = $('playerOverlay');
+  if (ov) ov.className = 'player-overlay show';
+  if (S.controlsTimer) clearTimeout(S.controlsTimer);
+  S.controlsTimer = setTimeout(function() {
+    var ov2 = $('playerOverlay');
+    if (ov2) ov2.className = 'player-overlay';
+  }, 5000);
+}
+
+function fmtTime(sec) {
+  if (!sec || isNaN(sec)) return '00:00';
+  sec = Math.floor(sec);
+  var h = Math.floor(sec / 3600);
+  var m = Math.floor((sec % 3600) / 60);
+  var s = sec % 60;
+  if (h > 0) return h + ':' + pad(m) + ':' + pad(s);
+  return pad(m) + ':' + pad(s);
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// ---- Search ----
+function renderSearch(container) {
+  updateHeader();
+  var wrap = el('div', 'search-wrap');
+  wrap.id = 'searchWrap';
+
+  var input = el('input', 'search-input');
+  input.id = 'searchInput';
+  input.type = 'text';
+  input.placeholder = '输入关键词搜索...';
+  input.value = S.searchQuery || '';
+  wrap.appendChild(input);
+
+  var results = el('div', 'list-grid');
+  results.id = 'searchResults';
+  wrap.appendChild(results);
+
+  var hint = el('div', 'search-hint', '输入关键词后按 OK 键搜索');
+  hint.id = 'searchHint';
+  wrap.appendChild(hint);
+
+  container.innerHTML = '';
+  container.appendChild(wrap);
+
+  input.onkeydown = function(e) {
+    if (e.keyCode === 13) {
+      doSearch();
+      e.preventDefault();
+    }
+  };
+
+  // If we already have results from before, show them
+  if (S.searchResults.length > 0) {
+    renderSearchResults();
+  }
+
+  S.navSections = [
+    {selector: '.search-input', type: 'list', cols: 1},
+    {selector: '.search-card', type: 'grid', cols: 0}
+  ];
+
+  setTimeout(function(){
+    var inp = $('searchInput');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function doSearch() {
+  var q = ($('searchInput') || {}).value || '';
+  if (!q) return;
+  S.searchQuery = q;
+  S.searchResults = [];
+
+  var hint = $('searchHint');
+  var results = $('searchResults');
+  if (hint) { hint.textContent = '搜索中...'; hint.style.display = 'block'; }
+  if (results) results.innerHTML = '';
+
+  var done = 0;
+  var total = 2;
+  var onPartDone = function(err, res, type) {
+    if (!err && res.code === 200 && res.data) {
+      var items = res.data;
+      for (var i = 0; i < items.length; i++) {
+        items[i]._searchType = type;
+      }
+      S.searchResults = S.searchResults.concat(items);
+    }
+    done++;
+    if (done >= total) {
+      if (hint) hint.style.display = 'none';
+      renderSearchResults();
+    }
+  };
+
+  apiSearchMovie(q, function(err, res) { onPartDone(err, res, 'movie'); });
+  apiSearchTv(q, function(err, res) { onPartDone(err, res, 'tv'); });
+}
+
+function renderSearchResults() {
+  var results = $('searchResults');
+  var hint = $('searchHint');
+  if (!results) return;
+  results.innerHTML = '';
+
+  if (S.searchResults.length === 0) {
+    if (hint) { hint.textContent = '未找到相关内容'; hint.style.display = 'block'; }
+    return;
+  }
+
+  for (var i = 0; i < S.searchResults.length; i++) {
+    var item = S.searchResults[i];
+    var type = item._searchType || (item.title ? 'movie' : 'tv');
+    var card = makeCard(item, type, item.gallery_uid || '');
+    card.className = 'card search-card';
+    results.appendChild(card);
+  }
+
+  buildNavSections();
+  updateFocus();
+}
+
+// ---- Games ----
+function renderGames(container) {
+  updateHeader();
+  container.innerHTML = '<div class="list-wrap" id="gamesWrap"><div style="text-align:center;padding:40px;color:#666"><div class="spinner"></div><div>加载中...</div></div></div>';
+
+  apiGameList(function(err, res) {
+    var wrap = $('gamesWrap');
+    if (!wrap) return;
+    if (err || res.code !== 200) {
+      wrap.innerHTML = '<div class="empty-state"><div class="icon">!</div><div class="text">加载失败</div></div>';
+      return;
+    }
+    var games = res.data || [];
+    wrap.innerHTML = '';
+
+    if (games.length === 0) {
+      wrap.innerHTML = '<div class="empty-state"><div class="icon">~</div><div class="text">暂无游戏</div></div>';
+      return;
+    }
+
+    var grid = el('div', 'list-grid');
+    for (var i = 0; i < games.length; i++) {
+      var g = games[i];
+      var card = el('div', 'card');
+      card.setAttribute('data-fi', '1');
+      card.innerHTML =
+        '<div class="card-no-poster" style="background:#1a1a2e;font-size:28px;color:#e50914">' + esc((g.name || '?').charAt(0)) + '</div>' +
+        '<div class="card-title">' + esc(g.name) + '</div>';
+      card.onclick = (function(game) {
+        return function() {
+          // Open game in same window (games are self-contained HTML)
+          window.location.href = game.url;
+        };
+      })(g);
+      grid.appendChild(card);
+    }
+    wrap.appendChild(grid);
+
+    buildNavSections();
+    updateFocus();
+  });
+}
+
+// ==================== Spatial Navigation ====================
+function buildNavSections() {
+  S.navSections = [];
+  var page = $('page');
+  if (!page) return;
+
+  switch (S.page) {
+    case 'home':
+      buildHomeSections(page);
+      break;
+    case 'list':
+    case 'games':
+      buildGridSections(page);
+      break;
+    case 'detail':
+      buildDetailSections(page);
+      break;
+    case 'search':
+      buildSearchSections(page);
+      break;
+    default:
+      break;
+  }
+}
+
+function buildHomeSections(page) {
+  // Section 0: hero banner
+  var banner = page.querySelector('.hero-banner');
+  if (banner) {
+    S.navSections.push({elements: [banner], type: 'single'});
+  }
+
+  // Sections 1+: content rows
+  var rows = page.querySelectorAll('.row-scroll');
+  for (var i = 0; i < rows.length; i++) {
+    var cards = rows[i].querySelectorAll('.card');
+    if (cards.length > 0) {
+      S.navSections.push({elements: toArray(cards), type: 'hlist', container: rows[i]});
+    }
+  }
+}
+
+function buildGridSections(page) {
+  var cards = page.querySelectorAll('.card');
+  if (cards.length > 0) {
+    S.navSections.push({elements: toArray(cards), type: 'grid', cols: 0});
+  }
+}
+
+function buildDetailSections(page) {
+  // Collect all focusable items in order
+  var all = [];
+  var backBtn = page.querySelector('[data-fi="back"]');
+  if (backBtn) all.push(backBtn);
+
+  var actions = page.querySelectorAll('[data-fi="action"]');
+  for (var i = 0; i < actions.length; i++) all.push(actions[i]);
+
+  var seasons = page.querySelectorAll('[data-fi="season"]');
+  for (var i = 0; i < seasons.length; i++) all.push(seasons[i]);
+
+  var episodes = page.querySelectorAll('[data-fi="episode"]');
+  for (var i = 0; i < episodes.length; i++) all.push(episodes[i]);
+
+  var recCards = page.querySelectorAll('.card');
+  for (var i = 0; i < recCards.length; i++) all.push(recCards[i]);
+
+  if (all.length > 0) {
+    S.navSections.push({elements: all, type: 'vlist'});
+  }
+}
+
+function buildSearchSections(page) {
+  var secs = [];
+  var input = page.querySelector('.search-input');
+  if (input) {
+    secs.push({elements: [input], type: 'single'});
+  }
+  var cards = page.querySelectorAll('.search-card');
+  if (cards.length > 0) {
+    secs.push({elements: toArray(cards), type: 'grid', cols: 0});
+  }
+  S.navSections = secs;
+}
+
+function toArray(nodeList) {
+  var arr = [];
+  for (var i = 0; i < nodeList.length; i++) arr.push(nodeList[i]);
+  return arr;
+}
+
+function getGridCols(elements) {
+  if (!elements || elements.length < 2) return 1;
+  var firstTop = elements[0].offsetTop;
+  var count = 0;
+  for (var i = 0; i < elements.length; i++) {
+    if (Math.abs(elements[i].offsetTop - firstTop) < 10) {
+      count++;
+    } else {
+      break;
+    }
+  }
+  return Math.max(count, 1);
+}
+
+function updateFocus() {
+  // Remove old focus
+  var old = $('page').querySelectorAll('.focused');
+  for (var i = 0; i < old.length; i++) old[i].className = old[i].className.replace(/\s*focused/g, '');
+
+  if (S.navSections.length === 0) return;
+  if (S.focusSection >= S.navSections.length) S.focusSection = S.navSections.length - 1;
+  if (S.focusSection < 0) S.focusSection = 0;
+
+  var sec = S.navSections[S.focusSection];
+  if (!sec || sec.elements.length === 0) return;
+
+  if (S.focusRow >= sec.elements.length) S.focusRow = sec.elements.length - 1;
+  if (S.focusRow < 0) S.focusRow = 0;
+
+  var target = sec.elements[S.focusRow];
+  if (target) {
+    target.className = (target.className || '') + ' focused';
+    // Scroll into view
+    try {
+      if (typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({block: 'nearest', inline: 'nearest'});
+      }
+    } catch(e) {
+      try { target.scrollIntoView(false); } catch(e2) {}
+    }
+    // For horizontal rows, also scroll the container
+    if (sec.container) {
+      scrollContainerToCard(sec.container, target);
+    }
+  }
+}
+
+function scrollContainerToCard(container, card) {
+  var scrollLeft = container.scrollLeft;
+  var containerWidth = container.clientWidth;
+  var cardLeft = card.offsetLeft - container.offsetLeft;
+  var cardWidth = card.offsetWidth;
+
+  if (cardLeft < scrollLeft + 20) {
+    container.scrollLeft = Math.max(0, cardLeft - 20);
+  } else if (cardLeft + cardWidth > scrollLeft + containerWidth - 20) {
+    container.scrollLeft = cardLeft + cardWidth - containerWidth + 20;
+  }
+}
+
+function handleNav(e) {
+  var key = e.keyCode;
+  // Only handle arrow keys, Enter, Backspace
+  if (key !== 37 && key !== 38 && key !== 39 && key !== 40 && key !== 13 && key !== 8 && key !== 27) return false;
+
+  // Don't intercept when typing in input
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+    if (key === 13) {
+      // Enter in input: trigger search or login
+      if (S.page === 'search') { doSearch(); e.preventDefault(); return true; }
+      if (S.page === 'login') { doLogin(); e.preventDefault(); return true; }
+    }
+    if (key === 27 || key === 8) {
+      ae.blur();
+      e.preventDefault();
+      return true;
+    }
+    return false; // Let input handle arrow keys normally
+  }
+
+  // Backspace / Escape = back
+  if (key === 8 || key === 27) {
+    if (S.page === 'player') {
+      showControlsTemporarily();
+      return true;
+    }
+    nav.back();
+    e.preventDefault();
+    return true;
+  }
+
+  if (S.navSections.length === 0) return false;
+
+  var sec = S.navSections[S.focusSection];
+  if (!sec) return false;
+
+  switch (key) {
+    case 37: // Left
+      return navLeft(sec, e);
+    case 38: // Up
+      return navUp(sec, e);
+    case 39: // Right
+      return navRight(sec, e);
+    case 40: // Down
+      return navDown(sec, e);
+    case 13: // Enter
+      return navSelect(sec, e);
+  }
+  return false;
+}
+
+function navLeft(sec, e) {
+  if (sec.type === 'hlist' || sec.type === 'grid') {
+    if (S.focusRow > 0) {
+      S.focusRow--;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+    // Wrap to end of row for hlist
+    if (sec.type === 'hlist') {
+      var cols = sec.type === 'grid' ? getEffectiveCols(sec) : 999;
+      S.focusRow = sec.elements.length - 1;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+  }
+  return false;
+}
+
+function navRight(sec, e) {
+  if (sec.type === 'hlist' || sec.type === 'grid') {
+    if (S.focusRow < sec.elements.length - 1) {
+      S.focusRow++;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+    // Wrap to start for hlist
+    if (sec.type === 'hlist') {
+      S.focusRow = 0;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+  }
+  return false;
+}
+
+function navUp(sec, e) {
+  if (sec.type === 'hlist' || sec.type === 'grid') {
+    var cols = getEffectiveCols(sec);
+    if (S.focusRow - cols >= 0) {
+      S.focusRow -= cols;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+    // Move to previous section
+    if (S.focusSection > 0) {
+      S.focusSection--;
+      var prevSec = S.navSections[S.focusSection];
+      S.focusRow = Math.min(S.focusRow, prevSec.elements.length - 1);
+      if (prevSec.type === 'hlist') S.focusRow = 0; // Focus first item in row
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+  }
+  if (sec.type === 'vlist') {
+    if (S.focusRow > 0) {
+      S.focusRow--;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+  }
+  return false;
+}
+
+function navDown(sec, e) {
+  if (sec.type === 'hlist' || sec.type === 'grid') {
+    var cols = getEffectiveCols(sec);
+    if (S.focusRow + cols < sec.elements.length) {
+      S.focusRow += cols;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+    // Check load more for grid
+    if (sec.type === 'grid' && S.page === 'list' && (S.movies.length + S.tvs.length) < S.listTotal) {
+      S.listPage++;
+      fetchList();
+      e.preventDefault();
+      return true;
+    }
+    // Move to next section
+    if (S.focusSection < S.navSections.length - 1) {
+      S.focusSection++;
+      var nextSec = S.navSections[S.focusSection];
+      S.focusRow = 0;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+  }
+  if (sec.type === 'vlist') {
+    if (S.focusRow < sec.elements.length - 1) {
+      S.focusRow++;
+      updateFocus();
+      e.preventDefault();
+      return true;
+    }
+  }
+  return false;
+}
+
+function navSelect(sec, e) {
+  var target = sec.elements[S.focusRow];
+  if (target) {
+    target.click();
+    e.preventDefault();
+    return true;
+  }
+  return false;
+}
+
+function getEffectiveCols(sec) {
+  if (sec.cols && sec.cols > 0) return sec.cols;
+  if (sec.type === 'hlist') return 999; // Single row
+  var c = getGridCols(sec.elements);
+  sec.cols = c; // Cache
+  return c;
+}
+
+// ==================== Init ====================
+function init() {
+  $('loading').style.display = 'none';
+  $('app').style.display = 'block';
+
+  // Check if we can reach the API (try loading configs first, no auth needed)
+  apiConfigs(function(err, res) {
+    if (!err && res.code === 200 && res.data) {
+      document.title = (res.data.title || 'Onelist') + ' TV';
+      $('logo') && ($('logo').textContent = res.data.title || 'Onelist');
+    }
+    // Always show login first
+    nav.go('login');
+  });
+}
+
+// Global key handler
+document.onkeydown = function(e) {
+  if (handleNav(e)) return;
+};
+
+// Start
+init();
+</script>
+</body>
+</html>
