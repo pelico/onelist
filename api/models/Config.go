@@ -16,4 +16,7 @@ type Config struct {
 	ScreensaverPlayDuration string `json:"screensaver_play_duration"` // 连续播放多少秒后触发屏保
 	ScreensaverDuration     string `json:"screensaver_duration"`      // 屏保展示多少秒
 	ScreensaverDailyLimit   string `json:"screensaver_daily_limit"`   // 每日最大播放秒数
+	// Webhook 消息推送
+	WebhookEnabled string `json:"webhook_enabled"` // 是/否
+	WebhookToken   string `json:"webhook_token"`   // Webhook 固定 Token
 }

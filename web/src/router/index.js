@@ -88,6 +88,12 @@ const routes = [
         component: () => import('../views/playstats/PlayStats.vue'),
         meta: { requiresAdmin: true }
     },
+    {
+        path: '/messages',
+        name: 'MessageCenter',
+        component: () => import('../views/message/MessageCenter.vue'),
+        meta: { requiresAdmin: true }
+    },
 ];
 
 const router = createRouter({

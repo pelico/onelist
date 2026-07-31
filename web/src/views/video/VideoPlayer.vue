@@ -306,20 +306,31 @@
             :today-watched-minutes="todayWatchedMinDisplay"
             @countdown-end="onScreensaverEnd"
         />
+        <!-- 消息推送通知 -->
+        <MessageOverlay
+            :forced-message="forcedMessage"
+            :normal-messages="normalMessages"
+            @ack-forced="ackForced"
+            @dismiss-toast="dismissToast"
+        />
     </div>
 </template>
 <script>
 import Artplayer from "./ArtPlayer.vue";
 import ScreensaverOverlay from "./ScreensaverOverlay.vue";
+import MessageOverlay from "../message/MessageOverlay.vue";
 
 import { getCurrentInstance, onMounted, onUnmounted, ref, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 import tvNavigation from '@/plugins/tvNavigation';
+import { getMyMessages, markMessageRead } from "@/api/index";
+import { baseUrl } from "@/api/request";
 export default {
     name: 'VideoPlayer',
     components: {
         Artplayer,
         ScreensaverOverlay,
+        MessageOverlay,
     },
     setup() {
         const loading = ref(true);
@@ -377,6 +388,91 @@ export default {
         const dailyLimitWarning = ref(false);     // 接近每日限额，友好提示
         const dailyLimitRemainingMin = ref(0);    // 剩余分钟数
         const todayWatchedMinDisplay = ref(0);    // 今日已看分钟数（响应式，用于模板展示）
+
+        // ===== 消息推送（SSE） =====
+        const forcedMessage = ref(null);          // 当前强制弹窗消息
+        const normalMessages = ref([]);           // 普通通知列表（最多3条）
+        let eventSource = null;
+        let sseReconnectTimer = null;
+
+        function initSSE() {
+            const token = proxy.$cookies.get("Authorization");
+            if (!token) return;
+            // 避免重复连接
+            if (eventSource) { eventSource.close(); }
+            const url = (baseUrl || '') + '/v1/api/message/sse?token=' + encodeURIComponent(token);
+            eventSource = new EventSource(url);
+
+            eventSource.addEventListener('message', (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    handleMessage(msg);
+                } catch (err) {
+                    console.error('[SSE] 消息解析失败:', err);
+                }
+            });
+
+            eventSource.addEventListener('init', (e) => {
+                try {
+                    const msgs = JSON.parse(e.data);
+                    if (Array.isArray(msgs)) {
+                        // 连接时推送的未读消息列表，逐条展示
+                        msgs.forEach(m => handleMessage(m));
+                    }
+                } catch (err) {
+                    console.error('[SSE] init 解析失败:', err);
+                }
+            });
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                eventSource = null;
+                // 30秒后重连
+                sseReconnectTimer = setTimeout(initSSE, 30000);
+            };
+        }
+
+        function handleMessage(msg) {
+            if (msg.priority === 'forced') {
+                // 强制消息：全屏覆盖
+                forcedMessage.value = msg;
+            } else {
+                // 普通通知：右上角 toast，最多堆叠3条
+                normalMessages.value.unshift(msg);
+                if (normalMessages.value.length > 3) {
+                    normalMessages.value = normalMessages.value.slice(0, 3);
+                }
+                // 8秒后自动消失
+                setTimeout(() => {
+                    dismissToast(msg);
+                }, 8000);
+            }
+        }
+
+        function ackForced(msg) {
+            if (msg && msg.id) {
+                markMessageRead(msg.id).catch(() => {});
+            }
+            forcedMessage.value = null;
+        }
+
+        function dismissToast(msg) {
+            if (msg && msg.id) {
+                markMessageRead(msg.id).catch(() => {});
+            }
+            normalMessages.value = normalMessages.value.filter(m => m.id !== msg.id);
+        }
+
+        function stopSSE() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (sseReconnectTimer) {
+                clearTimeout(sseReconnectTimer);
+                sseReconnectTimer = null;
+            }
+        }
 
         function triggerTheaterMode() {
             isTheaterMode.value = true;
@@ -1454,6 +1550,8 @@ export default {
             fetchScreensaverConfig();
             fetchWallpaperFiles();
             fetchTodayPlayDuration();
+            // 消息推送 SSE 连接
+            initSSE();
         });
 
         onUnmounted(() => {
@@ -1465,6 +1563,8 @@ export default {
             stopPlayTracker();
             stopWarning();
             stopScreensaverTimer();
+            // 清理消息推送 SSE 连接
+            stopSSE();
             // 清理键盘事件监听
             if (window._tvPlayerKeyHandler) {
                 window.removeEventListener('keydown', window._tvPlayerKeyHandler, true);
@@ -1500,7 +1600,11 @@ export default {
             dailyLimitWarning,
             dailyLimitRemainingMin,
             todayWatchedMinDisplay,
-            onScreensaverEnd
+            onScreensaverEnd,
+            forcedMessage,
+            normalMessages,
+            ackForced,
+            dismissToast
         }
     },
     methods: {

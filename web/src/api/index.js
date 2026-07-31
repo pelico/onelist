@@ -66,3 +66,14 @@ export const getAliOpenVideo = (form) => request.post('/v1/api/aliopen/video', f
 // 日志
 export const getLogs = (params) => request.get('/v1/api/log/list', params)
 export const cleanLogs = (days) => request.post('/v1/api/log/clean?days=' + (days || 7), {})
+
+// 消息推送
+export const sendMessage = (data) => request.post('/v1/api/message/send', data)
+export const getMyMessages = () => request.get('/v1/api/message/mine')
+export const markMessageRead = (id) => request.post('/v1/api/message/read?id=' + id, {})
+export const markAllMessagesRead = () => request.post('/v1/api/message/read-all', {})
+export const getMessageHistory = (params) => request.get('/v1/api/message/admin/history', params)
+export const clearMessages = (params) => request.post('/v1/api/message/admin/clear', {}, params)
+export const getWebhookInfo = () => request.get('/v1/api/message/admin/webhook')
+export const toggleWebhook = (data) => request.post('/v1/api/message/admin/webhook/toggle', data)
+export const regenerateWebhookToken = () => request.post('/v1/api/message/admin/webhook/regenerate', {})
