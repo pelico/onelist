@@ -353,6 +353,11 @@ func Run() {
 	wallpaper.GET("/list", controllers.ListWallpaper)
 	wallpaper.GET("/file/*path", controllers.ServeWallpaper)
 
+	// 小游戏
+	game := r.Group("/v1/api/game", auth.JWTAuth())
+	game.GET("/list", controllers.ListGames)
+	game.GET("/file/*path", controllers.ServeGame)
+
 	// 消息推送
 	message := r.Group("/v1/api/message", auth.JWTAuth())
 	message.POST("/send", auth.JWTAuthAdmin(), controllers.SendMessage)
