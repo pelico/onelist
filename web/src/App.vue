@@ -166,10 +166,10 @@
                                 <i class='bx bx-home'></i>
                                 <span>主页</span>
                             </router-link>
-                            <div class="bottom-nav-item" @click="showSaerch = !showSaerch">
-                                <i class='bx bx-search'></i>
-                                <span>搜索</span>
-                            </div>
+                            <router-link v-if="is_admin" to="/messages" class="bottom-nav-item">
+                                <i class='bx bx-message-square-dots'></i>
+                                <span>发消息</span>
+                            </router-link>
                             <router-link to="/heart" class="bottom-nav-item">
                                 <i class='bx bx-heart'></i>
                                 <span>最爱</span>
