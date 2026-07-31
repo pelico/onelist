@@ -528,11 +528,6 @@ export default defineComponent({
 
         function formatDateLabel(dateStr) {
             const d = new Date(dateStr)
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const diff = Math.floor((today - d) / 86400000)
-            if (diff === 0) return '今天'
-            if (diff === 1) return '昨天'
             return `${d.getMonth() + 1}/${d.getDate()}`
         }
 
