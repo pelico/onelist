@@ -40,7 +40,10 @@ var (
 	ScreensaverPlayDuration = "3600"  // 默认1小时
 	ScreensaverDuration     = "180"   // 默认3分钟
 	ScreensaverDailyLimit   = "7200"  // 默认2小时
-	Version               = "v1.0 @2026 Optimized by wanchuan"
+	// Webhook 消息推送
+	WebhookEnabled          = "否"
+	WebhookToken            = ""
+	Version                 = "v1.0 @2026 Optimized by wanchuan"
 	db                    *gorm.DB
 )
 
@@ -116,6 +119,13 @@ func Load() {
 	if v := os.Getenv("ScreensaverDailyLimit"); v != "" {
 		ScreensaverDailyLimit = v
 	}
+	// Webhook
+	if v := os.Getenv("WebhookEnabled"); v != "" {
+		WebhookEnabled = v
+	}
+	if v := os.Getenv("WebhookToken"); v != "" {
+		WebhookToken = v
+	}
 }
 
 // 获取配置
@@ -135,6 +145,8 @@ func GetConfig() models.Config {
 		ScreensaverPlayDuration: ScreensaverPlayDuration,
 		ScreensaverDuration:   ScreensaverDuration,
 		ScreensaverDailyLimit: ScreensaverDailyLimit,
+		WebhookEnabled:       WebhookEnabled,
+		WebhookToken:         WebhookToken,
 	}
 	return config
 }
@@ -166,6 +178,13 @@ func SetConfig(config models.Config) {
 	if config.ScreensaverDailyLimit != "" {
 		ScreensaverDailyLimit = config.ScreensaverDailyLimit
 	}
+	// Webhook
+	if config.WebhookEnabled != "" {
+		WebhookEnabled = config.WebhookEnabled
+	}
+	if config.WebhookToken != "" {
+		WebhookToken = config.WebhookToken
+	}
 }
 
 // 保存配置
@@ -186,6 +205,8 @@ func SaveConfig(config models.Config) (models.Config, error) {
 			"ScreensaverPlayDuration": config.ScreensaverPlayDuration,
 			"ScreensaverDuration":    config.ScreensaverDuration,
 			"ScreensaverDailyLimit":  config.ScreensaverDailyLimit,
+			"WebhookEnabled":       config.WebhookEnabled,
+			"WebhookToken":         config.WebhookToken,
 		}
 		for key, value := range settings {
 			setting := models.Setting{}
@@ -260,5 +281,12 @@ func LoadFromDB() {
 	}
 	if v, ok := settingMap["ScreensaverDailyLimit"]; ok {
 		ScreensaverDailyLimit = v
+	}
+	// Webhook
+	if v, ok := settingMap["WebhookEnabled"]; ok {
+		WebhookEnabled = v
+	}
+	if v, ok := settingMap["WebhookToken"]; ok {
+		WebhookToken = v
 	}
 }

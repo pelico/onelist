@@ -353,6 +353,23 @@ func Run() {
 	wallpaper.GET("/list", controllers.ListWallpaper)
 	wallpaper.GET("/file/*path", controllers.ServeWallpaper)
 
+	// 消息推送
+	message := r.Group("/v1/api/message", auth.JWTAuth())
+	message.POST("/send", auth.JWTAuthAdmin(), controllers.SendMessage)
+	message.GET("/mine", controllers.GetMyMessages)
+	message.POST("/read", controllers.MarkMessageRead)
+	message.POST("/read-all", controllers.MarkAllMessagesRead)
+	message.GET("/sse", controllers.SSEStream)
+	// 消息管理（管理员）
+	messageAdmin := r.Group("/v1/api/message/admin", auth.JWTAuthAdmin())
+	messageAdmin.GET("/history", controllers.GetMessageHistory)
+	messageAdmin.POST("/clear", controllers.ClearMessages)
+	messageAdmin.GET("/webhook", controllers.GetWebhookInfo)
+	messageAdmin.POST("/webhook/toggle", controllers.ToggleWebhook)
+	messageAdmin.POST("/webhook/regenerate", controllers.RegenerateWebhookToken)
+	// Webhook 外部接口（固定 Token 认证，不走 JWT）
+	r.POST("/v1/api/webhook/message", controllers.WebhookMessage)
+
 	//客户端首屏api
 	app := r.Group("/v1/api/app", auth.JWTAuth())
 	app.POST("/index", controllers.AppIndex)
