@@ -200,10 +200,15 @@ class MainActivity : Activity() {
             call.enqueue(object : Callback<LoginResponse> {
                 override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                     val body = response.body()
+                    android.util.Log.d("OneList", "Login response code: ${response.code()}")
+                    android.util.Log.d("OneList", "Login body: code=${body?.code}, msg=${body?.msg}")
+                    android.util.Log.d("OneList", "Login token: ${body?.token?.take(30)}...")
+                    
                     if (body != null && body.code == 200 && body.token != null) {
                         App.token = body.token
                         App.userId = body.user?.id
                         App.username = username
+                        android.util.Log.d("OneList", "Saved token: ${App.token?.take(30)}...")
                         toast("登录成功")
                         showHome()
                     } else {
