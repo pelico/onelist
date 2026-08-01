@@ -87,22 +87,22 @@ data class Genre(
 )
 
 data class Movie(
-    @SerializedName("id") val id: Int?,
-    @SerializedName("gallery_uid") val galleryUid: String?,
-    @SerializedName("title") val title: String?,
-    @SerializedName("original_title") val originalTitle: String?,
-    @SerializedName("poster_path") val posterPath: String?,
-    @SerializedName("backdrop_path") val backdropPath: String?,
-    @SerializedName("overview") val overview: String?,
-    @SerializedName("vote_average") val voteAverage: Double?,
-    @SerializedName("release_date") val releaseDate: String?,
-    @SerializedName("runtime") val runtime: Int?,
-    @SerializedName("url") val url: String?,
-    @SerializedName("genres") val genres: List<Genre>?,
-    @SerializedName("tagline") val tagline: String?,
-    @SerializedName("star") val star: Boolean?,
-    @SerializedName("heart") val heart: Boolean?,
-    @SerializedName("played") val played: Boolean?
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("gallery_uid") val galleryUid: String? = null,
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("original_title") val originalTitle: String? = null,
+    @SerializedName("poster_path") val posterPath: String? = null,
+    @SerializedName("backdrop_path") val backdropPath: String? = null,
+    @SerializedName("overview") val overview: String? = null,
+    @SerializedName("vote_average") val voteAverage: Double? = null,
+    @SerializedName("release_date") val releaseDate: String? = null,
+    @SerializedName("runtime") val runtime: Int? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("genres") val genres: List<Genre>? = null,
+    @SerializedName("tagline") val tagline: String? = null,
+    @SerializedName("star") val star: Boolean? = null,
+    @SerializedName("heart") val heart: Boolean? = null,
+    @SerializedName("played") val played: Boolean? = null
 ) {
     val poster: String? get() = posterPath
     val desc: String? get() = overview
@@ -111,24 +111,24 @@ data class Movie(
 }
 
 data class Tv(
-    @SerializedName("id") val id: Int?,
-    @SerializedName("gallery_uid") val galleryUid: String?,
-    @SerializedName("name") val name: String?,
-    @SerializedName("original_name") val originalName: String?,
-    @SerializedName("poster_path") val posterPath: String?,
-    @SerializedName("backdrop_path") val backdropPath: String?,
-    @SerializedName("overview") val overview: String?,
-    @SerializedName("vote_average") val voteAverage: Double?,
-    @SerializedName("first_air_date") val firstAirDate: String?,
-    @SerializedName("number_of_seasons") val numberOfSeasons: Int?,
-    @SerializedName("number_of_episodes") val numberOfEpisodes: Int?,
-    @SerializedName("url") val url: String?,
-    @SerializedName("genres") val genres: List<Genre>?,
-    @SerializedName("seasons") val seasons: List<Season>?,
-    @SerializedName("tagline") val tagline: String?,
-    @SerializedName("star") val star: Boolean?,
-    @SerializedName("heart") val heart: Boolean?,
-    @SerializedName("played") val played: Boolean?
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("gallery_uid") val galleryUid: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("original_name") val originalName: String? = null,
+    @SerializedName("poster_path") val posterPath: String? = null,
+    @SerializedName("backdrop_path") val backdropPath: String? = null,
+    @SerializedName("overview") val overview: String? = null,
+    @SerializedName("vote_average") val voteAverage: Double? = null,
+    @SerializedName("first_air_date") val firstAirDate: String? = null,
+    @SerializedName("number_of_seasons") val numberOfSeasons: Int? = null,
+    @SerializedName("number_of_episodes") val numberOfEpisodes: Int? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("genres") val genres: List<Genre>? = null,
+    @SerializedName("seasons") val seasons: List<Season>? = null,
+    @SerializedName("tagline") val tagline: String? = null,
+    @SerializedName("star") val star: Boolean? = null,
+    @SerializedName("heart") val heart: Boolean? = null,
+    @SerializedName("played") val played: Boolean? = null
 ) {
     val poster: String? get() = posterPath
     val desc: String? get() = overview
@@ -137,32 +137,32 @@ data class Tv(
 }
 
 data class Season(
-    @SerializedName("id") val id: Int?,
-    @SerializedName("name") val name: String?,
-    @SerializedName("season_number") val seasonNumber: Int?,
-    @SerializedName("episode_count") val episodeCount: Int?,
-    @SerializedName("poster_path") val posterPath: String?,
-    @SerializedName("air_date") val airDate: String?
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("season_number") val seasonNumber: Int? = null,
+    @SerializedName("episode_count") val episodeCount: Int? = null,
+    @SerializedName("poster_path") val posterPath: String? = null,
+    @SerializedName("air_date") val airDate: String? = null
 )
 
 data class SeasonDetail(
-    @SerializedName("id") val id: Int?,
-    @SerializedName("name") val name: String?,
-    @SerializedName("season_number") val seasonNumber: Int?,
-    @SerializedName("episodes") val episodes: List<Episode>?
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("season_number") val seasonNumber: Int? = null,
+    @SerializedName("episodes") val episodes: List<Episode>? = null
 )
 
 data class Episode(
-    @SerializedName("id") val id: Int?,
-    @SerializedName("name") val name: String?,
-    @SerializedName("episode_number") val episodeNumber: Int?,
-    @SerializedName("season_number") val seasonNumber: Int?,
-    @SerializedName("overview") val overview: String?,
-    @SerializedName("url") val url: String?,
-    @SerializedName("still_path") val stillPath: String?,
-    @SerializedName("runtime") val runtime: Int?,
-    @SerializedName("air_date") val airDate: String?,
-    @SerializedName("gallery_uid") val galleryUid: String?
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("episode_number") val episodeNumber: Int? = null,
+    @SerializedName("season_number") val seasonNumber: Int? = null,
+    @SerializedName("overview") val overview: String? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("still_path") val stillPath: String? = null,
+    @SerializedName("runtime") val runtime: Int? = null,
+    @SerializedName("air_date") val airDate: String? = null,
+    @SerializedName("gallery_uid") val galleryUid: String? = null
 ) {
     val title: String? get() = name
 }
