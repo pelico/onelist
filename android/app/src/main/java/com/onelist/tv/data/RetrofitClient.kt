@@ -61,19 +61,25 @@ object RetrofitClient {
 
     /**
      * Build a full image URL from a relative path.
-     * TMDB images: /t/p/original/... -> serverUrl + path
+     * TMDB images: original/... or /original/... -> serverUrl + /t/p/ + path
      * Gallery images: /gallery/... -> serverUrl + path
+     * Already absolute: http... -> return as-is
      */
     fun imageUrl(path: String?): String? {
         if (path == null || path.isEmpty()) return null
+        if (path.startsWith("http")) return path
         val base = getBaseUrl()
         if (base.isEmpty()) return null
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
-        return if (path.startsWith("/")) {
-            "$normalizedBase$path"
+        // TMDB poster/backdrop paths need /t/p/ prefix
+        val imagePath = if (path.startsWith("/t/p/")) {
+            path
+        } else if (path.startsWith("/")) {
+            "/t/p$path"
         } else {
-            "$normalizedBase/$path"
+            "/t/p/$path"
         }
+        return "$normalizedBase$imagePath"
     }
 
     /**
