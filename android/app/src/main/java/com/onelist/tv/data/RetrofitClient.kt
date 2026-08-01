@@ -19,7 +19,7 @@ object RetrofitClient {
         val token = App.token
         val request = if (token != null && token.isNotEmpty()) {
             original.newBuilder()
-                .header("Authorization", "Bearer $token")
+                .header("Authorization", token)
                 .build()
         } else {
             original
