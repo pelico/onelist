@@ -298,7 +298,7 @@ class MainActivity : Activity() {
         if (data.galleries != null) {
             for (gallery in data.galleries) {
                 val type = if (gallery.isTv == true) "tv" else "movie"
-                val items = data.galleryItems?.filter { it.galleryUid == gallery.galleryUid } ?: emptyList()
+                val items = data.galleryItems?.get(gallery.galleryUid) ?: emptyList()
                 if (items.isNotEmpty()) {
                     val row = buildContentRow(gallery.title ?: "媒体库", type, gallery.galleryUid)
                     parent.addView(row)

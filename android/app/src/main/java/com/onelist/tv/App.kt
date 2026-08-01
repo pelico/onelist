@@ -11,7 +11,7 @@ class App : Application() {
         private lateinit var prefs: SharedPreferences
 
         var serverUrl: String?
-            get() = prefs.getString("server_url", null)
+            get() = prefs.getString("server_url", "http://192.168.3.66:5245")
             set(value) { prefs.edit().putString("server_url", value).apply() }
 
         var token: String?
@@ -19,7 +19,7 @@ class App : Application() {
             set(value) { prefs.edit().putString("auth_token", value).apply() }
 
         var username: String?
-            get() = prefs.getString("username", null)
+            get() = prefs.getString("username", "qqqq@qq.com")
             set(value) { prefs.edit().putString("username", value).apply() }
 
         var userId: Int?
