@@ -3,7 +3,7 @@ name: Build Android TV APK
 on:
   push:
     paths:
-      - 'android-tv/**'
+      - 'android/**'
   workflow_dispatch:
   release:
     types: [published]
@@ -22,21 +22,21 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Download compatible Gradle 7.6.3
         run: |
-          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/gradle.zip
+          curl -sL https://services.gradle.org/distributions/gradle-7.6.3-bin.zip -o /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /tmp
-          echo "/tmp/gradle-8.5/bin" >> $GITHUB_PATH
+          /tmp/gradle-7.6.3/bin/gradle --version
 
-      - name: Build Debug APK
-        working-directory: android-tv
-        run: gradle assembleDebug
+      - name: Build Release APK
+        working-directory: android
+        run: /tmp/gradle-7.6.3/bin/gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: OneList-TV-APK
-          path: android-tv/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/*.apk
 
       - name: Upload to Release
         if: github.event_name == 'release'
@@ -45,6 +45,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: android-tv/app/build/outputs/apk/debug/app-debug.apk
+          asset_path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           asset_name: OneList-TV-v${{ github.event.release.tag_name }}.apk
           asset_content_type: application/vnd.android.package-archive
