@@ -169,7 +169,7 @@ class MainActivity : Activity() {
                 }
                 App.serverUrl = url
                 App.username = user
-                doLogin(user, pass, loginBtn)
+                doLogin(user, pass, this)
             }
         }
         layout.addView(loginBtn, lp().apply {
@@ -430,7 +430,7 @@ class MainActivity : Activity() {
             setOnClickListener {
                 if (!isLoadingMore && hasMorePages) {
                     currentPage++
-                    loadMoreItems(recyclerView, loadMoreBtn)
+                    loadMoreItems(recyclerView, it as Button)
                 }
             }
         }
@@ -692,7 +692,7 @@ class MainActivity : Activity() {
 
         // Fetch full detail if needed
         if (movie.desc == null && movie.id != null) {
-            fetchMovieDetail(movie.id!!, titleView, infoLayout, playBtn)
+            fetchMovieDetail(movie.id.toString(), titleView, infoLayout, playBtn)
         }
     }
 
@@ -817,7 +817,7 @@ class MainActivity : Activity() {
 
         // Fetch TV detail with seasons
         if (tv.id != null) {
-            fetchTvDetail(tv.id!!, seasonsContainer)
+            fetchTvDetail(tv.id.toString(), seasonsContainer)
         }
     }
 
@@ -843,7 +843,7 @@ class MainActivity : Activity() {
                                     layoutParams = lp
                                     setOnClickListener {
                                         if (season.id != null) {
-                                            showSeasonEpisodes(season.id!!, season.seasonNumber ?: 0)
+                                            showSeasonEpisodes(season.id.toString(), season.seasonNumber ?: 0)
                                         }
                                     }
                                 }
