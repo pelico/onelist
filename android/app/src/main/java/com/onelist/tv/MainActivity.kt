@@ -256,21 +256,51 @@ class MainActivity : Activity() {
 
         // Fetch home data
         try {
-            RetrofitClient.getService().getHome().enqueue(object : Callback<ApiResponse<HomeData>> {
+            val service = RetrofitClient.getService()
+            val token = App.token
+            android.util.Log.d("OneList", "API call to: ${RetrofitClient.getBaseUrl()}v1/api/home")
+            android.util.Log.d("OneList", "Token: ${token?.take(20)}...")
+            
+            service.getHome().enqueue(object : Callback<ApiResponse<HomeData>> {
                 override fun onResponse(call: Call<ApiResponse<HomeData>>, response: Response<ApiResponse<HomeData>>) {
+                    android.util.Log.d("OneList", "HTTP code: ${response.code()}")
+                    android.util.Log.d("OneList", "Response raw: ${response.errorBody()?.string() ?: "no error body"}")
+                    
                     val body = response.body()
+                    if (body != null) {
+                        android.util.Log.d("OneList", "Body code: ${body.code}")
+                        android.util.Log.d("OneList", "Body msg: ${body.msg}")
+                        android.util.Log.d("OneList", "Body data null: ${body.data == null}")
+                    } else {
+                        android.util.Log.d("OneList", "Body is null")
+                    }
+                    
                     if (body != null && body.code == 200 && body.data != null) {
                         loading.visibility = View.GONE
                         renderHomeData(layout, body.data!!)
                     } else {
-                        loading.text = "加载失败"
+                        val errorMsg = buildString {
+                            append("加载失败\n")
+                            append("HTTP: ${response.code()}\n")
+                            if (body != null) {
+                                append("Code: ${body.code}\n")
+                                append("Msg: ${body.msg ?: "null"}\n")
+                                append("Data: ${if (body.data == null) "null" else "not null"}")
+                            } else {
+                                append("Body: null")
+                            }
+                        }
+                        android.util.Log.e("OneList", errorMsg)
+                        loading.text = errorMsg
                     }
                 }
                 override fun onFailure(call: Call<ApiResponse<HomeData>>, t: Throwable) {
+                    android.util.Log.e("OneList", "API failure: ${t.message}", t)
                     loading.text = "连接失败: ${t.message}"
                 }
             })
         } catch (e: Exception) {
+            android.util.Log.e("OneList", "Exception: ${e.message}", e)
             loading.text = "错误: ${e.message}"
         }
     }
