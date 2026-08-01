@@ -47,7 +47,7 @@ data class HomeData(
     @SerializedName("galleries") val galleries: List<Gallery>?,
     @SerializedName("latest_movies") val latestMovies: List<Movie>?,
     @SerializedName("latest_tvs") val latestTvs: List<Tv>?,
-    @SerializedName("gallery_items") val galleryItems: List<GalleryItem>?
+    @SerializedName("gallery_items") val galleryItems: Map<String, List<GalleryItem>>?
 )
 
 // ---- 业务模型 ----
