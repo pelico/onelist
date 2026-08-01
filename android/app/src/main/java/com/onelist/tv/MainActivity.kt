@@ -284,9 +284,11 @@ class MainActivity : Activity() {
                         loading.visibility = View.GONE
                         renderHomeData(layout, body.data!!)
                     } else {
+                        val currentToken = App.token
                         val errorMsg = buildString {
                             append("加载失败\n")
                             append("HTTP: ${response.code()}\n")
+                            append("Token: ${if (currentToken == null) "null" else if (currentToken.isEmpty()) "empty" else currentToken.take(20) + "..."}\n")
                             if (body != null) {
                                 append("Code: ${body.code}\n")
                                 append("Msg: ${body.msg ?: "null"}\n")
