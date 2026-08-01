@@ -2,6 +2,12 @@ package com.onelist.tv.data
 
 import com.google.gson.annotations.SerializedName
 
+// ---- 登录请求 ----
+data class LoginRequest(
+    @SerializedName("user_email") val userEmail: String,
+    @SerializedName("user_password") val userPassword: String
+)
+
 // ---- 通用响应 ----
 data class ApiResponse<T>(
     @SerializedName("code") val code: Int,

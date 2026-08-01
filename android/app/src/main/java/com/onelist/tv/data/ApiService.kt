@@ -6,11 +6,9 @@ import retrofit2.http.*
 interface ApiService {
 
     // 登录
-    @FormUrlEncoded
     @POST("v1/api/user/login")
     fun login(
-        @Field("user_email") email: String,
-        @Field("user_password") password: String
+        @Body body: LoginRequest
     ): Call<LoginResponse>
 
     // 首页数据

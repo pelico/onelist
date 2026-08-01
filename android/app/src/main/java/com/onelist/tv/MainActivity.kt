@@ -196,7 +196,7 @@ class MainActivity : Activity() {
         btn.isEnabled = false
         btn.text = "登录中..."
         try {
-            val call = RetrofitClient.getService().login(username, password)
+            val call = RetrofitClient.getService().login(LoginRequest(username, password))
             call.enqueue(object : Callback<LoginResponse> {
                 override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                     val body = response.body()
