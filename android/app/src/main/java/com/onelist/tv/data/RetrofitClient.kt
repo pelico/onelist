@@ -4,6 +4,7 @@ import com.onelist.tv.App
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -27,8 +28,13 @@ object RetrofitClient {
         chain.proceed(request)
     }
 
+    private val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
+
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(httpLoggingInterceptor)
             .addInterceptor(authInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -61,25 +67,21 @@ object RetrofitClient {
 
     /**
      * Build a full image URL from a relative path.
+     * Matches tv/index.html imgUrl(): '/t/p/' + path.replace(/^\//, '')
      * TMDB images: original/... or /original/... -> serverUrl + /t/p/ + path
-     * Gallery images: /gallery/... -> serverUrl + path
      * Already absolute: http... -> return as-is
      */
     fun imageUrl(path: String?): String? {
         if (path == null || path.isEmpty()) return null
         if (path.startsWith("http")) return path
+        // "/" is the default PosterPath for unscraped records - not a valid image
+        if (path == "/") return null
         val base = getBaseUrl()
         if (base.isEmpty()) return null
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
-        // TMDB poster/backdrop paths need /t/p/ prefix
-        val imagePath = if (path.startsWith("/t/p/")) {
-            path
-        } else if (path.startsWith("/")) {
-            "/t/p$path"
-        } else {
-            "/t/p/$path"
-        }
-        return "$normalizedBase$imagePath"
+        // Match tv/index.html: '/t/p/' + path.replace(/^\//, '')
+        val stripped = if (path.startsWith("/")) path.substring(1) else path
+        return "$normalizedBase/t/p/$stripped"
     }
 
     /**
