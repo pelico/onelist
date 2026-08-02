@@ -1216,7 +1216,7 @@ class MainActivity : Activity() {
 
         player = ExoPlayer.Builder(this).build().also { exo ->
             playerView.player = exo
-            val mediaItem = MediaItem.fromUri(videoUrl)
+            val mediaItem = MediaItem.fromUri(videoUrl as String)
             exo.setMediaItem(mediaItem)
             exo.playWhenReady = true
             exo.prepare()
