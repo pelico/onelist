@@ -456,7 +456,7 @@ class MainActivity : Activity() {
         }
         val lp = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(220)
+            dp(280)
         )
         recyclerView.layoutParams = lp
         return recyclerView
@@ -1191,7 +1191,7 @@ class MainActivity : Activity() {
             }
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(220 * ((movies.size + 4) / 5))
+                dp(280 * ((movies.size + 4) / 5))
             ))
         }
 
@@ -1212,7 +1212,7 @@ class MainActivity : Activity() {
             }
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(220 * ((tvs.size + 4) / 5))
+                dp(280 * ((tvs.size + 4) / 5))
             ))
         }
     }
