@@ -1233,7 +1233,8 @@ class MainActivity : Activity() {
                 }
                 override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
                     android.util.Log.e("OneList", "Player error: ${error.errorCode} ${error.message}", error)
-                    toast("播放失败: ${error.message ?: '未知错误'}")
+                    val errMsg = error.message ?: "未知错误"
+                    toast("播放失败: $errMsg")
                 }
             })
         }
