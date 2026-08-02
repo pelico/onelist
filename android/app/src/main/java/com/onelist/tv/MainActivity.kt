@@ -279,7 +279,9 @@ class MainActivity : Activity() {
                         android.util.Log.d("OneList", "Body msg: ${body.msg}")
                         android.util.Log.d("OneList", "Body data null: ${body.data == null}")
                     } else {
-                        android.util.Log.d("OneList", "Body is null")
+                        // Body is null - could be deserialization failure
+                        val rawError = try { response.errorBody()?.string() } catch (e: Exception) { null }
+                        android.util.Log.e("OneList", "Body is null! HTTP ${response.code()}, errorBody: $rawError")
                     }
                     
                     if (body != null && body.code == 200 && body.data != null) {
@@ -316,6 +318,15 @@ class MainActivity : Activity() {
 
     private fun renderHomeData(parent: LinearLayout, data: HomeData) {
         val ctx = this
+
+        // Debug: log overall data structure
+        android.util.Log.d("OneList", "renderHomeData: galleries=${data.galleries?.size ?: 0} latestMovies=${data.latestMovies?.size ?: 0} latestTvs=${data.latestTvs?.size ?: 0} galleryItems keys=${data.galleryItems?.keys?.joinToString(",") ?: "null"}")
+        if (data.galleries != null) {
+            for (g in data.galleries) {
+                val itemCount = data.galleryItems?.get(g.galleryUid)?.let { if (it.isJsonArray) it.asJsonArray.size() else "not-array" } ?: "missing"
+                android.util.Log.d("OneList", "  Gallery: title='${g.title}' uid='${g.galleryUid}' type='${g.galleryType}' isTv=${g.isTv} isAlist=${g.isAlist} items=$itemCount")
+            }
+        }
 
         // Latest movies row
         if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
@@ -1191,6 +1202,7 @@ class MainActivity : Activity() {
         rootLayout.removeAllViews()
 
         val videoUrl = RetrofitClient.videoUrl(url, galleryUid)
+        android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid' videoUrl='$videoUrl'")
         if (videoUrl == null) {
             toast("无效的播放地址")
             showHome()
@@ -1208,6 +1220,22 @@ class MainActivity : Activity() {
             exo.setMediaItem(mediaItem)
             exo.playWhenReady = true
             exo.prepare()
+            exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    val stateName = when (state) {
+                        com.google.android.exoplayer2.Player.STATE_IDLE -> "IDLE"
+                        com.google.android.exoplayer2.Player.STATE_BUFFERING -> "BUFFERING"
+                        com.google.android.exoplayer2.Player.STATE_READY -> "READY"
+                        com.google.android.exoplayer2.Player.STATE_ENDED -> "ENDED"
+                        else -> "UNKNOWN($state)"
+                    }
+                    android.util.Log.d("OneList", "Player state: $stateName")
+                }
+                override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
+                    android.util.Log.e("OneList", "Player error: ${error.errorCode} ${error.message}", error)
+                    toast("播放失败: ${error.message ?: '未知错误'}")
+                }
+            })
         }
 
         rootLayout.addView(playerView)
