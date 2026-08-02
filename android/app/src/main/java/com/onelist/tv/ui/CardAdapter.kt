@@ -1,6 +1,7 @@
 package com.onelist.tv
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -9,13 +10,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.onelist.tv.data.Movie
 import com.onelist.tv.data.RetrofitClient
 import com.onelist.tv.data.Tv
 
 class CardAdapter(
     private val items: List<Any>,
-    private val type: String, // "movie" or "tv"
+    private val type: String,
     private val onClick: (Any) -> Unit
 ) : RecyclerView.Adapter<CardAdapter.CardViewHolder>() {
 
@@ -34,7 +36,6 @@ class CardAdapter(
             isFocusable = true
         }
 
-        // Poster image
         val poster = ImageView(ctx).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = LinearLayout.LayoutParams(cardWidth, cardHeight)
@@ -42,7 +43,6 @@ class CardAdapter(
         }
         card.addView(poster)
 
-        // Title text
         val title = TextView(ctx).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
@@ -51,7 +51,6 @@ class CardAdapter(
         }
         card.addView(title)
 
-        // Focus effect
         card.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.setBackgroundColor(Color.parseColor("#6366f1"))
@@ -71,31 +70,55 @@ class CardAdapter(
         val item = items[position]
         val card = holder.itemView as LinearLayout
         val poster = card.getChildAt(0) as ImageView
-        val title = card.getChildAt(1) as TextView
+        val titleView = card.getChildAt(1) as TextView
 
         val itemTitle: String?
         val posterPath: String?
 
         when (item) {
             is Movie -> {
-                itemTitle = item.title
-                posterPath = item.poster
+                itemTitle = item.title ?: item.originalTitle
+                posterPath = item.posterPath
+                android.util.Log.d("OneList", "Card[$position] Movie: title='${item.title}' origTitle='${item.originalTitle}' posterPath='$posterPath' id=${item.id}")
             }
             is Tv -> {
-                itemTitle = item.title
-                posterPath = item.poster
+                itemTitle = item.name ?: item.originalName
+                posterPath = item.posterPath
+                android.util.Log.d("OneList", "Card[$position] Tv: name='${item.name}' origName='${item.originalName}' posterPath='$posterPath' id=${item.id}")
             }
             else -> {
                 itemTitle = "?"
                 posterPath = null
+                android.util.Log.w("OneList", "Card[$position] Unknown item type: ${item::class.java.name}")
             }
         }
 
-        title.text = itemTitle ?: ""
+        val displayTitle = if (itemTitle.isNullOrEmpty()) "(未知)" else itemTitle
+        titleView.text = displayTitle
+
         val url = RetrofitClient.imageUrl(posterPath)
-        if (url != null) {
-            Glide.with(poster.context).load(url).into(poster)
+        android.util.Log.d("OneList", "Card[$position] posterPath='$posterPath' -> imageUrl='$url' title='$displayTitle'")
+
+        val placeholder = GradientDrawable().apply {
+            setColor(Color.parseColor("#1a1a2e"))
+            cornerRadius = 4f
+        }
+
+        if (url != null && url.isNotEmpty()) {
+            try {
+                Glide.with(poster.context)
+                    .load(url)
+                    .placeholder(placeholder)
+                    .error(placeholder)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .into(poster)
+            } catch (e: Exception) {
+                android.util.Log.e("OneList", "Card[$position] Glide load failed: ${e.message}")
+                poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
+                poster.setImageDrawable(null)
+            }
         } else {
+            poster.setBackgroundColor(Color.parseColor("#2a2a4e"))
             poster.setImageDrawable(null)
         }
 
