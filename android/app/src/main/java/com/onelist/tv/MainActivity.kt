@@ -16,6 +16,8 @@ import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
+import com.google.gson.Gson
+import com.google.gson.JsonArray
 import com.onelist.tv.data.*
 import retrofit2.Call
 import retrofit2.Callback
@@ -331,10 +333,15 @@ class MainActivity : Activity() {
             parent.addView(recyclerView)
         }
 
-        // Gallery rows
+        // Gallery rows - manually parse JsonElement to avoid Gson nested generic type erasure
         if (data.galleries != null) {
+            val gson = Gson()
             for (gallery in data.galleries) {
-                val items = data.galleryItems?.get(gallery.galleryUid) ?: emptyList()
+                val jsonElement = data.galleryItems?.get(gallery.galleryUid)
+                val items: List<GalleryItem> = if (jsonElement != null && jsonElement.isJsonArray) {
+                    jsonElement.asJsonArray.map { gson.fromJson(it, GalleryItem::class.java) }
+                } else emptyList()
+
                 // Determine gallery type for list view: prefer gallery_type, fallback to is_tv
                 val galleryType = when {
                     gallery.galleryType == "tv" -> "tv"
