@@ -65,58 +65,29 @@ object RetrofitClient {
         return apiService!!
     }
 
-    /**
-     * Build a full image URL from a relative path.
-     * Matches tv/index.html imgUrl(): '/t/p/' + path.replace(/^\//, '')
-     * TMDB images: original/... or /original/... -> serverUrl + /t/p/ + path
-     * Already absolute: http... -> return as-is
-     */
     fun imageUrl(path: String?): String? {
         if (path == null || path.isEmpty()) return null
         if (path.startsWith("http")) return path
-        // "/" is the default PosterPath for unscraped records - not a valid image
         if (path == "/") return null
         val base = getBaseUrl()
         if (base.isEmpty()) return null
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
-        // Match tv/index.html: '/t/p/' + path.replace(/^\//, '')
         val stripped = if (path.startsWith("/")) path.substring(1) else path
         return "$normalizedBase/t/p/$stripped"
     }
 
-    /**
-     * Build video URL based on source type.
-     *
-     * Backend stores Alist video paths as "/d/path/to/file.mp4".
-     * The Alist proxy route is: GET /alist/proxy/:gallery_uid/*path
-     * So the full URL for Alist is: baseUrl + /alist/proxy/{galleryUid}/d/path/to/file.mp4
-     *
-     * Local file paths start with /file/...
-     * Backend route: GET /file/*path
-     * So the full URL is: baseUrl + /file/path
-     */
     fun videoUrl(url: String?, galleryUid: String?): String? {
         if (url == null || url.isEmpty()) return null
         val base = getBaseUrl()
         if (base.isEmpty()) return null
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
-
-        return when {
-            // Already absolute URL
-            url.startsWith("http") -> url
-            // Already a full alist proxy path
-            url.startsWith("/alist/proxy/") -> "$normalizedBase$url"
-            // Alist gallery: /d/... path with galleryUid -> /alist/proxy/{uid}/d/...
-            // Note: no extra "/" between galleryUid and url, since url already starts with /
-            galleryUid != null && url.startsWith("/d/") -> {
-                "$normalizedBase/alist/proxy/$galleryUid$url"
-            }
-            // Local file: /file/... path
-            url.startsWith("/file/") -> "$normalizedBase$url"
-            // Other absolute paths (fallback to base)
-            url.startsWith("/") -> "$normalizedBase$url"
-            // Relative path
-            else -> "$normalizedBase/$url"
+        if (url.startsWith("http")) return url
+        if (url.startsWith("/alist/proxy/")) return "$normalizedBase$url"
+        if (galleryUid != null && url.startsWith("/d/")) {
+            return "$normalizedBase/alist/proxy/$galleryUid$url"
         }
+        if (url.startsWith("/file/")) return "$normalizedBase$url"
+        if (url.startsWith("/")) return "$normalizedBase$url"
+        return "$normalizedBase/$url"
     }
 }
