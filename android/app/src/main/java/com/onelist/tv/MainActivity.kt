@@ -334,19 +334,32 @@ class MainActivity : Activity() {
         // Gallery rows
         if (data.galleries != null) {
             for (gallery in data.galleries) {
-                val type = if (gallery.isTv == true) "tv" else "movie"
                 val items = data.galleryItems?.get(gallery.galleryUid) ?: emptyList()
+                // Determine gallery type for list view: prefer gallery_type, fallback to is_tv
+                val galleryType = when {
+                    gallery.galleryType == "tv" -> "tv"
+                    gallery.galleryType == "movie" -> "movie"
+                    gallery.isTv == true -> "tv"
+                    else -> "movie"
+                }
+                android.util.Log.d("OneList", "Gallery '${gallery.title}' uid=${gallery.galleryUid} items=${items.size} type=$galleryType")
                 if (items.isNotEmpty()) {
-                    val row = buildContentRow(gallery.title ?: "媒体库", type, gallery.galleryUid)
+                    // Log first item to debug field mapping
+                    val first = items[0]
+                    android.util.Log.d("OneList", "  First item: title='${first.title}' name='${first.name}' poster='${first.posterPath}'")
+
+                    val row = buildContentRow(gallery.title ?: "媒体库", galleryType, gallery.galleryUid)
                     parent.addView(row)
+                    // Per-item type detection: has "title" field -> Movie, has "name" field -> Tv
+                    // This matches tv/index.html: var type = forceType || (item.title ? 'movie' : 'tv')
                     val mappedItems = items.map { item ->
-                        if (type == "tv") {
-                            Tv(id = item.id, name = item.displayTitle, posterPath = item.posterPath)
+                        if (item.title != null) {
+                            Movie(id = item.id, title = item.title, posterPath = item.posterPath)
                         } else {
-                            Movie(id = item.id, title = item.displayTitle, posterPath = item.posterPath)
+                            Tv(id = item.id, name = item.name, posterPath = item.posterPath)
                         } as Any
                     }
-                    val recyclerView = buildHorizontalCardList(mappedItems, type)
+                    val recyclerView = buildHorizontalCardList(mappedItems, "mixed")
                     parent.addView(recyclerView)
                 }
             }
