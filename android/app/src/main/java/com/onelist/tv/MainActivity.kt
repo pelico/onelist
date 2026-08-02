@@ -286,7 +286,17 @@ class MainActivity : Activity() {
                     
                     if (body != null && body.code == 200 && body.data != null) {
                         loading.visibility = View.GONE
-                        renderHomeData(layout, body.data!!)
+                        val data = body.data!!
+                        android.util.Log.d("OneList", "Home data: latestMovies=${data.latestMovies?.size ?: 0} latestTvs=${data.latestTvs?.size ?: 0} galleries=${data.galleries?.size ?: 0}")
+                        if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
+                            val m = data.latestMovies!![0]
+                            android.util.Log.d("OneList", "First latestMovie: title='${m.title}' origTitle='${m.originalTitle}' posterPath='${m.posterPath}' backdropPath='${m.backdropPath}' id=${m.id}")
+                        }
+                        if (data.latestTvs != null && data.latestTvs.isNotEmpty()) {
+                            val t = data.latestTvs!![0]
+                            android.util.Log.d("OneList", "First latestTv: name='${t.name}' origName='${t.originalName}' posterPath='${t.posterPath}' backdropPath='${t.backdropPath}' id=${t.id}")
+                        }
+                        renderHomeData(layout, data)
                     } else {
                         val currentToken = App.token
                         val errorMsg = buildString {
@@ -653,12 +663,18 @@ class MainActivity : Activity() {
         }
 
         // Poster
-        val posterUrl = RetrofitClient.imageUrl(movie.poster)
+        val posterUrl = RetrofitClient.imageUrl(movie.posterPath)
+        android.util.Log.d("OneList", "MovieDetail: title='${movie.title}' origTitle='${movie.originalTitle}' posterPath='${movie.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = LinearLayout.LayoutParams(dp(180), dp(270))
+            setBackgroundColor(Color.parseColor("#1a1a2e"))
             if (posterUrl != null) {
-                Glide.with(this@MainActivity).load(posterUrl).into(this)
+                val placeholder = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.parseColor("#1a1a2e"))
+                    cornerRadius = dp(4).toFloat()
+                }
+                Glide.with(this@MainActivity).load(posterUrl).placeholder(placeholder).error(placeholder).into(this)
             }
         }
         contentLayout.addView(posterView)
@@ -671,7 +687,7 @@ class MainActivity : Activity() {
 
         // Title
         val titleView = TextView(this).apply {
-            text = movie.title ?: ""
+            text = movie.title ?: movie.originalTitle ?: ""
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -806,12 +822,18 @@ class MainActivity : Activity() {
         }
 
         // Poster
-        val posterUrl = RetrofitClient.imageUrl(tv.poster)
+        val posterUrl = RetrofitClient.imageUrl(tv.posterPath)
+        android.util.Log.d("OneList", "TvDetail: name='${tv.name}' origName='${tv.originalName}' posterPath='${tv.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = LinearLayout.LayoutParams(dp(180), dp(270))
+            setBackgroundColor(Color.parseColor("#1a1a2e"))
             if (posterUrl != null) {
-                Glide.with(this@MainActivity).load(posterUrl).into(this)
+                val placeholder = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.parseColor("#1a1a2e"))
+                    cornerRadius = dp(4).toFloat()
+                }
+                Glide.with(this@MainActivity).load(posterUrl).placeholder(placeholder).error(placeholder).into(this)
             }
         }
         contentLayout.addView(posterView)
@@ -823,7 +845,7 @@ class MainActivity : Activity() {
         }
 
         val titleView = TextView(this).apply {
-            text = tv.title ?: ""
+            text = tv.name ?: tv.originalName ?: ""
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             setTypeface(null, android.graphics.Typeface.BOLD)
