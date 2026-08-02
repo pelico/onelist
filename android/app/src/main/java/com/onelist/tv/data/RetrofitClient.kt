@@ -86,8 +86,14 @@ object RetrofitClient {
 
     /**
      * Build video URL based on source type.
-     * Local file: path starts with / -> serverUrl + /file/ + path
-     * Alist: path contains gallery_uid -> serverUrl + /alist/proxy/ + galleryUid + / + path
+     *
+     * Backend stores Alist video paths as "/d/path/to/file.mp4".
+     * The Alist proxy route is: GET /alist/proxy/:gallery_uid/*path
+     * So the full URL for Alist is: baseUrl + /alist/proxy/{galleryUid}/d/path/to/file.mp4
+     *
+     * Local file paths start with /file/...
+     * Backend route: GET /file/*path
+     * So the full URL is: baseUrl + /file/path
      */
     fun videoUrl(url: String?, galleryUid: String?): String? {
         if (url == null || url.isEmpty()) return null
@@ -96,16 +102,19 @@ object RetrofitClient {
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
 
         return when {
-            // Alist proxy
-            galleryUid != null && url.contains(galleryUid) -> {
+            // Already absolute URL
+            url.startsWith("http") -> url
+            // Already a full alist proxy path
+            url.startsWith("/alist/proxy/") -> "$normalizedBase$url"
+            // Alist gallery: /d/... path with galleryUid -> /alist/proxy/{uid}/d/...
+            // Note: no extra "/" between galleryUid and url, since url already starts with /
+            galleryUid != null && url.startsWith("/d/") -> {
                 "$normalizedBase/alist/proxy/$galleryUid$url"
             }
-            // Local file
-            url.startsWith("/") -> {
-                "$normalizedBase/file$url"
-            }
-            // Already absolute
-            url.startsWith("http") -> url
+            // Local file: /file/... path
+            url.startsWith("/file/") -> "$normalizedBase$url"
+            // Other absolute paths (fallback to base)
+            url.startsWith("/") -> "$normalizedBase$url"
             // Relative path
             else -> "$normalizedBase/$url"
         }
