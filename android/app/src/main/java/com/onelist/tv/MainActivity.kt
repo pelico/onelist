@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.ui.PlayerView
 import com.google.gson.Gson
 import com.google.gson.JsonArray
@@ -1236,30 +1237,85 @@ class MainActivity : Activity() {
             useController = true
         }
 
-        player = ExoPlayer.Builder(this).build().also { exo ->
-            playerView.player = exo
-            val mediaItem = MediaItem.fromUri(videoUrl as String)
-            exo.setMediaItem(mediaItem)
-            exo.playWhenReady = true
-            exo.prepare()
-            exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) {
-                    val stateName = when (state) {
-                        com.google.android.exoplayer2.Player.STATE_IDLE -> "IDLE"
-                        com.google.android.exoplayer2.Player.STATE_BUFFERING -> "BUFFERING"
-                        com.google.android.exoplayer2.Player.STATE_READY -> "READY"
-                        com.google.android.exoplayer2.Player.STATE_ENDED -> "ENDED"
-                        else -> "UNKNOWN($state)"
+        // Use OkHttp as data source — fixes TLS/SSL issues on old Android (4.4)
+        // where the built-in HttpsURLConnection doesn't support modern TLS
+        val okHttpClientForVideo = okhttp3.OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .also { client ->
+                val token = App.token
+                if (token != null && token.isNotEmpty()) {
+                    client.addInterceptor { chain ->
+                        val req = chain.request().newBuilder()
+                            .header("Authorization", token)
+                            .build()
+                        chain.proceed(req)
                     }
-                    android.util.Log.d("OneList", "Player state: $stateName")
                 }
-                override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
-                    android.util.Log.e("OneList", "Player error: ${error.errorCode} ${error.message}", error)
-                    val errMsg = error.message ?: "未知错误"
-                    toast("播放失败: $errMsg")
-                }
-            })
-        }
+            }
+            .build()
+        val dataSourceFactory = OkHttpDataSource.Factory(okHttpClientForVideo)
+
+        player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(
+                com.google.android.exoplayer2.source.DefaultMediaSourceFactory(dataSourceFactory)
+            )
+            .build().also { exo ->
+                playerView.player = exo
+                val mediaItem = MediaItem.fromUri(videoUrl as String)
+                exo.setMediaItem(mediaItem)
+                exo.playWhenReady = true
+                exo.prepare()
+                android.util.Log.d("OneList", "Player prepared, waiting for state...")
+                exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        val stateName = when (state) {
+                            com.google.android.exoplayer2.Player.STATE_IDLE -> "IDLE"
+                            com.google.android.exoplayer2.Player.STATE_BUFFERING -> "BUFFERING"
+                            com.google.android.exoplayer2.Player.STATE_READY -> "READY"
+                            com.google.android.exoplayer2.Player.STATE_ENDED -> "ENDED"
+                            else -> "UNKNOWN($state)"
+                        }
+                        android.util.Log.d("OneList", "Player state: $stateName")
+                    }
+                    override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
+                        val errorCodeName = when (error.errorCode) {
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_UNSPECIFIED -> "IO_UNSPECIFIED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> "IO_NETWORK_CONNECTION_FAILED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "IO_NETWORK_CONNECTION_TIMEOUT"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE -> "IO_INVALID_HTTP_CONTENT_TYPE"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "IO_BAD_HTTP_STATUS"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "IO_FILE_NOT_FOUND"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "IO_NO_PERMISSION"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED -> "IO_CLEARTEXT_NOT_PERMITTED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE -> "IO_READ_POSITION_OUT_OF_RANGE"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "PARSING_CONTAINER_MALFORMED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> "PARSING_MANIFEST_MALFORMED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "PARSING_CONTAINER_UNSUPPORTED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED -> "PARSING_MANIFEST_UNSUPPORTED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "DECODER_INIT_FAILED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> "DECODER_QUERY_FAILED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_DECODING_FAILED -> "DECODING_FAILED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "DECODING_FORMAT_EXCEEDS_CAPABILITIES"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "DECODING_FORMAT_UNSUPPORTED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED -> "AUDIO_TRACK_INIT_FAILED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED -> "AUDIO_TRACK_WRITE_FAILED"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK -> "FAILED_RUNTIME_CHECK"
+                            com.google.android.exoplayer2.PlaybackException.ERROR_CODE_UNSPECIFIED -> "UNSPECIFIED"
+                            else -> "UNKNOWN(${error.errorCode})"
+                        }
+                        android.util.Log.e("OneList", "Player ERROR: code=$errorCodeName(${error.errorCode}) message='${error.message}' cause=${error.cause}", error)
+                        android.util.Log.e("OneList", "Player ERROR cause chain:")
+                        var t: Throwable? = error
+                        while (t != null) {
+                            android.util.Log.e("OneList", "  -> ${t::class.java.name}: ${t.message}")
+                            t = t.cause
+                        }
+                        val errMsg = error.message ?: "未知错误 (code: $errorCodeName)"
+                        toast("播放失败: $errMsg")
+                    }
+                })
+            }
 
         rootLayout.addView(playerView)
     }
