@@ -1375,19 +1375,23 @@ class MainActivity : Activity() {
             .build()
         val dataSourceFactory = OkHttpDataSource.Factory(okHttpClientForVideo)
 
-        // 对 URL 中的中文等非 ASCII 字符进行百分号编码
-        // 用 android.net.Uri.encode 对 path 逐段编码，保留 / 分隔符
-        // （java.net.URI 在 Android 5.1 Dalvik 上行为不一致，可能导致 404）
+        // 对 URL 中的空格、中文等非 ASCII 字符进行百分号编码。
+        // 关键：不能用 java.net.URL 解析，因为 URL 里的空格（如 "7WKYS SD"）
+        // 会导致 MalformedURLException → catch 里返回原始未编码 URL → 404。
+        // 改为手动拆分 scheme + host:port + path?query，再对 path 做编码。
         val encodedUrl = try {
-            val u = java.net.URL(videoUrl)
-            val encodedPath = android.net.Uri.encode(u.path, "/")
-            val sb = StringBuilder()
-            sb.append(u.protocol).append("://").append(u.host)
-            if (u.port > 0) sb.append(":").append(u.port)
-            sb.append(encodedPath)
-            if (u.query != null) sb.append("?").append(u.query)
-            sb.toString()
+            val schemeEnd = videoUrl.indexOf("://")
+            if (schemeEnd < 0) throw Exception("no scheme")
+            val scheme = videoUrl.substring(0, schemeEnd)
+            val rest = videoUrl.substring(schemeEnd + 3)
+            val slashIdx = rest.indexOf('/')
+            val hostPort = if (slashIdx >= 0) rest.substring(0, slashIdx) else rest
+            val pathAndQuery = if (slashIdx >= 0) rest.substring(slashIdx) else ""
+            // 保留 / ? = & # 等 URL 特殊字符不被编码
+            val encoded = android.net.Uri.encode(pathAndQuery, "/?=&#")
+            "$scheme://$hostPort$encoded"
         } catch (e: Exception) {
+            android.util.Log.e("OneList", "URL encode failed", e)
             videoUrl
         }
         android.util.Log.d("OneList", "Player: raw='$videoUrl' encoded='$encodedUrl'")
