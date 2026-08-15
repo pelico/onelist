@@ -69,9 +69,10 @@ dependencies {
     // Image loading
     implementation 'com.github.bumptech.glide:glide:4.12.0'
 
-    // Video player — ExoPlayer 2.16.1 在旧 armeabi-v7a 设备 (Android 5.x TV) 上更稳定；
-    // 2.18.x 升级了 NDK 工具链，某些 32 位老芯片可能出现库加载失败。
-    def exoplayer_version = '2.16.1'
+    // Video player — 2.18.7 是 2.x 的最终稳定版，支持 minSdk 16，
+    // 并提供 PlaybackException / ERROR_CODE_* 精细错误码用于排障。
+    // 2.16.x 没这些常量，错误回调会 Unresolved reference。
+    def exoplayer_version = '2.18.7'
     implementation "com.google.android.exoplayer:exoplayer-core:$exoplayer_version"
     implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayer_version"
     implementation("com.google.android.exoplayer:extension-okhttp:$exoplayer_version") {
