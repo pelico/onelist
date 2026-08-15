@@ -3,7 +3,6 @@ package controllers
 import (
 	"io"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -33,10 +32,8 @@ func AlistProxy(c *gin.Context) {
 		return
 	}
 
-	// URL 解码：浏览器请求含中文/特殊字符的路径时会自动编码
-	if decoded, err := url.QueryUnescape(filePath); err == nil {
-		filePath = decoded
-	}
+	// Gin 路由匹配时已对 c.Param("path") 做过一次 URL 解码，
+	// 这里不需要再 url.QueryUnescape（重复解码会导致文件名含 % 字符时出错）
 
 	// data.value.url 存储时带有 Alist 下载路由前缀 /d，
 	// 而 Alist /api/fs/get 需要的是不含 /d 的逻辑路径（如 /电影/xxx.mp4）

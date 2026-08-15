@@ -514,7 +514,7 @@ export default {
                 let playUrl = (nextUrl.startsWith('/file/') ? alist_host.value + nextUrl.replace('/file/', '') : alist_host.value + nextUrl);
                 url.value = playUrl;
                 urlBase.value = encodeURI(playUrl);
-                art.switchUrl(playUrl, title);
+                art.switchUrl(encodeURI(playUrl), title);
                 art.on('ready', () => art.play());
             }
         }
@@ -768,7 +768,7 @@ export default {
                         OpenVideo(item.url);
                     } else {
                         urlBase.value = encodeURI(item.url);
-                        art.switchUrl(item.url, item.html);
+                        art.switchUrl(encodeURI(item.url), item.html);
                         art.option.id = item.url.replaceAll(alist_host.value, "");
                         art.on('ready', () => {
                             art.play();
@@ -931,7 +931,7 @@ export default {
             art.option.id = file;
             setting.value.id = file;
             art.setting.update(quality);
-            art.switchUrl(url.value, "");
+            art.switchUrl(encodeURI(url.value), "");
             art.quality = qualityList;
             if (live_transcoding_subtitle_task_list != null) {
                 let subtitleUrl = live_transcoding_subtitle_task_list[0].url;
@@ -1058,7 +1058,7 @@ export default {
                     if (urlList.value != null) {
                         speed.value++;
                         if (speed.value <= urlList.value.length) {
-                            art.switchUrl(urlList.value[speed.value - 1].url, urlList.value[speed.value - 1].html);
+                            art.switchUrl(encodeURI(urlList.value[speed.value - 1].url), urlList.value[speed.value - 1].html);
                         }
                     }
                 },
@@ -1350,7 +1350,7 @@ export default {
                         // 加时间戳参数破坏浏览器缓存，确保重新请求后端获取直链
                         let retryUrl = url.value;
                         retryUrl += (retryUrl.includes('?') ? '&' : '?') + '_t=' + Date.now();
-                        art.switchUrl(retryUrl, '');
+                        art.switchUrl(encodeURI(retryUrl), '');
                         art.once('ready', () => { art.play(); });
                     }
                 }, 1500);
@@ -1460,7 +1460,7 @@ export default {
                                     OpenVideo(item.url);
                                 } else {
                                     urlBase.value = encodeURI(item.url);
-                                    art.switchUrl(item.url, item.html);
+                                    art.switchUrl(encodeURI(item.url), item.html);
                                     art.option.id = item.url.replaceAll(alist_host.value, "");
                                     art.on('ready', () => {
                                         art.play();
@@ -1480,7 +1480,7 @@ export default {
                                 OpenVideo(item.url);
                             } else {
                                 urlBase.value = encodeURI(item.url);
-                                art.switchUrl(item.url, item.html);
+                                art.switchUrl(encodeURI(item.url), item.html);
                                 art.option.id = item.url.replaceAll(alist_host.value, "");
                                 art.on('ready', () => {
                                     art.play();

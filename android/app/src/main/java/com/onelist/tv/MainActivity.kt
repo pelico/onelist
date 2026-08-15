@@ -15,7 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
+import okhttp3.toHttpUrlOrNull
 import com.google.android.exoplayer2.ui.PlayerView
 import com.google.gson.Gson
 import com.google.gson.JsonArray
@@ -1374,41 +1374,57 @@ class MainActivity : Activity() {
                 val token = App.token
                 client.addInterceptor { chain ->
                     val originalReq = chain.request()
-                    val originalUrl = originalReq.url
+                    val originalUrlStr = originalReq.url.toString()
 
-                    // 1. 构造带正确编码的 URL
-                    val newUrlBuilder = originalUrl.newBuilder()
-                    newUrlBuilder.encodedPathSegments.clear()
-                    // 按 / 分割 path，对每段用 URLEncoder 编码后用
-                    // addEncodedPathSegment 添加（告诉 OkHttp 不要再编码）
-                    val rawPath = originalUrl.encodedPath
-                    val segments = rawPath.split("/")
-                    for ((i, seg) in segments.withIndex()) {
-                        val encodedSeg = java.net.URLEncoder.encode(seg, "UTF-8")
-                            .replace("+", "%20")
-                        if (i == 0) {
-                            // 第一段通常是空字符串（以 / 开头），保持
-                            newUrlBuilder.addEncodedPathSegment(encodedSeg)
-                        } else {
-                            newUrlBuilder.addEncodedPathSegment(encodedSeg)
+                    // 只有 URL 含中文/空格等非法字符时才编码
+                    val needsEncoding = originalUrlStr.any { it.code > 127 || it == ' ' }
+                    if (!needsEncoding) {
+                        if (token != null && token.isNotEmpty()) {
+                            val req = originalReq.newBuilder()
+                                .header("Authorization", token).build()
+                            return@addInterceptor chain.proceed(req)
                         }
+                        return@addInterceptor chain.proceed(originalReq)
                     }
-                    // 复制 query 参数
-                    originalUrl.queryParameterNames.toSet().forEach { name ->
-                        originalUrl.queryParameterValues(name).forEach { value ->
-                            newUrlBuilder.addEncodedQueryParameter(name, value)
+
+                    // 手动拆分 URL，按 path segment 用 URLEncoder 编码
+                    // （OkHttp 的 addEncodedPathSegment 等 API 不可用/不可访问）
+                    val encodedUrlStr = try {
+                        val schemeEnd = originalUrlStr.indexOf("://")
+                        val scheme = originalUrlStr.substring(0, schemeEnd)
+                        val rest = originalUrlStr.substring(schemeEnd + 3)
+                        val slashIdx = rest.indexOf('/')
+                        if (slashIdx < 0) originalUrlStr
+                        else {
+                            val hostPort = rest.substring(0, slashIdx)
+                            val pathAndQuery = rest.substring(slashIdx)
+                            val queryIdx = pathAndQuery.indexOf('?')
+                            val pathPart = if (queryIdx >= 0) pathAndQuery.substring(0, queryIdx) else pathAndQuery
+                            val queryPart = if (queryIdx >= 0) pathAndQuery.substring(queryIdx) else ""
+                            val encodedPath = pathPart.split("/").joinToString("/") { seg ->
+                                java.net.URLEncoder.encode(seg, "UTF-8").replace("+", "%20")
+                            }
+                            "$scheme://$hostPort$encodedPath$queryPart"
                         }
+                    } catch (e: Exception) {
+                        android.util.Log.e("OneList", "encodeUrl failed", e)
+                        originalUrlStr
                     }
-                    val newUrl = newUrlBuilder.build()
 
-                    // 2. 构造新请求
-                    val reqBuilder = originalReq.newBuilder().url(newUrl)
-                    if (token != null && token.isNotEmpty()) {
-                        reqBuilder.header("Authorization", token)
+                    android.util.Log.d("OneList", "Interceptor: '$originalUrlStr' → '$encodedUrlStr'")
+
+                    // 用 toHttpUrlOrNull 重新解析已编码的 URL
+                    // %XX 是合法 URL 字符，不会再次编码
+                    val newUrl = encodedUrlStr.toHttpUrlOrNull()
+                    val newReq = if (newUrl != null) {
+                        val reqBuilder = originalReq.newBuilder().url(newUrl)
+                        if (token != null && token.isNotEmpty()) {
+                            reqBuilder.header("Authorization", token)
+                        }
+                        reqBuilder.build()
+                    } else {
+                        originalReq
                     }
-                    val newReq = reqBuilder.build()
-
-                    android.util.Log.d("OneList", "Interceptor: original='${originalUrl}' → encoded='${newUrl}'")
                     chain.proceed(newReq)
                 }
             }
