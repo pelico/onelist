@@ -15,10 +15,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MimeTypes
 import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.ui.PlayerView
-import okhttp3.HttpUrl
+import okhttp3.toHttpUrlOrNull
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
@@ -1378,24 +1377,25 @@ class MainActivity : Activity() {
 
         // 对 URL 中的中文等非 ASCII 字符进行百分号编码
         // （浏览器 <video> 会自动编码，但 ExoPlayer/OkHttp 需要合法的 ASCII URL）
-        val encodedUrl = HttpUrl.parse(videoUrl)?.toString() ?: videoUrl
+        val encodedUrl = videoUrl.toHttpUrlOrNull()?.toString() ?: videoUrl
         android.util.Log.d("OneList", "Player: raw='$videoUrl' encoded='$encodedUrl'")
 
         // 根据文件扩展名推断 MIME type。
         // 后端 FileServer 返回 Content-Type: application/octet-stream，
         // ExoPlayer 无法据此识别媒体格式 → "Source error"。
         // 显式设置 MIME type 让 ExoPlayer 选择正确的 extractor。
+        // 用字符串常量而非 MimeTypes 类（某些 exoplayer-core 版本 classpath 不含此类）
         val lowerUrl = encodedUrl.lowercase()
         val mimeType = when {
-            lowerUrl.contains(".mp4") -> MimeTypes.VIDEO_MP4
-            lowerUrl.contains(".mkv") -> MimeTypes.VIDEO_MATROSKA
-            lowerUrl.contains(".ts") -> MimeTypes.VIDEO_MP2T
-            lowerUrl.contains(".webm") -> MimeTypes.VIDEO_WEBM
-            lowerUrl.contains(".flv") -> MimeTypes.APPLICATION_MP4
-            lowerUrl.contains(".avi") -> MimeTypes.VIDEO_MP4
-            lowerUrl.contains(".m4v") -> MimeTypes.VIDEO_MP4
-            lowerUrl.contains(".mov") -> MimeTypes.VIDEO_MP4
-            else -> MimeTypes.VIDEO_MP4 // 默认按 MP4 处理，让 ExoPlayer sniff
+            lowerUrl.contains(".mp4") -> "video/mp4"
+            lowerUrl.contains(".mkv") -> "video/x-matroska"
+            lowerUrl.contains(".ts") -> "video/mp2t"
+            lowerUrl.contains(".webm") -> "video/webm"
+            lowerUrl.contains(".flv") -> "video/x-flv"
+            lowerUrl.contains(".avi") -> "video/mp4"
+            lowerUrl.contains(".m4v") -> "video/mp4"
+            lowerUrl.contains(".mov") -> "video/mp4"
+            else -> "video/mp4" // 默认按 MP4 处理，让 ExoPlayer sniff
         }
 
         player = ExoPlayer.Builder(this)
