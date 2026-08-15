@@ -1285,7 +1285,8 @@ class MainActivity : Activity() {
                     val body = response.body()
                     android.util.Log.d("OneList", "GalleryHost code=${body?.code} msg=${body?.msg} data=${body?.`data`} isAliOpen=${body?.isAliOpen}")
                     if (body == null || body.code != 200) {
-                        loadingText.text = "获取媒体库信息失败: HTTP ${response.code()}"
+                        loadingText.text = "获取媒体库信息失败: HTTP ${response.code()}" +
+                            (if (body != null) " code=${body.code} msg=${body.msg}" else "")
                         return
                     }
                     val alistHost = body.`data` ?: ""
@@ -1342,7 +1343,7 @@ class MainActivity : Activity() {
                         else "$normalizedBase/file/${url.trimStart('/')}"
                     }
                     android.util.Log.d("OneList", "Player resolved: alistHost='$alistHost' videoSrc='$videoSrc'")
-                    loadingText.visibility = View.GONE
+                    loadingText.text = "正在播放: $videoSrc"
                     startExoPlayer(playerView, videoSrc)
                 }
                 override fun onFailure(call: retrofit2.Call<GalleryHostResponse>, t: Throwable) {
@@ -1365,7 +1366,7 @@ class MainActivity : Activity() {
                 if (token != null && token.isNotEmpty()) {
                     client.addInterceptor { chain ->
                         val req = chain.request().newBuilder()
-                            .header("Authorization", "Bearer $token")
+                            .header("Authorization", token)
                             .build()
                         chain.proceed(req)
                     }
@@ -1375,11 +1376,17 @@ class MainActivity : Activity() {
         val dataSourceFactory = OkHttpDataSource.Factory(okHttpClientForVideo)
 
         // 对 URL 中的中文等非 ASCII 字符进行百分号编码
-        // （浏览器 <video> 会自动编码，但 ExoPlayer/OkHttp 需要合法的 ASCII URL）
-        // 用 java.net.URI 多参数构造函数自动编码 path，纯 JDK 无第三方依赖
+        // 用 android.net.Uri.encode 对 path 逐段编码，保留 / 分隔符
+        // （java.net.URI 在 Android 5.1 Dalvik 上行为不一致，可能导致 404）
         val encodedUrl = try {
             val u = java.net.URL(videoUrl)
-            java.net.URI(u.protocol, null, u.host, u.port, u.path, u.query, null).toString()
+            val encodedPath = android.net.Uri.encode(u.path, "/")
+            val sb = StringBuilder()
+            sb.append(u.protocol).append("://").append(u.host)
+            if (u.port > 0) sb.append(":").append(u.port)
+            sb.append(encodedPath)
+            if (u.query != null) sb.append("?").append(u.query)
+            sb.toString()
         } catch (e: Exception) {
             videoUrl
         }
