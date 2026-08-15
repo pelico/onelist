@@ -15,7 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
-import okhttp3.toHttpUrlOrNull
+import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.ui.PlayerView
 import com.google.gson.Gson
 import com.google.gson.JsonArray
@@ -1413,16 +1413,17 @@ class MainActivity : Activity() {
 
                     android.util.Log.d("OneList", "Interceptor: '$originalUrlStr' → '$encodedUrlStr'")
 
-                    // 用 toHttpUrlOrNull 重新解析已编码的 URL
-                    // %XX 是合法 URL 字符，不会再次编码
-                    val newUrl = encodedUrlStr.toHttpUrlOrNull()
-                    val newReq = if (newUrl != null) {
-                        val reqBuilder = originalReq.newBuilder().url(newUrl)
+                    // 直接用编码后的 URL 字符串构造请求。
+                    // Request.Builder.url(String) 内部调用 toHttpUrl()（OkHttp 包内
+                    // 方法，不需要外部 import 扩展函数），已编码的 %XX 不会再次编码。
+                    val newReq = try {
+                        val reqBuilder = originalReq.newBuilder().url(encodedUrlStr)
                         if (token != null && token.isNotEmpty()) {
                             reqBuilder.header("Authorization", token)
                         }
                         reqBuilder.build()
-                    } else {
+                    } catch (e: Exception) {
+                        android.util.Log.e("OneList", "URL build failed: ${e.message}")
                         originalReq
                     }
                     chain.proceed(newReq)
