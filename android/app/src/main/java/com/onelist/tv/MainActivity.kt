@@ -1357,51 +1357,67 @@ class MainActivity : Activity() {
 
     private fun startExoPlayer(playerView: PlayerView, videoUrl: String) {
         // Use OkHttp as data source — fixes TLS/SSL issues on old Android (4.4)
-        // where the built-in HttpsURLConnection doesn't support modern TLS
+        // where the built-in HttpsURLConnection doesn't support modern TLS.
+        //
+        // URL 编码策略：
+        //   不在 MediaItem.setUri() 之前编码 URL，因为：
+        //   1. android.net.Uri.encode 把空格编码为 '+'，OkHttp/Gin 不认
+        //   2. MediaItem.Builder.setUri() 内部会再次解析 URL，可能双重编码
+        //   改为在 OkHttp 拦截器中编码：拦截器拿到 ExoPlayer 传的原始 URL，
+        //   用 URLEncoder 对每个 path segment 编码（空格→%20，中文→UTF-8 %XX），
+        //   再用 OkHttp 的 HttpUrl.Builder.addEncodedPathSegment 构造请求，
+        //   这样 OkHttp 不会再次编码，保证服务器收到的是正确的 URL。
         val okHttpClientForVideo = okhttp3.OkHttpClient.Builder()
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
             .also { client ->
                 val token = App.token
-                if (token != null && token.isNotEmpty()) {
-                    client.addInterceptor { chain ->
-                        val req = chain.request().newBuilder()
-                            .header("Authorization", token)
-                            .build()
-                        chain.proceed(req)
+                client.addInterceptor { chain ->
+                    val originalReq = chain.request()
+                    val originalUrl = originalReq.url
+
+                    // 1. 构造带正确编码的 URL
+                    val newUrlBuilder = originalUrl.newBuilder()
+                    newUrlBuilder.encodedPathSegments.clear()
+                    // 按 / 分割 path，对每段用 URLEncoder 编码后用
+                    // addEncodedPathSegment 添加（告诉 OkHttp 不要再编码）
+                    val rawPath = originalUrl.encodedPath
+                    val segments = rawPath.split("/")
+                    for ((i, seg) in segments.withIndex()) {
+                        val encodedSeg = java.net.URLEncoder.encode(seg, "UTF-8")
+                            .replace("+", "%20")
+                        if (i == 0) {
+                            // 第一段通常是空字符串（以 / 开头），保持
+                            newUrlBuilder.addEncodedPathSegment(encodedSeg)
+                        } else {
+                            newUrlBuilder.addEncodedPathSegment(encodedSeg)
+                        }
                     }
+                    // 复制 query 参数
+                    originalUrl.queryParameterNames.toSet().forEach { name ->
+                        originalUrl.queryParameterValues(name).forEach { value ->
+                            newUrlBuilder.addEncodedQueryParameter(name, value)
+                        }
+                    }
+                    val newUrl = newUrlBuilder.build()
+
+                    // 2. 构造新请求
+                    val reqBuilder = originalReq.newBuilder().url(newUrl)
+                    if (token != null && token.isNotEmpty()) {
+                        reqBuilder.header("Authorization", token)
+                    }
+                    val newReq = reqBuilder.build()
+
+                    android.util.Log.d("OneList", "Interceptor: original='${originalUrl}' → encoded='${newUrl}'")
+                    chain.proceed(newReq)
                 }
             }
             .build()
         val dataSourceFactory = OkHttpDataSource.Factory(okHttpClientForVideo)
 
-        // 对 URL 中的空格、中文等非 ASCII 字符进行百分号编码。
-        // 关键：不能用 java.net.URL 解析，因为 URL 里的空格（如 "7WKYS SD"）
-        // 会导致 MalformedURLException → catch 里返回原始未编码 URL → 404。
-        // 改为手动拆分 scheme + host:port + path?query，再对 path 做编码。
-        val encodedUrl = try {
-            val schemeEnd = videoUrl.indexOf("://")
-            if (schemeEnd < 0) throw Exception("no scheme")
-            val scheme = videoUrl.substring(0, schemeEnd)
-            val rest = videoUrl.substring(schemeEnd + 3)
-            val slashIdx = rest.indexOf('/')
-            val hostPort = if (slashIdx >= 0) rest.substring(0, slashIdx) else rest
-            val pathAndQuery = if (slashIdx >= 0) rest.substring(slashIdx) else ""
-            // 保留 / ? = & # 等 URL 特殊字符不被编码
-            val encoded = android.net.Uri.encode(pathAndQuery, "/?=&#")
-            "$scheme://$hostPort$encoded"
-        } catch (e: Exception) {
-            android.util.Log.e("OneList", "URL encode failed", e)
-            videoUrl
-        }
-        android.util.Log.d("OneList", "Player: raw='$videoUrl' encoded='$encodedUrl'")
-
-        // 根据文件扩展名推断 MIME type。
-        // 后端 FileServer 返回 Content-Type: application/octet-stream，
-        // ExoPlayer 无法据此识别媒体格式 → "Source error"。
-        // 显式设置 MIME type 让 ExoPlayer 选择正确的 extractor。
-        // 用字符串常量而非 MimeTypes 类（某些 exoplayer-core 版本 classpath 不含此类）
-        val lowerUrl = encodedUrl.lowercase()
+        // 根据文件扩展名推断 MIME type（用原始 URL 因为 MediaItem 只是容器，
+        // 实际 URL 在拦截器中编码）
+        val lowerUrl = videoUrl.lowercase()
         val mimeType = when {
             lowerUrl.contains(".mp4") -> "video/mp4"
             lowerUrl.contains(".mkv") -> "video/x-matroska"
@@ -1411,7 +1427,7 @@ class MainActivity : Activity() {
             lowerUrl.contains(".avi") -> "video/mp4"
             lowerUrl.contains(".m4v") -> "video/mp4"
             lowerUrl.contains(".mov") -> "video/mp4"
-            else -> "video/mp4" // 默认按 MP4 处理，让 ExoPlayer sniff
+            else -> "video/mp4"
         }
 
         player = ExoPlayer.Builder(this)
@@ -1420,14 +1436,15 @@ class MainActivity : Activity() {
             )
             .build().also { exo ->
                 playerView.player = exo
+                // 直接用原始 URL（含中文/空格），拦截器会编码
                 val mediaItem = MediaItem.Builder()
-                    .setUri(encodedUrl)
+                    .setUri(videoUrl)
                     .setMimeType(mimeType)
                     .build()
                 exo.setMediaItem(mediaItem)
                 exo.playWhenReady = true
                 exo.prepare()
-                android.util.Log.d("OneList", "Player prepared, url='$encodedUrl' mime='$mimeType'")
+                android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         val stateName = when (state) {
