@@ -16,11 +16,26 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        debug {
+            // AGP 7.x 默认只开 v2/v3，Android 5.1 (API 22) 只认 v1 jar signing，
+            // 不开 v1 的话会报"解析包时出现问题" / INSTALL_PARSE_FAILED_NOT_APK
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        debug {
+            v1SigningEnabled true
+            v2SigningEnabled true
         }
     }
 
@@ -48,7 +63,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.multidex:multidex:2.0.1'
 
-    // Network
+    // Network (统一 okhttp 版本，避免和 ExoPlayer 传递依赖冲突)
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
     implementation 'com.squareup.okhttp3:okhttp:4.9.3'
@@ -57,8 +72,13 @@ dependencies {
     // Image loading
     implementation 'com.github.bumptech.glide:glide:4.12.0'
 
-    // Video player (ExoPlayer 2.x — last version supporting API 19)
-    implementation 'com.google.android.exoplayer:exoplayer-core:2.18.7'
-    implementation 'com.google.android.exoplayer:exoplayer-ui:2.18.7'
-    implementation 'com.google.android.exoplayer:extension-okhttp:2.18.7'
+    // Video player — ExoPlayer 2.16.1 在旧 armeabi-v7a 设备 (Android 5.x TV) 上更稳定；
+    // 2.18.x 升级了 NDK 工具链，某些 32 位老芯片可能出现库加载失败。
+    def exoplayer_version = '2.16.1'
+    implementation "com.google.android.exoplayer:exoplayer-core:$exoplayer_version"
+    implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayer_version"
+    implementation("com.google.android.exoplayer:extension-okhttp:$exoplayer_version") {
+        // 强制统一 okhttp 版本为我们上面指定的 4.9.3
+        exclude group: 'com.squareup.okhttp3'
+    }
 }

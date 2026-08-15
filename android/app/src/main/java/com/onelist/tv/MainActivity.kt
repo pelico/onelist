@@ -160,8 +160,10 @@ class MainActivity : Activity() {
             text = "登 录"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            setBackgroundColor(Color.parseColor("#6366f1"))
             setPadding(dp(40), dp(14), dp(40), dp(14))
+            isFocusable = true
+            isClickable = true
+            applyFocusGlow()
             setOnClickListener {
                 val url = serverInput.text.toString().trim().trimEnd('/')
                 val user = userInput.text.toString().trim()
@@ -504,12 +506,14 @@ class MainActivity : Activity() {
         val loadMoreBtn = Button(this).apply {
             text = "加载更多"
             setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
             visibility = View.GONE
+            isFocusable = true
+            isClickable = true
+            applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
             setOnClickListener {
                 if (!isLoadingMore && hasMorePages) {
                     currentPage++
-                    loadMoreItems(recyclerView, it as Button)
+                    loadMoreItems(recyclerView, this as Button)
                 }
             }
         }
@@ -730,8 +734,10 @@ class MainActivity : Activity() {
             text = "▶  播放"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            setBackgroundColor(Color.parseColor("#6366f1"))
             setPadding(dp(32), dp(12), dp(32), dp(12))
+            isFocusable = true
+            isClickable = true
+            applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE) // 红色播放按钮，聚焦更亮 + 白描边
             setOnClickListener {
                 if (movie.url != null) {
                     showPlayer(movie.url!!, movie.galleryUid)
@@ -774,6 +780,9 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
         rootLayout.addView(scroll)
+
+        // 进入详情页自动聚焦播放按钮，让用户一眼看到焦点位置
+        playBtn.post { playBtn.requestFocus() }
 
         // Fetch full detail if needed
         if (movie.desc == null && movie.id != null) {
@@ -924,8 +933,10 @@ class MainActivity : Activity() {
                                 val seasonBtn = Button(this@MainActivity).apply {
                                     text = "第 ${season.seasonNumber ?: "?"} 季"
                                     setTextColor(Color.WHITE)
-                                    setBackgroundColor(Color.parseColor("#1a1a2e"))
                                     setPadding(dp(16), dp(10), dp(16), dp(10))
+                                    isFocusable = true
+                                    isClickable = true
+                                    applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
                                     val lp = LinearLayout.LayoutParams(
                                         LinearLayout.LayoutParams.MATCH_PARENT,
                                         LinearLayout.LayoutParams.WRAP_CONTENT
@@ -994,15 +1005,13 @@ class MainActivity : Activity() {
                 setPadding(dp(16), dp(12), dp(16), dp(12))
                 isClickable = true
                 isFocusable = true
+                applyCardFocus()
                 setOnClickListener {
                     if (ep.url != null) {
                         showPlayer(ep.url!!, ep.galleryUid)
                     } else {
                         toast("暂无播放源")
                     }
-                }
-                setOnFocusChangeListener { v, hasFocus ->
-                    v.setBackgroundColor(if (hasFocus) Color.parseColor("#6366f1") else Color.parseColor("#1a1a2e"))
                 }
             }
             val lp = LinearLayout.LayoutParams(
@@ -1077,7 +1086,9 @@ class MainActivity : Activity() {
         val searchBtn = Button(this).apply {
             text = "搜索"
             setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#6366f1"))
+            isFocusable = true
+            isClickable = true
+            applyFocusGlow()
             val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             lp.leftMargin = dp(12)
             layoutParams = lp
@@ -1224,19 +1235,126 @@ class MainActivity : Activity() {
         currentScreen = Screen.PLAYER
         rootLayout.removeAllViews()
 
-        val videoUrl = RetrofitClient.videoUrl(url, galleryUid)
-        android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid' videoUrl='$videoUrl'")
-        if (videoUrl == null) {
+        android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid'")
+        if (url.isEmpty() || galleryUid == null) {
             toast("无效的播放地址")
             showHome()
             return
         }
 
+        // 渲染播放器框架 + loading 提示
+        val playerContainer = FrameLayout(this).apply { fillParent() }
+
         val playerView = PlayerView(this).apply {
             fillParent()
             useController = true
         }
+        playerContainer.addView(playerView)
 
+        val loadingText = TextView(this).apply {
+            text = "正在加载视频源..."
+            setTextColor(Color.parseColor("#cccccc"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            gravity = Gravity.CENTER
+        }
+        val loadingLP = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.CENTER }
+        playerContainer.addView(loadingText, loadingLP)
+
+        rootLayout.addView(playerContainer)
+
+        val base = App.serverUrl
+        if (base == null || base.isEmpty()) {
+            loadingText.text = "请先配置服务器地址"
+            return
+        }
+        val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
+
+        // 直接 HTTP/HTTPS 直链，跳过接口判断
+        if (url.startsWith("http")) {
+            loadingText.visibility = View.GONE
+            startExoPlayer(playerView, url)
+            return
+        }
+
+        // 请求 gallery/host 判断 alist 代理 / 本地直链 / 阿里云盘open
+        try {
+            RetrofitClient.getService().getGalleryHost(galleryUid).enqueue(object : retrofit2.Callback<GalleryHostResponse> {
+                override fun onResponse(call: retrofit2.Call<GalleryHostResponse>, response: retrofit2.Response<GalleryHostResponse>) {
+                    val body = response.body()
+                    android.util.Log.d("OneList", "GalleryHost code=${body?.code} msg=${body?.msg} data=${body?.`data`} isAliOpen=${body?.isAliOpen}")
+                    if (body == null || body.code != 200) {
+                        loadingText.text = "获取媒体库信息失败: HTTP ${response.code()}"
+                        return
+                    }
+                    val alistHost = body.`data` ?: ""
+                    val isAliOpen = body.isAliOpen == true
+
+                    if (isAliOpen) {
+                        loadingText.text = "正在获取阿里云盘播放地址..."
+                        try {
+                            RetrofitClient.getService().getAliOpenVideo(
+                                AliOpenVideoRequest(file = url, galleryUid = galleryUid)
+                            ).enqueue(object : retrofit2.Callback<AliOpenVideoResponse> {
+                                override fun onResponse(call: retrofit2.Call<AliOpenVideoResponse>, response: retrofit2.Response<AliOpenVideoResponse>) {
+                                    val r = response.body()
+                                    if (r == null || r.code != 200 || r.data == null) {
+                                        loadingText.text = "获取播放地址失败: " + (r?.msg ?: "未知错误")
+                                        return
+                                    }
+                                    try {
+                                        val tasks = r.data!!.videoPreviewPlayInfo?.liveTranscodingTaskList
+                                        if (tasks != null && tasks.isNotEmpty()) {
+                                            // 取最高清晰度（数组最后一个）
+                                            val bestUrl = tasks.lastOrNull()?.url
+                                            if (bestUrl != null) {
+                                                loadingText.visibility = View.GONE
+                                                startExoPlayer(playerView, bestUrl)
+                                            } else {
+                                                loadingText.text = "没有可用的播放地址"
+                                            }
+                                        } else {
+                                            loadingText.text = "没有可用的播放地址"
+                                        }
+                                    } catch (e: Exception) {
+                                        loadingText.text = "解析播放地址出错: ${e.message}"
+                                    }
+                                }
+                                override fun onFailure(call: retrofit2.Call<AliOpenVideoResponse>, t: Throwable) {
+                                    loadingText.text = "获取阿里云盘地址失败: ${t.message}"
+                                }
+                            })
+                        } catch (e: Exception) {
+                            loadingText.text = "请求出错: ${e.message}"
+                        }
+                        return
+                    }
+
+                    // alist 代理 或 本地直链
+                    val videoSrc = if (alistHost.isNotEmpty()) {
+                        // alist 代理模式: /alist/proxy/{uid} + url
+                        if (url.startsWith("/alist/proxy/")) "$normalizedBase$url"
+                        else "$normalizedBase/alist/proxy/$galleryUid$url"
+                    } else {
+                        // 本地直链模式: /file/ + url（去前导 /）
+                        if (url.startsWith("/file/")) "$normalizedBase$url"
+                        else "$normalizedBase/file/${url.trimStart('/')}"
+                    }
+                    android.util.Log.d("OneList", "Player resolved: alistHost='$alistHost' videoSrc='$videoSrc'")
+                    loadingText.visibility = View.GONE
+                    startExoPlayer(playerView, videoSrc)
+                }
+                override fun onFailure(call: retrofit2.Call<GalleryHostResponse>, t: Throwable) {
+                    loadingText.text = "获取媒体库信息失败: ${t.message}"
+                }
+            })
+        } catch (e: Exception) {
+            loadingText.text = "错误: ${e.message}"
+        }
+    }
+
+    private fun startExoPlayer(playerView: PlayerView, videoUrl: String) {
         // Use OkHttp as data source — fixes TLS/SSL issues on old Android (4.4)
         // where the built-in HttpsURLConnection doesn't support modern TLS
         val okHttpClientForVideo = okhttp3.OkHttpClient.Builder()
@@ -1262,11 +1380,11 @@ class MainActivity : Activity() {
             )
             .build().also { exo ->
                 playerView.player = exo
-                val mediaItem = MediaItem.fromUri(videoUrl as String)
+                val mediaItem = MediaItem.fromUri(videoUrl)
                 exo.setMediaItem(mediaItem)
                 exo.playWhenReady = true
                 exo.prepare()
-                android.util.Log.d("OneList", "Player prepared, waiting for state...")
+                android.util.Log.d("OneList", "Player prepared, url='$videoUrl'")
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         val stateName = when (state) {
@@ -1316,8 +1434,6 @@ class MainActivity : Activity() {
                     }
                 })
             }
-
-        rootLayout.addView(playerView)
     }
 
     // ==================== TOP BAR ====================
@@ -1339,10 +1455,8 @@ class MainActivity : Activity() {
                 isClickable = true
                 isFocusable = true
                 setPadding(dp(8), dp(4), dp(8), dp(4))
+                applyTextFocus(Color.WHITE, Color.parseColor("#6366f1"))
                 setOnClickListener { navigateBack() }
-                setOnFocusChangeListener { v, hasFocus ->
-                    (v as TextView).setTextColor(if (hasFocus) Color.WHITE else Color.parseColor("#6366f1"))
-                }
             }
             bar.addView(backBtn)
         }
@@ -1367,10 +1481,8 @@ class MainActivity : Activity() {
                 isClickable = true
                 isFocusable = true
                 setPadding(dp(12), dp(4), dp(12), dp(4))
+                applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
                 setOnClickListener { showSearch() }
-                setOnFocusChangeListener { v, hasFocus ->
-                    (v as TextView).setTextColor(if (hasFocus) Color.WHITE else Color.parseColor("#aaaaaa"))
-                }
             }
             bar.addView(searchBtn)
         }
@@ -1384,12 +1496,10 @@ class MainActivity : Activity() {
                 isClickable = true
                 isFocusable = true
                 setPadding(dp(12), dp(4), dp(12), dp(4))
+                applyTextFocus(Color.WHITE, Color.parseColor("#888888"))
                 setOnClickListener {
                     App.logout()
                     showLogin()
-                }
-                setOnFocusChangeListener { v, hasFocus ->
-                    (v as TextView).setTextColor(if (hasFocus) Color.WHITE else Color.parseColor("#888888"))
                 }
             }
             bar.addView(logoutBtn)
@@ -1426,6 +1536,62 @@ class MainActivity : Activity() {
     }
 
     // ==================== HELPERS ====================
+
+    /**
+     * 为按钮设置焦点高亮样式（TV 遥控器模式）
+     * - 聚焦后：放大 + 描边 + 背景变亮（默认放大 1.08x，3dp 白色描边）
+     */
+    private fun View.applyFocusGlow(defaultColor: Int = Color.parseColor("#6366f1"), focusedColor: Int = Color.parseColor("#8b8ef7"), strokeColor: Int = Color.WHITE) {
+        val gd = GradientDrawable().apply {
+            setColor(defaultColor)
+            cornerRadius = dp(4).toFloat()
+        }
+        this.background = gd
+        this.setOnFocusChangeListener { v, hasFocus ->
+            try {
+                val scale = if (hasFocus) 1.08f else 1.0f
+                v.animate().cancel()
+                v.animate().scaleX(scale).scaleY(scale).setDuration(120).start()
+                val bg = (v.background as? GradientDrawable) ?: gd.also { v.background = it }
+                bg.setColor(if (hasFocus) focusedColor else defaultColor)
+                if (hasFocus) bg.setStroke(dp(3), strokeColor) else bg.setStroke(0, 0)
+            } catch (e: Exception) {}
+        }
+    }
+
+    /**
+     * 卡片/列表项焦点高亮：放大 + 背景变色
+     */
+    private fun View.applyCardFocus() {
+        this.setOnFocusChangeListener { v, hasFocus ->
+            try {
+                val scale = if (hasFocus) 1.06f else 1.0f
+                v.animate().cancel()
+                v.animate().scaleX(scale).scaleY(scale).setDuration(120).start()
+                if (hasFocus) v.setBackgroundColor(Color.parseColor("#6366f1"))
+                else v.setBackgroundColor(Color.parseColor("#1a1a2e"))
+            } catch (e: Exception) {}
+        }
+    }
+
+    /**
+     * TextView 焦点样式（顶部导航文本按钮等）：聚焦后反色 + 描边 + 轻微放大
+     */
+    private fun TextView.applyTextFocus(focusedTextColor: Int = Color.WHITE, defaultTextColor: Int = Color.parseColor("#6366f1")) {
+        this.setOnFocusChangeListener { v, hasFocus ->
+            try {
+                val scale = if (hasFocus) 1.05f else 1.0f
+                v.animate().cancel()
+                v.animate().scaleX(scale).scaleY(scale).setDuration(120).start()
+                this.setTextColor(if (hasFocus) focusedTextColor else defaultTextColor)
+                if (hasFocus) {
+                    this.setBackgroundColor(Color.parseColor("#2a2a4e"))
+                } else {
+                    this.setBackgroundColor(Color.TRANSPARENT)
+                }
+            } catch (e: Exception) {}
+        }
+    }
 
     private fun label(text: String): TextView {
         return TextView(this).apply {

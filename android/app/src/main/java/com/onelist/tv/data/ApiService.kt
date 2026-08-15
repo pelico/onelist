@@ -84,7 +84,52 @@ interface ApiService {
     // 游戏列表
     @GET("v1/api/game/list")
     fun getGameList(): Call<ApiResponse<List<GameFile>>>
+
+    // 获取媒体库播放模式（AlistHost 非空=alist代理；空=本地直链；is_ali_open=阿里云盘open）
+    @POST("v1/api/gallery/host")
+    fun getGalleryHost(
+        @Query("id") galleryId: String
+    ): Call<GalleryHostResponse>
+
+    // 阿里云盘 open 获取多清晰度直链
+    @POST("v1/api/aliopen/video")
+    fun getAliOpenVideo(
+        @Body body: AliOpenVideoRequest
+    ): Call<AliOpenVideoResponse>
 }
+
+data class AliOpenVideoRequest(
+    @SerializedName("file") val file: String,
+    @SerializedName("gallery_uid") val galleryUid: String
+)
+
+data class AliOpenVideoResponse(
+    @SerializedName("code") val code: Int?,
+    @SerializedName("msg") val msg: String?,
+    @SerializedName("data") val data: AliOpenVideoData?
+)
+
+data class AliOpenVideoData(
+    @SerializedName("video_preview_play_info") val videoPreviewPlayInfo: VideoPreviewPlayInfo?
+)
+
+data class VideoPreviewPlayInfo(
+    @SerializedName("live_transcoding_task_list") val liveTranscodingTaskList: List<TranscodingTask>?
+)
+
+data class TranscodingTask(
+    @SerializedName("url") val url: String?,
+    @SerializedName("template_id") val templateId: String?,
+    @SerializedName("template_name") val templateName: String?,
+    @SerializedName("file_id") val fileId: String?
+)
+
+data class GalleryHostResponse(
+    @SerializedName("code") val code: Int?,
+    @SerializedName("msg") val msg: String?,
+    @SerializedName("data") val `data`: String?,
+    @SerializedName("is_ali_open") val isAliOpen: Boolean?
+)
 
 data class GameFile(
     @com.google.gson.annotations.SerializedName("name") val name: String,
