@@ -15,8 +15,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.MimeTypes
 import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.ui.PlayerView
+import okhttp3.HttpUrl
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
@@ -1365,7 +1367,7 @@ class MainActivity : Activity() {
                 if (token != null && token.isNotEmpty()) {
                     client.addInterceptor { chain ->
                         val req = chain.request().newBuilder()
-                            .header("Authorization", token)
+                            .header("Authorization", "Bearer $token")
                             .build()
                         chain.proceed(req)
                     }
@@ -1374,17 +1376,42 @@ class MainActivity : Activity() {
             .build()
         val dataSourceFactory = OkHttpDataSource.Factory(okHttpClientForVideo)
 
+        // 对 URL 中的中文等非 ASCII 字符进行百分号编码
+        // （浏览器 <video> 会自动编码，但 ExoPlayer/OkHttp 需要合法的 ASCII URL）
+        val encodedUrl = HttpUrl.parse(videoUrl)?.toString() ?: videoUrl
+        android.util.Log.d("OneList", "Player: raw='$videoUrl' encoded='$encodedUrl'")
+
+        // 根据文件扩展名推断 MIME type。
+        // 后端 FileServer 返回 Content-Type: application/octet-stream，
+        // ExoPlayer 无法据此识别媒体格式 → "Source error"。
+        // 显式设置 MIME type 让 ExoPlayer 选择正确的 extractor。
+        val lowerUrl = encodedUrl.lowercase()
+        val mimeType = when {
+            lowerUrl.contains(".mp4") -> MimeTypes.VIDEO_MP4
+            lowerUrl.contains(".mkv") -> MimeTypes.VIDEO_MATROSKA
+            lowerUrl.contains(".ts") -> MimeTypes.VIDEO_MP2T
+            lowerUrl.contains(".webm") -> MimeTypes.VIDEO_WEBM
+            lowerUrl.contains(".flv") -> MimeTypes.APPLICATION_MP4
+            lowerUrl.contains(".avi") -> MimeTypes.VIDEO_MP4
+            lowerUrl.contains(".m4v") -> MimeTypes.VIDEO_MP4
+            lowerUrl.contains(".mov") -> MimeTypes.VIDEO_MP4
+            else -> MimeTypes.VIDEO_MP4 // 默认按 MP4 处理，让 ExoPlayer sniff
+        }
+
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(
                 com.google.android.exoplayer2.source.DefaultMediaSourceFactory(dataSourceFactory)
             )
             .build().also { exo ->
                 playerView.player = exo
-                val mediaItem = MediaItem.fromUri(videoUrl)
+                val mediaItem = MediaItem.Builder()
+                    .setUri(encodedUrl)
+                    .setMimeType(mimeType)
+                    .build()
                 exo.setMediaItem(mediaItem)
                 exo.playWhenReady = true
                 exo.prepare()
-                android.util.Log.d("OneList", "Player prepared, url='$videoUrl'")
+                android.util.Log.d("OneList", "Player prepared, url='$encodedUrl' mime='$mimeType'")
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         val stateName = when (state) {
@@ -1429,8 +1456,15 @@ class MainActivity : Activity() {
                             android.util.Log.e("OneList", "  -> ${t::class.java.name}: ${t.message}")
                             t = t.cause
                         }
-                        val errMsg = error.message ?: "未知错误 (code: $errorCodeName)"
-                        toast("播放失败: $errMsg")
+                        // 显示 cause 链中最具体的错误信息（"Source error" 太笼统）
+                        var detail = error.message ?: ""
+                        var cause: Throwable? = error.cause
+                        while (cause != null) {
+                            val cm = cause.message
+                            if (cm != null && cm.isNotEmpty()) detail = cm
+                            cause = cause.cause
+                        }
+                        toast("播放失败 [$errorCodeName]: $detail")
                     }
                 })
             }
