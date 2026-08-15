@@ -20,6 +20,7 @@ android {
         debug {
             // AGP 7.x 默认只开 v2/v3，Android 5.1 (API 22) 只认 v1 jar signing，
             // 不开 v1 的话会报"解析包时出现问题" / INSTALL_PARSE_FAILED_NOT_APK
+            // 注意：v1/v2SigningEnabled 是 SigningConfig 的属性，不能写在 buildTypes 里
             v1SigningEnabled true
             v2SigningEnabled true
         }
@@ -30,12 +31,8 @@ android {
             minifyEnabled false
             signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            v1SigningEnabled true
-            v2SigningEnabled true
         }
         debug {
-            v1SigningEnabled true
-            v2SigningEnabled true
         }
     }
 
