@@ -17,7 +17,6 @@ import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
 import com.google.android.exoplayer2.ui.PlayerView
-import okhttp3.toHttpUrlOrNull
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
@@ -1377,7 +1376,13 @@ class MainActivity : Activity() {
 
         // 对 URL 中的中文等非 ASCII 字符进行百分号编码
         // （浏览器 <video> 会自动编码，但 ExoPlayer/OkHttp 需要合法的 ASCII URL）
-        val encodedUrl = videoUrl.toHttpUrlOrNull()?.toString() ?: videoUrl
+        // 用 java.net.URI 多参数构造函数自动编码 path，纯 JDK 无第三方依赖
+        val encodedUrl = try {
+            val u = java.net.URL(videoUrl)
+            java.net.URI(u.protocol, null, u.host, u.port, u.path, u.query, null).toString()
+        } catch (e: Exception) {
+            videoUrl
+        }
         android.util.Log.d("OneList", "Player: raw='$videoUrl' encoded='$encodedUrl'")
 
         // 根据文件扩展名推断 MIME type。
