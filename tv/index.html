@@ -17,8 +17,14 @@ a{color:inherit;text-decoration:none}
 ::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
 
 /* ========== Focus ========== */
-.focused{outline:3px solid #e50914;outline-offset:-2px;border-radius:6px}
+.focused{outline:3px solid #e50914;outline-offset:2px;border-radius:6px;-webkit-box-shadow:0 0 10px rgba(229,9,20,0.5);box-shadow:0 0 10px rgba(229,9,20,0.5)}
 .no-focus{outline:none}
+/* 播放按钮焦点：白色描边 + 放大 + 发光，红色背景上更醒目 */
+.btn-play.focused{outline:3px solid #fff;outline-offset:2px;-webkit-box-shadow:0 0 16px rgba(229,9,20,0.9);box-shadow:0 0 16px rgba(229,9,20,0.9);-webkit-transform:scale(1.06);transform:scale(1.06)}
+/* 次要按钮焦点：放大 + 亮色 */
+.btn-secondary.focused{-webkit-transform:scale(1.06);transform:scale(1.06);outline-color:#fff}
+/* 卡片焦点：放大 */
+.card.focused{-webkit-transform:scale(1.04);transform:scale(1.04);-webkit-box-shadow:0 0 14px rgba(229,9,20,0.6);box-shadow:0 0 14px rgba(229,9,20,0.6);z-index:5}
 
 /* ========== Loading ========== */
 #loading{position:fixed;top:0;left:0;right:0;bottom:0;background:#0d0d1a;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;font-size:22px;color:#666;z-index:9999}
@@ -219,12 +225,18 @@ function imgUrl(path) {
   return '/t/p/' + path.replace(/^\//, '');
 }
 
-function videoUrl(url, galleryUid) {
+// 根据 gallery 类型构造视频源 URL
+// alistHost 非空 = alist 代理模式（url 格式如 /d/电影/xxx.mp4）
+// alistHost 为空 = 本地直链模式（url 为相对路径，如 电影/xxx.mp4）
+function buildVideoSrc(url, galleryUid, alistHost) {
   if (!url) return '';
   if (url.indexOf('http') === 0) return url;
-  if (url.charAt(0) === '/') return url;
-  if (galleryUid) return '/alist/proxy/' + galleryUid + '/' + url;
-  return url;
+  if (alistHost && alistHost.length > 0) {
+    // alist 代理模式：/alist/proxy/{uid} + url
+    return '/alist/proxy/' + galleryUid + url;
+  }
+  // 本地直链模式：/file/ + url（去掉可能的前导 /）
+  return '/file/' + url.replace(/^\//, '');
 }
 
 function truncate(s, n) {
@@ -314,6 +326,14 @@ function apiTvListByGallery(galleryUid, page, size, cb) {
 
 function apiGameList(cb) {
   api('GET', '/v1/api/game/list', null, cb);
+}
+
+function apiGalleryHost(uid, cb) {
+  api('POST', '/v1/api/gallery/host?id=' + uid, {}, cb);
+}
+
+function apiAliOpenVideo(file, galleryUid, cb) {
+  api('POST', '/v1/api/aliopen/video', {file: file, gallery_uid: galleryUid}, cb);
 }
 
 // ==================== Navigation ====================
@@ -887,6 +907,18 @@ function renderDetailContent(container, likeItems) {
   container.appendChild(wrap);
 
   buildNavSections();
+  // 进入详情页时自动聚焦播放按钮（电影），让用户立刻知道焦点位置
+  S.focusSection = 0;
+  S.focusRow = 0;
+  if (S.navSections.length > 0 && S.navSections[0].elements) {
+    var elems = S.navSections[0].elements;
+    for (var fi = 0; fi < elems.length; fi++) {
+      if (elems[fi].className && elems[fi].className.indexOf('btn-play') >= 0) {
+        S.focusRow = fi;
+        break;
+      }
+    }
+  }
   updateFocus();
 }
 
@@ -974,16 +1006,13 @@ function renderPlayer(container, params) {
   var data = params.data;
   var galleryUid = params.galleryUid || S.detailGalleryUid;
 
-  var videoSrc = '';
   var titleText = '';
   var subText = '';
 
   if (type === 'movie') {
-    videoSrc = videoUrl(data.url, galleryUid);
     titleText = data.title || data.original_title || '';
     subText = (data.release_date || '').substring(0, 4);
   } else {
-    videoSrc = videoUrl(data.url, galleryUid);
     titleText = (S.detail ? (S.detail.name || '') : '') + ' S' + data.season_number + 'E' + data.episode_number;
     subText = data.name || '';
   }
@@ -996,8 +1025,8 @@ function renderPlayer(container, params) {
   vid.className = 'player-video';
   vid.setAttribute('controls', '');
   vid.setAttribute('autoplay', '');
+  vid.setAttribute('playsinline', '');
   vid.style.cssText = 'width:100%;height:100%';
-  if (videoSrc) vid.src = videoSrc;
   wrap.appendChild(vid);
 
   // Custom overlay info
@@ -1009,7 +1038,8 @@ function renderPlayer(container, params) {
     '<div class="player-progress" id="progressBar">' +
     '<div class="player-progress-fill" id="progressFill"></div>' +
     '</div>' +
-    '<div class="player-time" id="playerTime">00:00 / 00:00</div>';
+    '<div class="player-time" id="playerTime">00:00 / 00:00</div>' +
+    '<div id="playerLoading" style="font-size:13px;color:#888;margin-top:6px">正在加载视频...</div>';
   wrap.appendChild(overlay);
 
   container.innerHTML = '';
@@ -1030,6 +1060,20 @@ function renderPlayer(container, params) {
     toast('播放结束');
   };
 
+  // 视频加载成功后隐藏 loading 提示
+  vid.oncanplay = function() {
+    var ld = $('playerLoading');
+    if (ld) ld.style.display = 'none';
+  };
+  vid.onplaying = function() {
+    var ld = $('playerLoading');
+    if (ld) ld.style.display = 'none';
+  };
+  vid.onerror = function() {
+    var ld = $('playerLoading');
+    if (ld) ld.textContent = '视频加载失败，可能是格式不支持或地址无效';
+  };
+
   // Heartbeat for play history
   if (type === 'movie' && data.id) {
     S.heartbeatTimer = setInterval(function() {
@@ -1044,10 +1088,64 @@ function renderPlayer(container, params) {
   // Auto-hide overlay
   showControlsTemporarily();
 
+  // 请求 gallery/host 获取正确的视频源
+  if (!galleryUid || !data.url) {
+    var ld0 = $('playerLoading');
+    if (ld0) ld0.textContent = '无法获取视频地址';
+    S.navSections = [];
+    return;
+  }
+
+  apiGalleryHost(galleryUid, function(err, res) {
+    if (err || !res || res.code !== 200) {
+      var l1 = $('playerLoading');
+      if (l1) l1.textContent = '获取媒体库信息失败';
+      return;
+    }
+
+    var alistHost = res.data || '';
+    var isAliOpen = res.is_ali_open;
+
+    if (isAliOpen) {
+      // 阿里云盘open：请求多清晰度播放地址
+      var ld2 = $('playerLoading');
+      if (ld2) ld2.textContent = '正在获取阿里云盘播放地址...';
+      apiAliOpenVideo(data.url, galleryUid, function(err2, res2) {
+        if (err2 || !res2 || res2.code !== 200) {
+          var l = $('playerLoading');
+          if (l) l.textContent = '获取播放地址失败: ' + (res2 && res2.msg ? res2.msg : '网络错误');
+          return;
+        }
+        try {
+          var info = res2.data.video_preview_play_info;
+          var taskList = info.live_transcoding_task_list;
+          if (taskList && taskList.length > 0) {
+            // 取最高清晰度（数组最后一个）
+            vid.src = taskList[taskList.length - 1].url;
+          } else {
+            var l3 = $('playerLoading');
+            if (l3) l3.textContent = '没有可用的播放地址';
+          }
+        } catch(e) {
+          var l4 = $('playerLoading');
+          if (l4) l4.textContent = '解析播放地址出错';
+        }
+      });
+      return;
+    }
+
+    // alist 代理或本地直链
+    var videoSrc = buildVideoSrc(data.url, galleryUid, alistHost);
+    if (!videoSrc) {
+      var l5 = $('playerLoading');
+      if (l5) l5.textContent = '视频地址无效';
+      return;
+    }
+    vid.src = videoSrc;
+  });
+
   // Player nav sections (minimal)
-  S.navSections = [
-    {selector: '.player-overlay', type: 'list', cols: 1}
-  ];
+  S.navSections = [];
 }
 
 function showControlsTemporarily() {
