@@ -8,16 +8,24 @@ android {
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.onelist.tv"
+        applicationId com.onelist.tv
         minSdk 19
         targetSdk 28
         versionCode 1
-        versionName "1.0"
+        versionName 1.0
         multiDexEnabled true
     }
 
     signingConfigs {
         debug {
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        release {
+            storeFile file('release-keystore.jks')
+            storePassword 'onelist123'
+            keyAlias 'onelist'
+            keyPassword 'onelist123'
             v1SigningEnabled true
             v2SigningEnabled true
         }
@@ -29,13 +37,8 @@ android {
         }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            def keystoreFile = file('release-keystore.jks')
-            if (keystoreFile.exists()) {
-                signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
-            }
         }
     }
 
@@ -51,21 +54,6 @@ android {
 
     lintOptions {
         disable 'ExpiredTargetSdkVersion'
-    }
-}
-
-// Conditionally add release signing config if keystore exists
-def keystoreFile = file('app/release-keystore.jks')
-if (keystoreFile.exists()) {
-    android.signingConfigs {
-        release {
-            storeFile keystoreFile
-            storePassword 'onelist123'
-            keyAlias 'onelist'
-            keyPassword 'onelist123'
-            v1SigningEnabled true
-            v2SigningEnabled true
-        }
     }
 }
 
@@ -89,9 +77,9 @@ dependencies {
 
     // Video player
     def exoplayer_version = '2.18.7'
-    implementation "com.google.android.exoplayer:exoplayer-core:$exoplayer_version"
-    implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayer_version"
-    implementation("com.google.android.exoplayer:extension-okhttp:$exoplayer_version") {
+    implementation com.google.android.exoplayer:exoplayer-core:
+    implementation com.google.android.exoplayer:exoplayer-ui:
+    implementation(com.google.android.exoplayer:extension-okhttp:) {
         exclude group: 'com.squareup.okhttp3'
     }
 }
