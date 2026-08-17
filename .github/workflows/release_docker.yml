@@ -53,6 +53,28 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
+      - name: Get next patch version
+        id: version
+        if: github.event_name != 'pull_request'
+        run: |
+          # Get latest release tag
+          LATEST_TAG=$(gh api repos/${{ github.repository }}/releases --jq '.[0].tag_name // "v0.0.0"')
+          # Extract version numbers (strip 'v' prefix if present)
+          VERSION=${LATEST_TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          # Increment patch
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+          echo "major=${MAJOR}" >> $GITHUB_OUTPUT
+          echo "minor=${MINOR}" >> $GITHUB_OUTPUT
+          echo "patch=${NEXT_PATCH}" >> $GITHUB_OUTPUT
+          echo "Next version: ${NEXT_VERSION}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -69,6 +91,8 @@ jobs:
             type=ref,event=tag
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }},enable=${{ github.event_name != 'pull_request' }}
 
       - name: Build and push (full platforms for main/master/release)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'release'
