@@ -20,9 +20,16 @@ import com.google.android.exoplayer2.ui.PlayerView
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
-import retrofit2.Call
+import okhttp3.Call
+import okhttp3.EventSource
+import okhttp3.EventSourceListener
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 class MainActivity : Activity() {
 
@@ -51,6 +58,22 @@ class MainActivity : Activity() {
     // 服务端连播列表：播放结束后自动播放同目录下一个视频
     private var serverPlaylist: List<String> = emptyList()
     private var serverPlaylistIndex: Int = 0
+
+    // ==================== 消息中心 (SSE) ====================
+    private var sseClient: OkHttpClient? = null
+    private var sseEventSource: EventSource? = null
+    private val gson = Gson()
+
+    // ==================== 播放统计 (心跳) ====================
+    private var heartbeatExecutor: ScheduledExecutorService? = null
+    private var lastHeartbeatPosition: Long = 0 // 上次心跳时的播放位置（毫秒）
+    
+    // 当前播放视频的元数据（用于心跳上报）
+    private var currentVideoDataType: String? = null // "movie" or "tv"
+    private var currentVideoDataId: Int? = null
+    private var currentVideoTitle: String? = null
+    private var currentVideoGalleryUid: String? = null
+    private var currentVideoGalleryTitle: String? = null
 
     // ==================== 返回栈管理 ====================
     /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
@@ -131,11 +154,240 @@ class MainActivity : Activity() {
         rootLayout.isFocusableInTouchMode = true
         setContentView(rootLayout)
 
+        // 初始化 SSE 消息中心
+        initSSE()
+
         if (App.isLoggedIn()) {
             showHome()
         } else {
             showLogin()
         }
+    }
+
+    // ==================== SSE 消息中心初始化 ====================
+    
+    private fun initSSE() {
+        val token = App.token
+        if (token.isNullOrEmpty()) return
+        
+        sseClient = OkHttpClient.Builder().build()
+        
+        val baseUrl = RetrofitClient.getBaseUrl()
+        val url = "${baseUrl}v1/api/message/sse?token=${java.net.URLEncoder.encode(token, "UTF-8")}"
+        
+        val request = Request.Builder().url(url).build()
+        
+        sseEventSource = sseClient?.newEventSource(request, object : EventSourceListener() {
+            override fun onOpen(eventSource: EventSource, response: okhttp3.Response) {
+                android.util.Log.d("OneList", "SSE connected")
+            }
+            
+            override fun onMessage(eventSource: EventSource, id: String?, type: String?, data: String) {
+                android.util.Log.d("OneList", "SSE message: type=$type data=$data")
+                
+                when (type) {
+                    "init" -> {
+                        // 初始未读消息
+                        try {
+                            val messages = gson.fromJson(data, Array<Message>::class.java).toList()
+                            for (msg in messages) {
+                                showMessage(msg)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("OneList", "Failed to parse init messages", e)
+                        }
+                    }
+                    "message" -> {
+                        // 新消息
+                        try {
+                            val msg = gson.fromJson(data, Message::class.java)
+                            showMessage(msg)
+                        } catch (e: Exception) {
+                            android.util.Log.e("OneList", "Failed to parse message", e)
+                        }
+                    }
+                }
+            }
+            
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: okhttp3.Response?) {
+                android.util.Log.e("OneList", "SSE failure: ${t?.message}")
+                // 30秒后重连
+                runOnUiThread {
+                    Thread.sleep(30000)
+                    if (sseClient != null) {
+                        initSSE()
+                    }
+                }
+            }
+            
+            override fun onClosed(eventSource: EventSource) {
+                android.util.Log.d("OneList", "SSE closed")
+            }
+        })
+    }
+    
+    private fun showMessage(msg: Message) {
+        runOnUiThread {
+            if (msg.priority == "forced") {
+                // 强制弹窗：全屏遮罩，必须确认
+                showForcedMessageDialog(msg)
+            } else {
+                // 普通通知：Toast
+                toast("📢 ${msg.content}")
+            }
+            
+            // 自动标记为已读
+            markMessageAsRead(msg.id)
+        }
+    }
+    
+    private fun showForcedMessageDialog(msg: Message) {
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setCancelable(false)
+        dialog.setCanceledOnTouchOutside(false)
+        
+        val layout = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#000000"))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        
+        val contentLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(40), dp(40), dp(40), dp(40))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.CENTER }
+        }
+        
+        val icon = TextView(this).apply {
+            text = "⚠️"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(72f))
+            gravity = Gravity.CENTER
+        }
+        contentLayout.addView(icon)
+        
+        val title = TextView(this).apply {
+            text = "重要通知"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, tvDp(20), 0, tvDp(10))
+        }
+        contentLayout.addView(title)
+        
+        val content = TextView(this).apply {
+            text = msg.content
+            setTextColor(Color.LTGRAY)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+            gravity = Gravity.CENTER
+            setPadding(tvDp(20), 0, tvDp(20), tvDp(30))
+        }
+        contentLayout.addView(content)
+        
+        val confirmBtn = Button(this).apply {
+            text = "我知道了"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+            setPadding(tvDp(40), tvDp(12), tvDp(40), tvDp(12))
+            isFocusable = true
+            isClickable = true
+            applyFocusGlow()
+            setOnClickListener {
+                dialog.dismiss()
+            }
+        }
+        contentLayout.addView(confirmBtn)
+        
+        layout.addView(contentLayout)
+        dialog.setContentView(layout)
+        dialog.show()
+    }
+    
+    private fun markMessageAsRead(messageId: Int) {
+        try {
+            RetrofitClient.getService().readMessage(messageId).enqueue(object : Callback<ApiResponse<Void>> {
+                override fun onResponse(call: Call<ApiResponse<Void>>, response: Response<ApiResponse<Void>>) {
+                    // 静默成功
+                }
+                override fun onFailure(call: Call<ApiResponse<Void>>, t: Throwable) {
+                    android.util.Log.e("OneList", "Failed to mark message as read", t)
+                }
+            })
+        } catch (e: Exception) {
+            android.util.Log.e("OneList", "Exception marking message as read", e)
+        }
+    }
+
+    // ==================== 播放统计心跳 ====================
+
+    /**
+     * 启动心跳定时器，每30秒上报一次播放进度
+     */
+    private fun startHeartbeat(player: ExoPlayer) {
+        // 如果没有视频元数据，不上报
+        if (currentVideoDataType == null || currentVideoDataId == null || currentVideoTitle == null) {
+            android.util.Log.d("OneList", "Heartbeat skipped: no video metadata")
+            return
+        }
+
+        stopHeartbeat() // 先停止之前的
+
+        lastHeartbeatPosition = player.currentPosition
+        
+        heartbeatExecutor = Executors.newSingleThreadScheduledExecutor()
+        heartbeatExecutor?.scheduleAtFixedRate({
+            try {
+                val currentPosition = player.currentPosition
+                val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
+                val positionSeconds = (currentPosition / 1000).toInt()
+                val totalDurationSeconds = (player.duration / 1000).toInt()
+
+                if (durationSeconds > 0) {
+                    val request = HeartbeatRequest(
+                        dataType = currentVideoDataType!!,
+                        dataId = currentVideoDataId!!,
+                        title = currentVideoTitle!!,
+                        galleryUid = currentVideoGalleryUid ?: "",
+                        galleryTitle = currentVideoGalleryTitle ?: "",
+                        duration = durationSeconds,
+                        position = positionSeconds,
+                        totalDuration = totalDurationSeconds
+                    )
+
+                    RetrofitClient.getService().sendHeartbeat(request).enqueue(object : Callback<ApiResponse<PlayHistory>> {
+                        override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
+                            if (response.body()?.code == 200) {
+                                android.util.Log.d("OneList", "Heartbeat sent: pos=$positionSeconds dur=$durationSeconds")
+                            }
+                        }
+                        override fun onFailure(call: Call<ApiResponse<PlayHistory>>, t: Throwable) {
+                            android.util.Log.e("OneList", "Heartbeat failed", t)
+                        }
+                    })
+                }
+
+                lastHeartbeatPosition = currentPosition
+            } catch (e: Exception) {
+                android.util.Log.e("OneList", "Heartbeat error", e)
+            }
+        }, 0, 30, TimeUnit.SECONDS)
+
+        android.util.Log.d("OneList", "Heartbeat started for: ${currentVideoTitle}")
+    }
+
+    /**
+     * 停止心跳定时器
+     */
+    private fun stopHeartbeat() {
+        heartbeatExecutor?.shutdownNow()
+        heartbeatExecutor = null
+        android.util.Log.d("OneList", "Heartbeat stopped")
     }
 
     // ==================== SCREEN MANAGEMENT ====================
@@ -980,7 +1232,16 @@ class MainActivity : Activity() {
                 if (movie.url != null) {
                     val pl = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                     val idx = pl?.indexOfFirst { it.url == movie.url } ?: 0
-                    showPlayer(movie.url!!, movie.galleryUid, pl, if (idx >= 0) idx else 0)
+                    showPlayer(
+                        url = movie.url!!,
+                        galleryUid = movie.galleryUid,
+                        playlist = pl,
+                        playIndex = if (idx >= 0) idx else 0,
+                        videoDataType = "movie",
+                        videoDataId = movie.id,
+                        videoTitle = movie.title,
+                        videoGalleryTitle = currentGalleryTitle
+                    )
                 } else {
                     toast("暂无播放源")
                 }
@@ -1262,7 +1523,16 @@ class MainActivity : Activity() {
                     if (ep.url != null) {
                         val pl = episodes.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                         val idx = episodes.indexOf(ep)
-                        showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
+                        showPlayer(
+                            url = ep.url!!,
+                            galleryUid = ep.galleryUid,
+                            playlist = pl,
+                            playIndex = if (idx >= 0) idx else 0,
+                            videoDataType = "tv",
+                            videoDataId = parentTv.id,
+                            videoTitle = "${parentTv.name} - ${ep.title}",
+                            videoGalleryTitle = currentGalleryTitle
+                        )
                     } else {
                         toast("暂无播放源")
                     }
@@ -1518,7 +1788,12 @@ class MainActivity : Activity() {
     private fun showPlayer(
         url: String, galleryUid: String?,
         playlist: List<PlayItem>? = null, playIndex: Int = 0,
-        pushToBackStack: Boolean = true
+        pushToBackStack: Boolean = true,
+        // 视频元数据（用于心跳上报）
+        videoDataType: String? = null,
+        videoDataId: Int? = null,
+        videoTitle: String? = null,
+        videoGalleryTitle: String? = null
     ) {
         // 进入播放器前，将上一步（详情/剧集列表/搜索）推入返回栈
         // 自动连播/上下键切换时不推栈，避免返回栈堆积重复的播放器页面
@@ -1534,6 +1809,13 @@ class MainActivity : Activity() {
         // 保存播放列表状态（用于遥控器上下键切换）
         currentPlaylist = playlist
         currentPlayIndex = playIndex
+
+        // 保存视频元数据（用于心跳上报）
+        currentVideoDataType = videoDataType
+        currentVideoDataId = videoDataId
+        currentVideoTitle = videoTitle
+        currentVideoGalleryUid = galleryUid
+        currentVideoGalleryTitle = videoGalleryTitle
 
         android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid' playlist=${playlist?.size ?: 0} index=$playIndex")
         if (url.isEmpty() || galleryUid == null) {
@@ -1868,6 +2150,10 @@ class MainActivity : Activity() {
                 exo.playWhenReady = true
                 exo.prepare()
                 android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
+                
+                // 启动心跳定时器（播放开始后）
+                startHeartbeat(exo)
+                
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         val stateName = when (state) {
@@ -1878,8 +2164,12 @@ class MainActivity : Activity() {
                             else -> "UNKNOWN($state)"
                         }
                         android.util.Log.d("OneList", "Player state: $stateName")
+                        
                         // 播放结束自动播放下一个（列表连续播放）
                         if (state == com.google.android.exoplayer2.Player.STATE_ENDED) {
+                            // 停止心跳
+                            stopHeartbeat()
+                            
                             val played = playNextInPlaylist(playerView, loadingText, nextHint, galleryUid)
                             if (!played) {
                                 toast("播放完毕")
@@ -2122,7 +2412,19 @@ class MainActivity : Activity() {
         val next = pl[currentPlayIndex]
         android.util.Log.d("OneList", "playNext: index=$currentPlayIndex title='${next.title}'")
         toast("下一集: ${next.title ?: ""}")
-        showPlayer(next.url, next.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
+        
+        // 从当前视频元数据推断类型和ID（剧集连播时保持相同的父级信息）
+        showPlayer(
+            url = next.url,
+            galleryUid = next.galleryUid,
+            playlist = pl,
+            playIndex = currentPlayIndex,
+            pushToBackStack = false,
+            videoDataType = currentVideoDataType,
+            videoDataId = currentVideoDataId,
+            videoTitle = next.title,
+            videoGalleryTitle = currentVideoGalleryTitle
+        )
     }
 
     private fun playPrevious() {
@@ -2135,7 +2437,18 @@ class MainActivity : Activity() {
         val prev = pl[currentPlayIndex]
         android.util.Log.d("OneList", "playPrevious: index=$currentPlayIndex title='${prev.title}'")
         toast("上一集: ${prev.title ?: ""}")
-        showPlayer(prev.url, prev.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
+        
+        showPlayer(
+            url = prev.url,
+            galleryUid = prev.galleryUid,
+            playlist = pl,
+            playIndex = currentPlayIndex,
+            pushToBackStack = false,
+            videoDataType = currentVideoDataType,
+            videoDataId = currentVideoDataId,
+            videoTitle = prev.title,
+            videoGalleryTitle = currentVideoGalleryTitle
+        )
     }
 
     // ==================== KEY EVENTS ====================

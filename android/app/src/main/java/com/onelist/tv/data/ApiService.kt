@@ -104,7 +104,78 @@ interface ApiService {
         @Query("gallery_uid") galleryUid: String,
         @Query("url") url: String
     ): Call<PlaylistResponse>
+
+    // ==================== 消息中心 API ====================
+    
+    // 获取我的未读消息
+    @GET("v1/api/message/mine")
+    fun getMyMessages(): Call<ApiResponse<List<Message>>>
+
+    // 标记消息为已读
+    @POST("v1/api/message/read")
+    fun readMessage(
+        @Query("id") id: Int
+    ): Call<ApiResponse<Void>>
+
+    // 标记所有消息为已读
+    @POST("v1/api/message/read-all")
+    fun readAllMessages(): Call<ApiResponse<Void>>
+
+    // ==================== 播放统计 API ====================
+
+    // 上报播放心跳
+    @POST("v1/api/play-history/heartbeat")
+    fun sendHeartbeat(
+        @Body body: HeartbeatRequest
+    ): Call<ApiResponse<PlayHistory>>
+
+    // 获取今日播放时长
+    @POST("v1/api/play-history/today-duration")
+    fun getTodayDuration(): Call<ApiResponse<Int>>
 }
+
+// ==================== 消息中心数据模型 ====================
+
+data class Message(
+    @SerializedName("id") val id: Int,
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("user_name") val userName: String?,
+    @SerializedName("content") val content: String,
+    @SerializedName("priority") val priority: String, // "normal" or "forced"
+    @SerializedName("sender_type") val senderType: String,
+    @SerializedName("sender_name") val senderName: String?,
+    @SerializedName("read_at") val readAt: String?,
+    @SerializedName("created_at") val createdAt: String
+)
+
+// ==================== 播放统计数据模型 ====================
+
+data class HeartbeatRequest(
+    @SerializedName("data_type") val dataType: String, // "movie" or "tv"
+    @SerializedName("data_id") val dataId: Int,
+    @SerializedName("title") val title: String,
+    @SerializedName("gallery_uid") val galleryUid: String,
+    @SerializedName("gallery_title") val galleryTitle: String,
+    @SerializedName("duration") val duration: Int, // seconds since last heartbeat
+    @SerializedName("position") val position: Int, // current playback position in seconds
+    @SerializedName("total_duration") val totalDuration: Int // total video duration in seconds
+)
+
+data class PlayHistory(
+    @SerializedName("id") val id: Int,
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("data_type") val dataType: String,
+    @SerializedName("data_id") val dataId: Int,
+    @SerializedName("title") val title: String,
+    @SerializedName("gallery_uid") val galleryUid: String,
+    @SerializedName("gallery_title") val galleryTitle: String,
+    @SerializedName("duration") val duration: Int,
+    @SerializedName("position") val position: Int,
+    @SerializedName("total_duration") val totalDuration: Int,
+    @SerializedName("started_at") val startedAt: String,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("updated_at") val updatedAt: String
+)
 
 data class PlaylistResponse(
     @SerializedName("code") val code: Int?,
