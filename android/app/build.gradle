@@ -18,9 +18,14 @@ android {
 
     signingConfigs {
         debug {
-            // AGP 7.x 默认只开 v2/v3，Android 5.1 (API 22) 只认 v1 jar signing，
-            // 不开 v1 的话会报"解析包时出现问题" / INSTALL_PARSE_FAILED_NOT_APK
-            // 注意：v1/v2SigningEnabled 是 SigningConfig 的属性，不能写在 buildTypes 里
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        release {
+            storeFile file('release-keystore.jks')
+            storePassword 'onelist123'
+            keyAlias 'onelist'
+            keyPassword 'onelist123'
             v1SigningEnabled true
             v2SigningEnabled true
         }
@@ -29,10 +34,11 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
+            signingConfig signingConfigs.debug
         }
     }
 
@@ -60,7 +66,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.multidex:multidex:2.0.1'
 
-    // Network (统一 okhttp 版本，避免和 ExoPlayer 传递依赖冲突)
+    // Network
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
     implementation 'com.squareup.okhttp3:okhttp:4.9.3'
@@ -69,14 +75,11 @@ dependencies {
     // Image loading
     implementation 'com.github.bumptech.glide:glide:4.12.0'
 
-    // Video player — 2.18.7 是 2.x 的最终稳定版，支持 minSdk 16，
-    // 并提供 PlaybackException / ERROR_CODE_* 精细错误码用于排障。
-    // 2.16.x 没这些常量，错误回调会 Unresolved reference。
+    // Video player
     def exoplayer_version = '2.18.7'
     implementation "com.google.android.exoplayer:exoplayer-core:$exoplayer_version"
     implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayer_version"
     implementation("com.google.android.exoplayer:extension-okhttp:$exoplayer_version") {
-        // 强制统一 okhttp 版本为我们上面指定的 4.9.3
         exclude group: 'com.squareup.okhttp3'
     }
 }
