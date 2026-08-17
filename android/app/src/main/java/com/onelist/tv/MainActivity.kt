@@ -118,6 +118,17 @@ class MainActivity : Activity() {
 
         rootLayout = FrameLayout(this)
         rootLayout.setBackgroundColor(Color.parseColor("#0d0d1a"))
+        // 在根布局上设置 OnKeyListener，确保 BACK/ESC 键在任何焦点状态下都能被拦截
+        rootLayout.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && 
+                (keyCode == KeyEvent.KEYCODE_ESCAPE || keyCode == KeyEvent.KEYCODE_BACK)) {
+                navigateBack()
+                return@setOnKeyListener true
+            }
+            false
+        }
+        rootLayout.isFocusable = true
+        rootLayout.isFocusableInTouchMode = true
         setContentView(rootLayout)
 
         if (App.isLoggedIn()) {
