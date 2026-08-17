@@ -2012,6 +2012,12 @@ class MainActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
+    // onBackPressed 作为兜底，确保 BACK 键始终能触发返回逻辑
+    @Deprecated("Use onBackPressedDispatcher instead", ReplaceWith("super.onBackPressed()"))
+    override fun onBackPressed() {
+        navigateBack()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         player?.release()
