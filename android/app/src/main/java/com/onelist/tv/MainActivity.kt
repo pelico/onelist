@@ -639,13 +639,18 @@ class MainActivity : Activity() {
 
         // Loading indicator with ProgressBar
         val loadingContainer = FrameLayout(this).apply {
+            id = View.generateViewId()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0
             ).apply { weight = 1f }
             setBackgroundColor(Color.parseColor("#0d0d1a"))
         }
         
+        val progressBarId = View.generateViewId()
+        val loadingTextId = View.generateViewId()
+        
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
+            id = progressBarId
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
@@ -655,6 +660,7 @@ class MainActivity : Activity() {
         loadingContainer.addView(progressBar)
         
         val loadingText = TextView(this).apply {
+            id = loadingTextId
             text = "加载中..."
             setTextColor(Color.GRAY)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
@@ -717,15 +723,23 @@ class MainActivity : Activity() {
         rootLayout.addView(layout)
 
         if (!restoreFromCache) {
-            loadListData(recyclerView, loadMoreBtn)
+            loadListData(recyclerView, loadMoreBtn, progressBarId, loadingTextId)
         } else {
-            // 恢复时保持和之前一致的加载更多按钮状态
+            // 恢复时：如果有缓存数据则直接显示，否则重新加载
+            if (listItems.isNotEmpty()) {
+                recyclerView.visibility = View.VISIBLE
+                val parent = recyclerView.parent as? FrameLayout
+                parent?.findViewById<View>(progressBarId)?.visibility = View.GONE
+                parent?.findViewById<TextView>(loadingTextId)?.visibility = View.GONE
+            } else {
+                loadListData(recyclerView, loadMoreBtn, progressBarId, loadingTextId)
+            }
             loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
             listAdapter?.notifyDataSetChanged()
         }
     }
 
-    private fun loadListData(recyclerView: RecyclerView, loadMoreBtn: Button) {
+    private fun loadListData(recyclerView: RecyclerView, loadMoreBtn: Button, progressBarId: Int, loadingTextId: Int) {
         val type = currentGalleryType ?: "movie"
         val galleryId = currentGalleryId
 
@@ -747,8 +761,8 @@ class MainActivity : Activity() {
                         // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
                         val parent = recyclerView.parent as? FrameLayout
-                        parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
-                        parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
+                        parent?.findViewById<View>(progressBarId)?.visibility = View.GONE
+                        parent?.findViewById<TextView>(loadingTextId)?.visibility = View.GONE
                     } else {
                         // 显示错误状态
                         showErrorInLoadingContainer(recyclerView, "加载失败: ${body?.msg ?: "未知错误"}")
@@ -778,8 +792,8 @@ class MainActivity : Activity() {
                         // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
                         val parent = recyclerView.parent as? FrameLayout
-                        parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
-                        parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
+                        parent?.findViewById<View>(progressBarId)?.visibility = View.GONE
+                        parent?.findViewById<TextView>(loadingTextId)?.visibility = View.GONE
                     } else {
                         // 显示错误状态
                         showErrorInLoadingContainer(recyclerView, "加载失败: ${body?.msg ?: "未知错误"}")
