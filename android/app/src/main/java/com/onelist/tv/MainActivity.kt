@@ -900,8 +900,8 @@ class MainActivity : Activity() {
                     if (body != null && body.code == 200 && body.data != null) {
                         val detail = body.data!!
                         if (detail.desc != null) {
-                            // Re-render with full detail
-                            showMovieDetail(Movie(
+                            // 只重新渲染，不要再 push 一次栈（避免返回键失效）
+                            renderMovieDetail(Movie(
                                 id = detail.id, title = detail.title, posterPath = detail.posterPath,
                                 overview = detail.overview, url = detail.url, voteAverage = detail.voteAverage,
                                 releaseDate = detail.releaseDate, genres = detail.genres, galleryUid = detail.galleryUid
