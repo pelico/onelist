@@ -20,6 +20,8 @@ import com.google.android.exoplayer2.ui.PlayerView
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
+import com.onelist.tv.App
+import com.onelist.tv.ui.CardAdapter
 import android.os.Handler
 import android.os.Looper
 import okhttp3.OkHttpClient
