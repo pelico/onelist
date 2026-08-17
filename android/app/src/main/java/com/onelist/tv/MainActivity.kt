@@ -52,6 +52,12 @@ class MainActivity : Activity() {
     private val listItems = mutableListOf<Any>() // Movie or Tv objects
     private var listAdapter: CardAdapter? = null
 
+    // Playlist for episode/movie navigation during playback
+    private data class PlayItem(val url: String, val galleryUid: String?, val title: String? = null)
+    private var currentPlaylist: List<PlayItem>? = null
+    private var currentPlayIndex: Int = 0
+    private var currentMovieList: List<Movie>? = null // Track movie list for player navigation
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -343,6 +349,7 @@ class MainActivity : Activity() {
 
         // Latest movies row
         if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
+            currentMovieList = data.latestMovies?.filter { it.url != null }
             val row = buildContentRow("最新电影", "movie", null)
             parent.addView(row)
             val recyclerView = buildHorizontalCardList(data.latestMovies.map { it as Any }, "movie")
@@ -568,6 +575,8 @@ class MainActivity : Activity() {
                     if (body != null && body.code == 200) {
                         listItems.clear()
                         if (body.data != null) listItems.addAll(body.data!!)
+                        // Track movie list for player next/previous navigation
+                        currentMovieList = listItems.filterIsInstance<Movie>().filter { it.url != null }
                         hasMorePages = body.data != null && body.data!!.size >= 30
                         listAdapter?.notifyDataSetChanged()
                         loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
@@ -631,6 +640,8 @@ class MainActivity : Activity() {
                         val start = listItems.size
                         listItems.addAll(body.data!!)
                         listAdapter?.notifyItemRangeInserted(start, body.data!!.size)
+                        // Update movie list for player navigation
+                        currentMovieList = listItems.filterIsInstance<Movie>().filter { it.url != null }
                         hasMorePages = body.data!!.size >= 30
                         if (!hasMorePages) loadMoreBtn.visibility = View.GONE
                     }
@@ -740,7 +751,10 @@ class MainActivity : Activity() {
             applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE) // 红色播放按钮，聚焦更亮 + 白描边
             setOnClickListener {
                 if (movie.url != null) {
-                    showPlayer(movie.url!!, movie.galleryUid)
+                    // Build playlist from current movie list if available
+                    val playlist = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
+                    val index = playlist?.indexOfFirst { it.url == movie.url } ?: 0
+                    showPlayer(movie.url!!, movie.galleryUid, playlist, if (index >= 0) index else 0)
                 } else {
                     toast("暂无播放源")
                 }
@@ -997,6 +1011,11 @@ class MainActivity : Activity() {
             setPadding(dp(24), dp(8), dp(24), dp(16))
         }
 
+        // Build playlist from all episodes for navigation
+        val playlist = episodes.filter { it.url != null }.map {
+            PlayItem(it.url!!, it.galleryUid, "E${it.episodeNumber ?: "?"} ${it.title ?: ""}")
+        }
+
         for (ep in episodes) {
             val epBtn = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1008,7 +1027,8 @@ class MainActivity : Activity() {
                 applyCardFocus()
                 setOnClickListener {
                     if (ep.url != null) {
-                        showPlayer(ep.url!!, ep.galleryUid)
+                        val index = playlist.indexOfFirst { it.url == ep.url }
+                        showPlayer(ep.url!!, ep.galleryUid, playlist, if (index >= 0) index else 0)
                     } else {
                         toast("暂无播放源")
                     }
@@ -1231,11 +1251,15 @@ class MainActivity : Activity() {
 
     // ==================== PLAYER SCREEN ====================
 
-    private fun showPlayer(url: String, galleryUid: String?) {
+    private fun showPlayer(url: String, galleryUid: String?, playlist: List<PlayItem>? = null, playIndex: Int = 0) {
         currentScreen = Screen.PLAYER
         rootLayout.removeAllViews()
 
-        android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid'")
+        // Store playlist context for next/previous navigation
+        currentPlaylist = playlist
+        currentPlayIndex = playIndex
+
+        android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid' playlist=${playlist?.size ?: 0} index=$playIndex")
         if (url.isEmpty() || galleryUid == null) {
             toast("无效的播放地址")
             showHome()
@@ -1520,6 +1544,34 @@ class MainActivity : Activity() {
             }
     }
 
+    // ==================== PLAYLIST NAVIGATION ====================
+
+    private fun playNext() {
+        val playlist = currentPlaylist ?: return
+        if (currentPlayIndex >= playlist.size - 1) {
+            toast("已经是最后一个了")
+            return
+        }
+        currentPlayIndex++
+        val next = playlist[currentPlayIndex]
+        android.util.Log.d("OneList", "playNext: index=$currentPlayIndex title='${next.title}'")
+        toast("下一集: ${next.title ?: ""}")
+        showPlayer(next.url, next.galleryUid, playlist, currentPlayIndex)
+    }
+
+    private fun playPrevious() {
+        val playlist = currentPlaylist ?: return
+        if (currentPlayIndex <= 0) {
+            toast("已经是第一个了")
+            return
+        }
+        currentPlayIndex--
+        val prev = playlist[currentPlayIndex]
+        android.util.Log.d("OneList", "playPrevious: index=$currentPlayIndex title='${prev.title}'")
+        toast("上一集: ${prev.title ?: ""}")
+        showPlayer(prev.url, prev.galleryUid, playlist, currentPlayIndex)
+    }
+
     // ==================== TOP BAR ====================
 
     private fun buildTopBar(title: String, showSearch: Boolean, showLogout: Boolean): LinearLayout {
@@ -1604,6 +1656,39 @@ class MainActivity : Activity() {
     }
 
     // ==================== KEY EVENTS ====================
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (currentScreen == Screen.PLAYER && player != null && event.action == KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                // 左方向键：快退 5 秒
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    val newPos = (player!!.currentPosition - 5000).coerceAtLeast(0)
+                    player!!.seekTo(newPos)
+                    android.util.Log.d("OneList", "Seek backward 5s to ${newPos}ms")
+                    return true
+                }
+                // 右方向键：快进 5 秒
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    val duration = player!!.duration
+                    val newPos = if (duration > 0) (player!!.currentPosition + 5000).coerceAtMost(duration) else player!!.currentPosition + 5000
+                    player!!.seekTo(newPos)
+                    android.util.Log.d("OneList", "Seek forward 5s to ${newPos}ms")
+                    return true
+                }
+                // 上方向键：上一集/上一个电影
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    playPrevious()
+                    return true
+                }
+                // 下方向键：下一集/下一个电影
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    playNext()
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
