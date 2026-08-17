@@ -1,4 +1,4 @@
-?package com.onelist.tv
+package com.onelist.tv
 
 import android.app.Activity
 import android.content.Context
