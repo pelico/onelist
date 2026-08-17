@@ -1658,44 +1658,45 @@ class MainActivity : Activity() {
     // ==================== KEY EVENTS ====================
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (currentScreen == Screen.PLAYER && player != null && event.action == KeyEvent.ACTION_DOWN) {
-            when (event.keyCode) {
-                // 左方向键：快退 5 秒
-                KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    val newPos = (player!!.currentPosition - 5000).coerceAtLeast(0)
-                    player!!.seekTo(newPos)
-                    android.util.Log.d("OneList", "Seek backward 5s to ${newPos}ms")
-                    return true
-                }
-                // 右方向键：快进 5 秒
-                KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    val duration = player!!.duration
-                    val newPos = if (duration > 0) (player!!.currentPosition + 5000).coerceAtMost(duration) else player!!.currentPosition + 5000
-                    player!!.seekTo(newPos)
-                    android.util.Log.d("OneList", "Seek forward 5s to ${newPos}ms")
-                    return true
-                }
-                // 上方向键：上一集/上一个电影
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    playPrevious()
-                    return true
-                }
-                // 下方向键：下一集/下一个电影
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    playNext()
-                    return true
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            // ESC 或 BACK 键：返回上一页
+            if (event.keyCode == KeyEvent.KEYCODE_ESCAPE || event.keyCode == KeyEvent.KEYCODE_BACK) {
+                navigateBack()
+                return true
+            }
+            
+            // 播放器页面的方向键控制
+            if (currentScreen == Screen.PLAYER && player != null) {
+                when (event.keyCode) {
+                    // 左方向键：快退 5 秒
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        val newPos = (player!!.currentPosition - 5000).coerceAtLeast(0)
+                        player!!.seekTo(newPos)
+                        android.util.Log.d("OneList", "Seek backward 5s to ${newPos}ms")
+                        return true
+                    }
+                    // 右方向键：快进 5 秒
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val duration = player!!.duration
+                        val newPos = if (duration > 0) (player!!.currentPosition + 5000).coerceAtMost(duration) else player!!.currentPosition + 5000
+                        player!!.seekTo(newPos)
+                        android.util.Log.d("OneList", "Seek forward 5s to ${newPos}ms")
+                        return true
+                    }
+                    // 上方向键：上一集/上一个电影
+                    KeyEvent.KEYCODE_DPAD_UP -> {
+                        playPrevious()
+                        return true
+                    }
+                    // 下方向键：下一集/下一个电影
+                    KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        playNext()
+                        return true
+                    }
                 }
             }
         }
         return super.dispatchKeyEvent(event)
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            navigateBack()
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {
