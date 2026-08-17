@@ -21,7 +21,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
 import com.onelist.tv.App
-import com.onelist.tv.ui.CardAdapter
+import com.onelist.tv.CardAdapter
 import android.os.Handler
 import android.os.Looper
 import okhttp3.OkHttpClient
@@ -188,7 +188,7 @@ class MainActivity : Activity() {
                 android.util.Log.d("OneList", "SSE connected")
             }
             
-            override fun onMessage(eventSource: EventSource, id: String?, type: String?, data: String) {
+            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                 android.util.Log.d("OneList", "SSE message: type=$type data=$data")
                 
                 when (type) {
