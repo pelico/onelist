@@ -20,6 +20,9 @@ import com.google.android.exoplayer2.ui.PlayerView
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.onelist.tv.data.*
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import com.onelist.tv.App
 import com.onelist.tv.CardAdapter
 import android.os.Handler
@@ -29,9 +32,6 @@ import okhttp3.Request
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -54,34 +54,34 @@ class MainActivity : Activity() {
     private var playerView: View? = null
     private var player: ExoPlayer? = null
 
-    // �����б������ң�������¼��л���/��Ӱ
+    // 播放列表：用于遥控器上下键切换集/电影
     private data class PlayItem(val url: String, val galleryUid: String?, val title: String? = null)
     private var currentPlaylist: List<PlayItem>? = null
     private var currentPlayIndex: Int = 0
-    private var currentMovieList: List<Movie>? = null // ��ǰ��Ӱ�б�����ڹ��������б�
+    private var currentMovieList: List<Movie>? = null // 当前电影列表，用于构建播放列表
 
-    // ����������б�����Ž������Զ�����ͬĿ¼��һ����Ƶ
+    // 服务端连播列表：播放结束后自动播放同目录下一个视频
     private var serverPlaylist: List<String> = emptyList()
     private var serverPlaylistIndex: Int = 0
 
-    // ==================== ��Ϣ���� (SSE) ====================
+    // SSE message center
     private var sseClient: OkHttpClient? = null
     private var sseEventSource: EventSource? = null
     private val gson = Gson()
 
-    // ==================== ����ͳ�� (����) ====================
+    // Play statistics heartbeat
     private var heartbeatExecutor: ScheduledExecutorService? = null
-    private var lastHeartbeatPosition: Long = 0 // �ϴ�����ʱ�Ĳ���λ�ã����룩
+    private var lastHeartbeatPosition: Long = 0
     
-    // ��ǰ������Ƶ��Ԫ���ݣ����������ϱ���
-    private var currentVideoDataType: String? = null // "movie" or "tv"
+    // Current video metadata for heartbeat
+    private var currentVideoDataType: String? = null
     private var currentVideoDataId: Int? = null
     private var currentVideoTitle: String? = null
     private var currentVideoGalleryUid: String? = null
     private var currentVideoGalleryTitle: String? = null
 
-    // ==================== ����ջ���� ====================
-    /** ��Ļ״̬�����ڰ�ң�������ؼ�ʱ�ָ�����һ���ľ�ȷλ�� */
+    // ==================== 返回栈管理 ====================
+    /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
     private sealed class ScreenState {
         object Home : ScreenState()
         object Search : ScreenState()
@@ -114,13 +114,13 @@ class MainActivity : Activity() {
             val seasonTitle: String
         ) : ScreenState()
         data class PlayerScreen(
-            val prev: ScreenState, // ������ǰ����Ļ��ֱ�Ӵ���Ϊpop���״̬
+            val prev: ScreenState, // 播放器前的屏幕，直接存作为pop后的状态
             val url: String,
             val galleryUid: String?
         ) : ScreenState()
     }
 
-    /** ����ջ����ң�������ؼ�ʱ pop ջ�����ָ� */
+    /** 返回栈：按遥控器返回键时 pop 栈顶并恢复 */
     private val screenBackStack = ArrayDeque<ScreenState>()
 
     // State
@@ -132,12 +132,12 @@ class MainActivity : Activity() {
     private var hasMorePages = true
     private val listItems = mutableListOf<Any>() // Movie or Tv objects
     private var listAdapter: CardAdapter? = null
-    // ���ڰ����ؼ��ָ�����/�缯�б�ʱ���������� API
+    // 用于按返回键恢复详情/剧集列表时不重新请求 API
     private var currentMovie: Movie? = null
     private var currentTv: Tv? = null
     private var currentSeasonEpisodes: List<Episode>? = null
     private var currentSeasonTitle: String? = null
-    // ��������Ƿ������ҳ���루����ʱҪ�����������б��
+    // 标记详情是否从搜索页进入（返回时要回搜索而非列表）
     private var detailFromSearch = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,7 +146,7 @@ class MainActivity : Activity() {
 
         rootLayout = FrameLayout(this)
         rootLayout.setBackgroundColor(Color.parseColor("#0d0d1a"))
-        // �ڸ����������� OnKeyListener��ȷ�� BACK/ESC �����κν���״̬�¶��ܱ�����
+        // 在根布局上设置 OnKeyListener，确保 BACK/ESC 键在任何焦点状态下都能被拦截
         rootLayout.setOnKeyListener { _, keyCode, event ->
             if (event.action == KeyEvent.ACTION_DOWN && 
                 (keyCode == KeyEvent.KEYCODE_ESCAPE || keyCode == KeyEvent.KEYCODE_BACK)) {
@@ -159,7 +159,7 @@ class MainActivity : Activity() {
         rootLayout.isFocusableInTouchMode = true
         setContentView(rootLayout)
 
-        // ��ʼ�� SSE ��Ϣ����
+        // Init SSE message center
         initSSE()
 
         if (App.isLoggedIn()) {
@@ -168,8 +168,7 @@ class MainActivity : Activity() {
             showLogin()
         }
     }
-
-    // ==================== SSE ��Ϣ���ĳ�ʼ�� ====================
+    // ==================== SSE 消息中心初始化 ====================
     
     private fun initSSE() {
         val token = App.token
@@ -193,7 +192,7 @@ class MainActivity : Activity() {
                 
                 when (type) {
                     "init" -> {
-                        // ��ʼδ����Ϣ
+                        // 初始未读消息
                         try {
                             val messages = gson.fromJson(data, Array<Message>::class.java).toList()
                             for (msg in messages) {
@@ -204,7 +203,7 @@ class MainActivity : Activity() {
                         }
                     }
                     "message" -> {
-                        // ����Ϣ
+                        // 新消息
                         try {
                             val msg = gson.fromJson(data, Message::class.java)
                             showMessage(msg)
@@ -217,7 +216,7 @@ class MainActivity : Activity() {
             
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: okhttp3.Response?) {
                 android.util.Log.e("OneList", "SSE failure: ${t?.message}")
-                // 30�������
+                // 30秒后重连
                 Handler(Looper.getMainLooper()).postDelayed({
                     initSSE()
                 }, 30000)
@@ -232,14 +231,14 @@ class MainActivity : Activity() {
     private fun showMessage(msg: Message) {
         runOnUiThread {
             if (msg.priority == "forced") {
-                // ǿ�Ƶ�����ȫ�����֣�����ȷ��
+                // 强制通知：全屏弹窗，必须确认
                 showForcedMessageDialog(msg)
             } else {
-                // ��֪ͨͨ��Toast
-                toast("?? ${msg.content}")
+                // 普通通知通过Toast
+                toast("📩 ${msg.content}")
             }
             
-            // �Զ����Ϊ�Ѷ�
+            // 自动标记为已读
             markMessageAsRead(msg.id)
         }
     }
@@ -268,14 +267,14 @@ class MainActivity : Activity() {
         }
         
         val icon = TextView(this).apply {
-            text = "??"
+            text = "📩"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(72f))
             gravity = Gravity.CENTER
         }
         contentLayout.addView(icon)
         
         val title = TextView(this).apply {
-            text = "��Ҫ֪ͨ"
+            text = "重要通知"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -289,12 +288,12 @@ class MainActivity : Activity() {
             setTextColor(Color.LTGRAY)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
             gravity = Gravity.CENTER
-            setPadding(tvDp(20), 0, tvDp(20), tvDp(30))
+            setPadding(tvDp(20), 0, tvDp(20), 0)
         }
         contentLayout.addView(content)
         
         val confirmBtn = Button(this).apply {
-            text = "��֪����"
+            text = "我知道了"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
             setPadding(tvDp(40), tvDp(12), tvDp(40), tvDp(12))
@@ -316,7 +315,7 @@ class MainActivity : Activity() {
         try {
             RetrofitClient.getService().readMessage(messageId).enqueue(object : Callback<ApiResponse<Void>> {
                 override fun onResponse(call: Call<ApiResponse<Void>>, response: Response<ApiResponse<Void>>) {
-                    // ��Ĭ�ɹ�
+                    // 忽略成功
                 }
                 override fun onFailure(call: Call<ApiResponse<Void>>, t: Throwable) {
                     android.util.Log.e("OneList", "Failed to mark message as read", t)
@@ -327,19 +326,19 @@ class MainActivity : Activity() {
         }
     }
 
-    // ==================== ����ͳ������ ====================
+    // ==================== 播放统计心跳 ====================
 
     /**
-     * ���������ʱ����ÿ30���ϱ�һ�β��Ž���
+     * 开始播放时启动，每30秒上报一次播放进度
      */
     private fun startHeartbeat(player: ExoPlayer) {
-        // ���û����ƵԪ���ݣ����ϱ�
+        // 如果没有视频元数据，不上报
         if (currentVideoDataType == null || currentVideoDataId == null || currentVideoTitle == null) {
             android.util.Log.d("OneList", "Heartbeat skipped: no video metadata")
             return
         }
 
-        stopHeartbeat() // ��ֹ֮ͣǰ��
+        stopHeartbeat() // 先停止之前的
 
         lastHeartbeatPosition = player.currentPosition
         
@@ -385,13 +384,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * ֹͣ������ʱ��
+     * 停止播放时停止心跳
      */
     private fun stopHeartbeat() {
         heartbeatExecutor?.shutdownNow()
         heartbeatExecutor = null
         android.util.Log.d("OneList", "Heartbeat stopped")
     }
+
 
     // ==================== SCREEN MANAGEMENT ====================
 
@@ -442,7 +442,7 @@ class MainActivity : Activity() {
         })
 
         // Server URL input
-        val serverLabel = label("��������ַ")
+        val serverLabel = label("服务器地址")
         layout.addView(serverLabel)
         val serverInput = EditText(this).apply {
             hint = "http://192.168.1.100:8080"
@@ -457,7 +457,7 @@ class MainActivity : Activity() {
         layout.addView(serverInput, lp().apply { bottomMargin = dp(20) })
 
         // Username input
-        val userLabel = label("�û���")
+        val userLabel = label("用户名")
         layout.addView(userLabel)
         val userInput = EditText(this).apply {
             setTextColor(Color.WHITE)
@@ -471,7 +471,7 @@ class MainActivity : Activity() {
         layout.addView(userInput, lp().apply { bottomMargin = dp(20) })
 
         // Password input
-        val passLabel = label("����")
+        val passLabel = label("密码")
         layout.addView(passLabel)
         val passInput = EditText(this).apply {
             setTextColor(Color.WHITE)
@@ -485,7 +485,7 @@ class MainActivity : Activity() {
 
         // Login button
         val loginBtn = Button(this).apply {
-            text = "�� ¼"
+            text = "登 录"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             setPadding(dp(40), dp(14), dp(40), dp(14))
@@ -497,7 +497,7 @@ class MainActivity : Activity() {
                 val user = userInput.text.toString().trim()
                 val pass = passInput.text.toString().trim()
                 if (url.isEmpty() || user.isEmpty() || pass.isEmpty()) {
-                    toast("����д�����ֶ�")
+                    toast("请填写所有字段")
                     return@setOnClickListener
                 }
                 App.serverUrl = url
@@ -527,7 +527,7 @@ class MainActivity : Activity() {
 
     private fun doLogin(username: String, password: String, btn: Button) {
         btn.isEnabled = false
-        btn.text = "��¼��..."
+        btn.text = "登录中..."
         try {
             val call = RetrofitClient.getService().login(LoginRequest(username, password))
             call.enqueue(object : Callback<LoginResponse> {
@@ -542,24 +542,24 @@ class MainActivity : Activity() {
                         App.userId = body.user?.id
                         App.username = username
                         android.util.Log.d("OneList", "Saved token: ${App.token?.take(30)}...")
-                        toast("��¼�ɹ�")
+                        toast("登录成功")
                         showHome()
                     } else {
                         btn.isEnabled = true
-                        btn.text = "�� ¼"
-                        toast(body?.msg ?: "��¼ʧ��")
+                        btn.text = "登 录"
+                        toast(body?.msg ?: "登录失败")
                     }
                 }
                 override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
                     btn.isEnabled = true
-                    btn.text = "�� ¼"
-                    toast("����ʧ��: ${t.message}")
+                    btn.text = "登 录"
+                    toast("连接失败: ${t.message}")
                 }
             })
         } catch (e: Exception) {
             btn.isEnabled = true
-            btn.text = "�� ¼"
-            toast("����: ${e.message}")
+            btn.text = "登 录"
+            toast("错误: ${e.message}")
         }
     }
 
@@ -567,9 +567,9 @@ class MainActivity : Activity() {
 
     private fun showHome() {
         currentScreen = Screen.HOME
-        // �ص���ҳ��շ���ջ�����ⷵ��ʱ����
+        // 回到首页清空返回栈，避免返回时乱跳
         screenBackStack.clear()
-        // �뿪����������ʱ�ͷŲ�������������Ƶ�����ں�̨����
+        // 离开播放器界面时释放播放器，避免音频继续在后台播放
         player?.release()
         player = null
         rootLayout.removeAllViews()
@@ -582,7 +582,7 @@ class MainActivity : Activity() {
         }
 
         // Top bar
-        val topBar = buildTopBar("����TV", showSearch = true, showLogout = true)
+        val topBar = buildTopBar("悠悠TV", showSearch = true, showLogout = true)
         layout.addView(topBar)
 
         // Loading container with ProgressBar
@@ -602,7 +602,7 @@ class MainActivity : Activity() {
         loadingContainer.addView(progressBar)
         
         val loadingText = TextView(this).apply {
-            text = "������..."
+            text = "加载中..."
             setTextColor(Color.GRAY)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
             layoutParams = FrameLayout.LayoutParams(
@@ -644,7 +644,7 @@ class MainActivity : Activity() {
                     }
                     
                     if (body != null && body.code == 200 && body.data != null) {
-                        // ���ؼ���ָʾ��
+                        // 隐藏加载指示器
                         loadingContainer.visibility = View.GONE
                         val data = body.data!!
                         android.util.Log.d("OneList", "Home data: latestMovies=${data.latestMovies?.size ?: 0} latestTvs=${data.latestTvs?.size ?: 0} galleries=${data.galleries?.size ?: 0}")
@@ -660,7 +660,7 @@ class MainActivity : Activity() {
                     } else {
                         val currentToken = App.token
                         val errorMsg = buildString {
-                            append("����ʧ��\n")
+                            append("加载失败\n")
                             append("HTTP: ${response.code()}\n")
                             append("Token: ${if (currentToken == null) "null" else if (currentToken.isEmpty()) "empty" else currentToken.take(20) + "..."}\n")
                             if (body != null) {
@@ -677,12 +677,12 @@ class MainActivity : Activity() {
                 }
                 override fun onFailure(call: Call<ApiResponse<HomeData>>, t: Throwable) {
                     android.util.Log.e("OneList", "API failure: ${t.message}", t)
-                    loadingText.text = "����ʧ��: ${t.message}"
+                    loadingText.text = "连接失败: ${t.message}"
                 }
             })
         } catch (e: Exception) {
             android.util.Log.e("OneList", "Exception: ${e.message}", e)
-            loadingText.text = "����: ${e.message}"
+            loadingText.text = "错误: ${e.message}"
         }
     }
 
@@ -700,7 +700,7 @@ class MainActivity : Activity() {
 
         // Latest movies row
         if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
-            val row = buildContentRow("���µ�Ӱ", "movie", null)
+            val row = buildContentRow("最新电影", "movie", null)
             parent.addView(row)
             val recyclerView = buildHorizontalCardList(data.latestMovies.map { it as Any }, "movie")
             parent.addView(recyclerView)
@@ -708,7 +708,7 @@ class MainActivity : Activity() {
 
         // Latest TVs row
         if (data.latestTvs != null && data.latestTvs.isNotEmpty()) {
-            val row = buildContentRow("���µ���", "tv", null)
+            val row = buildContentRow("最新电视", "tv", null)
             parent.addView(row)
             val recyclerView = buildHorizontalCardList(data.latestTvs.map { it as Any }, "tv")
             parent.addView(recyclerView)
@@ -736,7 +736,7 @@ class MainActivity : Activity() {
                     val first = items[0]
                     android.util.Log.d("OneList", "  First item: title='${first.title}' name='${first.name}' poster='${first.posterPath}'")
 
-                    val row = buildContentRow(gallery.title ?: "ý���", galleryType, gallery.galleryUid)
+                    val row = buildContentRow(gallery.title ?: "媒体库", galleryType, gallery.galleryUid)
                     parent.addView(row)
                     // Per-item type detection: has "title" field -> Movie, has "name" field -> Tv
                     // This matches tv/index.html: var type = forceType || (item.title ? 'movie' : 'tv')
@@ -786,10 +786,10 @@ class MainActivity : Activity() {
         }
         row.addView(titleView)
 
-        // "�鿴����" hint
+        // "查看更多" hint
         if (galleryId != null) {
             val more = TextView(this).apply {
-                text = "�鿴���� >"
+                text = "查看更多 >"
                 setTextColor(Color.parseColor("#888888"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
                 setPadding(tvDp(12), tvDp(4), tvDp(4), tvDp(4))
@@ -808,7 +808,7 @@ class MainActivity : Activity() {
             }
         }
         
-        // ��������Ե������ʾ������
+        // 创建带边缘渐变提示的容器
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -829,7 +829,7 @@ class MainActivity : Activity() {
         }
         container.addView(recyclerView)
         
-        // ��ཥ�����֣�ָʾ�������������
+        // 左侧渐变遮罩（指示可以向左滚动）
         val leftGradient = View(this).apply {
             layoutParams = FrameLayout.LayoutParams(tvDp(40), FrameLayout.LayoutParams.MATCH_PARENT).apply {
                 gravity = Gravity.START
@@ -844,7 +844,7 @@ class MainActivity : Activity() {
         }
         container.addView(leftGradient)
         
-        // �Ҳཥ�����֣�ָʾ�������ҹ�����
+        // 右侧渐变遮罩（指示可以向右滚动）
         val rightGradient = View(this).apply {
             layoutParams = FrameLayout.LayoutParams(tvDp(40), FrameLayout.LayoutParams.MATCH_PARENT).apply {
                 gravity = Gravity.END
@@ -865,10 +865,10 @@ class MainActivity : Activity() {
     // ==================== LIST SCREEN ====================
 
     /**
-     * @param restoreFromCache true=�����ؼ��ָ��������Ѽ������ݲ���������API��false=�״ν��룬���ص�һҳ
+     * @param restoreFromCache true=按返回键恢复，复用已加载数据不重新请求API；false=首次进入，加载第一页
      */
     private fun showList(restoreFromCache: Boolean = false) {
-        // ֻ�����򵼺����ǰ����ؼ��ָ��������뷵��ջ
+        // 只有正向导航（非按返回键恢复）才推入返回栈
         if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.LIST
         player?.release(); player = null
@@ -876,7 +876,7 @@ class MainActivity : Activity() {
         detailFromSearch = false
 
         if (!restoreFromCache) {
-            // �״ν��룺�����б�״̬
+            // 首次进入：重置列表状态
             currentPage = 1
             isLoadingMore = false
             hasMorePages = true
@@ -889,23 +889,18 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#0d0d1a"))
         }
 
-        val topBar = buildTopBar(currentGalleryTitle ?: "���", showSearch = true, showLogout = false)
+        val topBar = buildTopBar(currentGalleryTitle ?: "浏览", showSearch = true, showLogout = false)
         layout.addView(topBar)
 
         // Loading indicator with ProgressBar
         val loadingContainer = FrameLayout(this).apply {
-            id = View.generateViewId()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0
             ).apply { weight = 1f }
             setBackgroundColor(Color.parseColor("#0d0d1a"))
         }
         
-        val progressBarId = View.generateViewId()
-        val loadingTextId = View.generateViewId()
-        
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
-            id = progressBarId
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
@@ -915,8 +910,7 @@ class MainActivity : Activity() {
         loadingContainer.addView(progressBar)
         
         val loadingText = TextView(this).apply {
-            id = loadingTextId
-            text = "������..."
+            text = "加载中..."
             setTextColor(Color.GRAY)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
             layoutParams = FrameLayout.LayoutParams(
@@ -941,7 +935,7 @@ class MainActivity : Activity() {
             this.adapter = listAdapter
             setPadding(tvDp(16), tvDp(8), tvDp(16), tvDp(16))
             clipToPadding = false
-            visibility = View.GONE // ��ʼ���أ�������ɺ���ʾ
+            visibility = View.GONE // 初始隐藏，加载完成后显示
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -954,7 +948,7 @@ class MainActivity : Activity() {
         })
 
         val loadMoreBtn = Button(this).apply {
-            text = "���ظ���"
+            text = "加载更多"
             setTextColor(Color.WHITE)
             visibility = View.GONE
             isFocusable = true
@@ -978,23 +972,15 @@ class MainActivity : Activity() {
         rootLayout.addView(layout)
 
         if (!restoreFromCache) {
-            loadListData(recyclerView, loadMoreBtn, progressBarId, loadingTextId)
+            loadListData(recyclerView, loadMoreBtn)
         } else {
-            // �ָ�ʱ������л���������ֱ����ʾ���������¼���
-            if (listItems.isNotEmpty()) {
-                recyclerView.visibility = View.VISIBLE
-                val parent = recyclerView.parent as? FrameLayout
-                parent?.findViewById<View>(progressBarId)?.visibility = View.GONE
-                parent?.findViewById<TextView>(loadingTextId)?.visibility = View.GONE
-            } else {
-                loadListData(recyclerView, loadMoreBtn, progressBarId, loadingTextId)
-            }
+            // 恢复时保持和之前一致的加载更多按钮状态
             loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
             listAdapter?.notifyDataSetChanged()
         }
     }
 
-    private fun loadListData(recyclerView: RecyclerView, loadMoreBtn: Button, progressBarId: Int, loadingTextId: Int) {
+    private fun loadListData(recyclerView: RecyclerView, loadMoreBtn: Button) {
         val type = currentGalleryType ?: "movie"
         val galleryId = currentGalleryId
 
@@ -1013,19 +999,19 @@ class MainActivity : Activity() {
                         hasMorePages = body.data != null && body.data!!.size >= 30
                         listAdapter?.notifyDataSetChanged()
                         loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
-                        // ���ؼ���ָʾ������ʾ�б�
+                        // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
                         val parent = recyclerView.parent as? FrameLayout
-                        parent?.findViewById<View>(progressBarId)?.visibility = View.GONE
-                        parent?.findViewById<TextView>(loadingTextId)?.visibility = View.GONE
+                        parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
+                        parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
                     } else {
-                        // ��ʾ����״̬
-                        showErrorInLoadingContainer(recyclerView, "����ʧ��: ${body?.msg ?: "δ֪����"}")
+                        // 显示错误状态
+                        showErrorInLoadingContainer(recyclerView, "加载失败: ${body?.msg ?: "未知错误"}")
                     }
                 }
                 override fun onFailure(call: Call<ApiListResponse<Tv>>, t: Throwable) {
-                    toast("����ʧ��: ${t.message}")
-                    showErrorInLoadingContainer(recyclerView, "�������: ${t.message}")
+                    toast("加载失败: ${t.message}")
+                    showErrorInLoadingContainer(recyclerView, "网络错误: ${t.message}")
                 }
             })
         } else {
@@ -1044,19 +1030,19 @@ class MainActivity : Activity() {
                         hasMorePages = body.data != null && body.data!!.size >= 30
                         listAdapter?.notifyDataSetChanged()
                         loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
-                        // ���ؼ���ָʾ������ʾ�б�
+                        // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
                         val parent = recyclerView.parent as? FrameLayout
-                        parent?.findViewById<View>(progressBarId)?.visibility = View.GONE
-                        parent?.findViewById<TextView>(loadingTextId)?.visibility = View.GONE
+                        parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
+                        parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
                     } else {
-                        // ��ʾ����״̬
-                        showErrorInLoadingContainer(recyclerView, "����ʧ��: ${body?.msg ?: "δ֪����"}")
+                        // 显示错误状态
+                        showErrorInLoadingContainer(recyclerView, "加载失败: ${body?.msg ?: "未知错误"}")
                     }
                 }
                 override fun onFailure(call: Call<ApiListResponse<Movie>>, t: Throwable) {
-                    toast("����ʧ��: ${t.message}")
-                    showErrorInLoadingContainer(recyclerView, "�������: ${t.message}")
+                    toast("加载失败: ${t.message}")
+                    showErrorInLoadingContainer(recyclerView, "网络错误: ${t.message}")
                 }
             })
         }
@@ -1064,7 +1050,7 @@ class MainActivity : Activity() {
 
     private fun loadMoreItems(recyclerView: RecyclerView, loadMoreBtn: Button) {
         isLoadingMore = true
-        loadMoreBtn.text = "������..."
+        loadMoreBtn.text = "加载中..."
         loadMoreBtn.isEnabled = false
 
         val type = currentGalleryType ?: "movie"
@@ -1080,7 +1066,7 @@ class MainActivity : Activity() {
                 override fun onResponse(call: Call<ApiListResponse<Tv>>, response: Response<ApiListResponse<Tv>>) {
                     isLoadingMore = false
                     loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "���ظ���"
+                    loadMoreBtn.text = "加载更多"
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val start = listItems.size
@@ -1093,8 +1079,8 @@ class MainActivity : Activity() {
                 override fun onFailure(call: Call<ApiListResponse<Tv>>, t: Throwable) {
                     isLoadingMore = false
                     loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "���ظ���"
-                    toast("����ʧ��")
+                    loadMoreBtn.text = "加载更多"
+                    toast("加载失败")
                 }
             })
         } else {
@@ -1107,7 +1093,7 @@ class MainActivity : Activity() {
                 override fun onResponse(call: Call<ApiListResponse<Movie>>, response: Response<ApiListResponse<Movie>>) {
                     isLoadingMore = false
                     loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "���ظ���"
+                    loadMoreBtn.text = "加载更多"
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val start = listItems.size
@@ -1121,8 +1107,8 @@ class MainActivity : Activity() {
                 override fun onFailure(call: Call<ApiListResponse<Movie>>, t: Throwable) {
                     isLoadingMore = false
                     loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "���ظ���"
-                    toast("����ʧ��")
+                    loadMoreBtn.text = "加载更多"
+                    toast("加载失败")
                 }
             })
         }
@@ -1131,8 +1117,8 @@ class MainActivity : Activity() {
     // ==================== DETAIL SCREEN ====================
 
     /**
-     * ���б������ҳ�����Ƭ�����Ӱ���顣
-     * @param fromSearch true=������������루�����ؼ�Ҫ������ҳ��
+     * 从列表或搜索页点击卡片进入电影详情。
+     * @param fromSearch true=从搜索结果进入（按返回键要回搜索页）
      */
     private fun showMovieDetail(movie: Movie, fromSearch: Boolean = false) {
         pushCurrentToBackStack()
@@ -1140,12 +1126,12 @@ class MainActivity : Activity() {
         renderMovieDetail(movie)
     }
 
-    /** ����Ⱦ��Ӱ���飨���ڷ��ؼ��ָ�������ջ������������ API�� */
+    /** 纯渲染电影详情（用于返回键恢复，不推栈、不重新请求 API） */
     private fun renderMovieDetail(movie: Movie) {
         currentScreen = Screen.DETAIL
         player?.release(); player = null
         rootLayout.removeAllViews()
-        // ����缯�б���棨�����Ӱ����󲻿��ܻ��ھ缯�б��
+        // 清除剧集列表缓存（进入电影详情后不可能还在剧集列表）
         currentSeasonEpisodes = null
         currentSeasonTitle = null
         currentMovie = movie
@@ -1158,7 +1144,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(20), 0, dp(40))
         }
 
-        val topBar = buildTopBar(movie.title ?: "����", showSearch = false, showLogout = false)
+        val topBar = buildTopBar(movie.title ?: "详情", showSearch = false, showLogout = false)
         layout.addView(topBar)
 
         val contentLayout = LinearLayout(this).apply {
@@ -1198,8 +1184,8 @@ class MainActivity : Activity() {
         val metaText = buildString {
             if (movie.year != null) append(movie.year)
             if (movie.score != null) {
-                if (isNotEmpty()) append("  ��  ")
-                append("����: ${movie.score}")
+                if (isNotEmpty()) append("  ·  ")
+                append("评分: ${movie.score}")
             }
         }
         if (metaText.isNotEmpty()) {
@@ -1224,7 +1210,7 @@ class MainActivity : Activity() {
         }
 
         val playBtn = Button(this).apply {
-            text = "?  ����"
+            text = "▶  播放"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
             setPadding(tvDp(32), tvDp(12), tvDp(32), tvDp(12))
@@ -1235,18 +1221,9 @@ class MainActivity : Activity() {
                 if (movie.url != null) {
                     val pl = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                     val idx = pl?.indexOfFirst { it.url == movie.url } ?: 0
-                    showPlayer(
-                        url = movie.url!!,
-                        galleryUid = movie.galleryUid,
-                        playlist = pl,
-                        playIndex = if (idx >= 0) idx else 0,
-                        videoDataType = "movie",
-                        videoDataId = movie.id,
-                        videoTitle = movie.title,
-                        videoGalleryTitle = currentGalleryTitle
-                    )
+                    showPlayer(movie.url!!, movie.galleryUid, pl, if (idx >= 0) idx else 0)
                 } else {
-                    toast("���޲���Դ")
+                    toast("暂无播放源")
                 }
             }
         }
@@ -1264,7 +1241,7 @@ class MainActivity : Activity() {
 
         if (movie.desc != null && movie.desc!!.isNotEmpty()) {
             val descLabel = TextView(this).apply {
-                text = "���"
+                text = "简介"
                 setTextColor(Color.WHITE)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1299,7 +1276,7 @@ class MainActivity : Activity() {
                     if (body != null && body.code == 200 && body.data != null) {
                         val detail = body.data!!
                         if (detail.desc != null) {
-                            // ֻ������Ⱦ����Ҫ�� push һ��ջ�����ⷵ�ؼ�ʧЧ��
+                            // 只重新渲染，不要再 push 一次栈（避免返回键失效）
                             renderMovieDetail(Movie(
                                 id = detail.id, title = detail.title, posterPath = detail.posterPath,
                                 overview = detail.overview, url = detail.url, voteAverage = detail.voteAverage,
@@ -1319,12 +1296,12 @@ class MainActivity : Activity() {
         renderTvDetail(tv)
     }
 
-    /** ����Ⱦ�������飨���ڷ��ؼ��ָ�������ջ������������ API�� */
+    /** 纯渲染电视详情（用于返回键恢复，不推栈、不重新请求 API） */
     private fun renderTvDetail(tv: Tv) {
         currentScreen = Screen.DETAIL
         player?.release(); player = null
         rootLayout.removeAllViews()
-        // ����TV����󣬿��������缯�б��֮�󷵻ػ���������ȷʶ��
+        // 进入TV详情后，可能跳到剧集列表，之后返回回来还能正确识别
         currentSeasonEpisodes = null
         currentSeasonTitle = null
         currentMovie = null
@@ -1337,7 +1314,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(20), 0, dp(40))
         }
 
-        val topBar = buildTopBar(tv.title ?: "����", showSearch = false, showLogout = false)
+        val topBar = buildTopBar(tv.title ?: "详情", showSearch = false, showLogout = false)
         layout.addView(topBar)
 
         val contentLayout = LinearLayout(this).apply {
@@ -1392,7 +1369,7 @@ class MainActivity : Activity() {
 
         if (tv.desc != null && tv.desc!!.isNotEmpty()) {
             val descLabel = TextView(this).apply {
-                text = "���"
+                text = "简介"
                 setTextColor(Color.WHITE)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1414,7 +1391,7 @@ class MainActivity : Activity() {
             setPadding(tvDp(32), tvDp(24), tvDp(32), 0)
         }
         val seasonsLabel = TextView(this).apply {
-            text = "�ּ�"
+            text = "分季"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1440,7 +1417,7 @@ class MainActivity : Activity() {
                         if (detail.seasons != null) {
                             for (season in detail.seasons) {
                                 val seasonBtn = Button(this@MainActivity).apply {
-                                    text = "�� ${season.seasonNumber ?: "?"} ��"
+                                    text = "第 ${season.seasonNumber ?: "?"} 季"
                                     setTextColor(Color.WHITE)
                                     setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
                                     setPadding(tvDp(16), tvDp(10), tvDp(16), tvDp(10))
@@ -1465,7 +1442,7 @@ class MainActivity : Activity() {
                     }
                 }
                 override fun onFailure(call: Call<TvDetailResponse>, t: Throwable) {
-                    toast("��������ʧ��")
+                    toast("加载详情失败")
                 }
             })
         } catch (e: Exception) {}
@@ -1478,11 +1455,11 @@ class MainActivity : Activity() {
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val seasonDetail = body.data!!
-                        showEpisodeList(seasonDetail.episodes ?: emptyList(), "�� $seasonNumber ��")
+                        showEpisodeList(seasonDetail.episodes ?: emptyList(), "第 $seasonNumber 季")
                     }
                 }
                 override fun onFailure(call: Call<ApiResponse<SeasonDetail>>, t: Throwable) {
-                    toast("���ؾ缯ʧ��")
+                    toast("加载剧集失败")
                 }
             })
         } catch (e: Exception) {}
@@ -1493,10 +1470,10 @@ class MainActivity : Activity() {
         currentScreen = Screen.DETAIL
         player?.release(); player = null
         rootLayout.removeAllViews()
-        // ����缯�б���棨���ؾ缯���黹�ܻز����� �� �ٷ������ָ��缯�б��
+        // 保存剧集列表缓存（返回剧集详情还能回播放器 → 再返回来恢复剧集列表）
         currentSeasonEpisodes = episodes
         currentSeasonTitle = seasonTitle
-        // currentMovie/currentTv ������䣬��Ϊ�Ӿ缯�б���ػص� tv detail ʱ��Ҫ currentTv
+        // currentMovie/currentTv 保留不变，因为从剧集列表返回回到 tv detail 时需要 currentTv
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1526,18 +1503,9 @@ class MainActivity : Activity() {
                     if (ep.url != null) {
                         val pl = episodes.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                         val idx = episodes.indexOf(ep)
-                        showPlayer(
-                            url = ep.url!!,
-                            galleryUid = ep.galleryUid,
-                            playlist = pl,
-                            playIndex = if (idx >= 0) idx else 0,
-                            videoDataType = "tv",
-                            videoDataId = currentTv!!.id,
-                            videoTitle = "${currentTv!!.name} - ${ep.title}",
-                            videoGalleryTitle = currentGalleryTitle
-                        )
+                        showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
                     } else {
-                        toast("���޲���Դ")
+                        toast("暂无播放源")
                     }
                 }
             }
@@ -1579,9 +1547,9 @@ class MainActivity : Activity() {
     // ==================== SEARCH SCREEN ====================
 
     /**
-     * ����ҳ�����򵼺�ʱ���Ӷ�������ͼ����룩�Զ���ջ��
-     * restoreFromCache=true ʱ�����³�ʼ�����ݡ���������ҳû�л���״̬Ҫ��
-     * ���Բ��� restore ���������Ⱦ��ֻ�ǲ���ջ��
+     * 搜索页。正向导航时（从顶栏搜索图标进入）自动推栈。
+     * restoreFromCache=true 时不重新初始化数据——但搜索页没有缓存状态要求，
+     * 所以不管 restore 与否都重新渲染，只是不推栈。
      */
     private fun showSearch(restoreFromCache: Boolean = false) {
         if (!restoreFromCache) pushCurrentToBackStack()
@@ -1595,7 +1563,7 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#0d0d1a"))
         }
 
-        val topBar = buildTopBar("����", showSearch = false, showLogout = false)
+        val topBar = buildTopBar("搜索", showSearch = false, showLogout = false)
         layout.addView(topBar)
 
         // Search input row
@@ -1606,7 +1574,7 @@ class MainActivity : Activity() {
         }
 
         val searchInput = EditText(this).apply {
-            hint = "����ؼ���..."
+            hint = "输入关键词..."
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
             setBackgroundColor(Color.parseColor("#1a1a2e"))
@@ -1618,7 +1586,7 @@ class MainActivity : Activity() {
         searchRow.addView(searchInput)
 
         val searchBtn = Button(this).apply {
-            text = "����"
+            text = "搜索"
             setTextColor(Color.WHITE)
             isFocusable = true
             isClickable = true
@@ -1661,7 +1629,7 @@ class MainActivity : Activity() {
         resultsLayout.removeAllViews()
 
         val loadingView = TextView(this).apply {
-            text = "������..."
+            text = "搜索中..."
             setTextColor(Color.GRAY)
             gravity = Gravity.CENTER
             setPadding(0, dp(40), 0, dp(40))
@@ -1721,7 +1689,7 @@ class MainActivity : Activity() {
             }
             
             val emptyIcon = TextView(this).apply {
-                text = "??"
+                text = "🔍"
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
                 gravity = Gravity.CENTER
                 setPadding(0, 0, 0, tvDp(16))
@@ -1729,7 +1697,7 @@ class MainActivity : Activity() {
             emptyLayout.addView(emptyIcon)
             
             val empty = TextView(this).apply {
-                text = "δ�ҵ����\n�볢�������ؼ���"
+                text = "未找到结果\n请尝试其他关键词"
                 setTextColor(Color.parseColor("#cccccc"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
                 gravity = Gravity.CENTER
@@ -1743,7 +1711,7 @@ class MainActivity : Activity() {
 
         if (movies.isNotEmpty()) {
             val label = TextView(this).apply {
-                text = "��Ӱ (${movies.size})"
+                text = "电影 (${movies.size})"
                 setTextColor(Color.WHITE)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1765,7 +1733,7 @@ class MainActivity : Activity() {
 
         if (tvs.isNotEmpty()) {
             val label = TextView(this).apply {
-                text = "���� (${tvs.size})"
+                text = "电视 (${tvs.size})"
                 setTextColor(Color.WHITE)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1791,43 +1759,31 @@ class MainActivity : Activity() {
     private fun showPlayer(
         url: String, galleryUid: String?,
         playlist: List<PlayItem>? = null, playIndex: Int = 0,
-        pushToBackStack: Boolean = true,
-        // ��ƵԪ���ݣ����������ϱ���
-        videoDataType: String? = null,
-        videoDataId: Int? = null,
-        videoTitle: String? = null,
-        videoGalleryTitle: String? = null
+        pushToBackStack: Boolean = true
     ) {
-        // ���벥����ǰ������һ��������/�缯�б�/���������뷵��ջ
-        // �Զ�����/���¼��л�ʱ����ջ�����ⷵ��ջ�ѻ��ظ��Ĳ�����ҳ��
+        // 进入播放器前，将上一步（详情/剧集列表/搜索）推入返回栈
+        // 自动连播/上下键切换时不推栈，避免返回栈堆积重复的播放器页面
         if (pushToBackStack) {
             pushCurrentToBackStack()
         }
         currentScreen = Screen.PLAYER
-        // �ͷžɲ������������л���Ƶʱ����Ƶ�����ں�̨���ţ���Ƶ���ӣ�
+        // 释放旧播放器，避免切换视频时旧视频继续在后台播放（音频叠加）
         player?.release()
         player = null
         rootLayout.removeAllViews()
 
-        // ���沥���б�״̬������ң�������¼��л���
+        // 保存播放列表状态（用于遥控器上下键切换）
         currentPlaylist = playlist
         currentPlayIndex = playIndex
 
-        // ������ƵԪ���ݣ����������ϱ���
-        currentVideoDataType = videoDataType
-        currentVideoDataId = videoDataId
-        currentVideoTitle = videoTitle
-        currentVideoGalleryUid = galleryUid
-        currentVideoGalleryTitle = videoGalleryTitle
-
         android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid' playlist=${playlist?.size ?: 0} index=$playIndex")
         if (url.isEmpty() || galleryUid == null) {
-            toast("��Ч�Ĳ��ŵ�ַ")
+            toast("无效的播放地址")
             showHome()
             return
         }
 
-        // ��Ⱦ��������� + loading ��ʾ
+        // 渲染播放器框架 + loading 提示
         val playerContainer = FrameLayout(this).apply { fillParent() }
 
         val playerView = PlayerView(this).apply {
@@ -1837,7 +1793,7 @@ class MainActivity : Activity() {
         playerContainer.addView(playerView)
 
         val loadingText = TextView(this).apply {
-            text = "���ڼ�����ƵԴ..."
+            text = "正在加载视频源..."
             setTextColor(Color.parseColor("#cccccc"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
@@ -1847,7 +1803,7 @@ class MainActivity : Activity() {
         ).apply { gravity = Gravity.CENTER }
         playerContainer.addView(loadingText, loadingLP)
 
-        // ������ʾ�����Ͻ���ʾ"��һ��"��
+        // 连播提示（右上角显示"下一个"）
         val nextHint = TextView(this).apply {
             setTextColor(Color.parseColor("#cccccc"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
@@ -1862,13 +1818,13 @@ class MainActivity : Activity() {
 
         rootLayout.addView(playerContainer)
 
-        // ���ز����б��ͬĿ¼��Ƶ�б����Ȼ�󲥷ŵ�ǰ��Ƶ
+        // 加载播放列表（同目录视频列表），然后播放当前视频
         loadPlaylistAndPlay(playerView, loadingText, nextHint, url, galleryUid)
     }
 
     /**
-     * ���� /v1/api/playlist ��ȡͬĿ¼��Ƶ�б���ҵ���ǰ url ��������
-     * Ȼ����������š������б�Ϊ��Ҳ���������ŵ�ǰ��Ƶ��
+     * 请求 /v1/api/playlist 获取同目录视频列表，找到当前 url 的索引，
+     * 然后解析并播放。播放列表为空也能正常播放当前视频。
      */
     private fun loadPlaylistAndPlay(
         playerView: PlayerView, loadingText: TextView, nextHint: TextView,
@@ -1881,7 +1837,7 @@ class MainActivity : Activity() {
                         val body = response.body()
                         if (body != null && body.code == 200 && body.data != null && body.data!!.isNotEmpty()) {
                             serverPlaylist = body.data!!
-                            // ���ҵ�ǰ url ���б��е�λ��
+                            // 查找当前 url 在列表中的位置
                             serverPlaylistIndex = serverPlaylist.indexOfFirst { p ->
                                 p == url || p == url.trimStart('/') ||
                                 (url.startsWith("/file/") && p == url) ||
@@ -1893,7 +1849,7 @@ class MainActivity : Activity() {
                         } else {
                             android.util.Log.d("OneList", "Playlist empty or failed, single play mode")
                         }
-                        // ���������ŵ�ǰ��Ƶ
+                        // 解析并播放当前视频
                         resolveAndPlay(playerView, loadingText, nextHint, url, galleryUid)
                     }
                     override fun onFailure(call: Call<PlaylistResponse>, t: Throwable) {
@@ -1908,13 +1864,13 @@ class MainActivity : Activity() {
     }
 
     /**
-     * �������Ͻ�������ʾ
+     * 更新右上角连播提示
      */
     private fun updateNextHint(nextHint: TextView) {
         if (serverPlaylist.isNotEmpty() && serverPlaylistIndex < serverPlaylist.size - 1) {
             val nextIdx = serverPlaylistIndex + 1
             val nextName = serverPlaylist[nextIdx].substringAfterLast('/').substringBeforeLast('.')
-            nextHint.text = "��һ��: $nextName  (${nextIdx + 1}/${serverPlaylist.size})"
+            nextHint.text = "下一个: $nextName  (${nextIdx + 1}/${serverPlaylist.size})"
             nextHint.visibility = View.VISIBLE
         } else {
             nextHint.visibility = View.GONE
@@ -1922,7 +1878,7 @@ class MainActivity : Activity() {
     }
 
     /**
-     * �����б�����һ����Ƶ���� STATE_ENDED ������
+     * 播放列表中下一个视频（由 STATE_ENDED 触发）
      */
     private fun playNextInPlaylist(
         playerView: PlayerView, loadingText: TextView, nextHint: TextView,
@@ -1933,15 +1889,15 @@ class MainActivity : Activity() {
         val nextUrl = serverPlaylist[serverPlaylistIndex]
         android.util.Log.d("OneList", "Auto-playing next: index=$serverPlaylistIndex url='$nextUrl'")
         updateNextHint(nextHint)
-        // ��ʾ loading
-        loadingText.text = "���ڼ�����һ��..."
+        // 显示 loading
+        loadingText.text = "正在加载下一集..."
         loadingText.visibility = View.VISIBLE
         resolveAndPlay(playerView, loadingText, nextHint, nextUrl, galleryUid)
         return true
     }
 
     /**
-     * ������ƵԴ URL��alist����/����ֱ��/��������open����Ȼ����� ExoPlayer
+     * 解析视频源 URL（alist代理/本地直链/阿里云盘open），然后启动 ExoPlayer
      */
     private fun resolveAndPlay(
         playerView: PlayerView, loadingText: TextView, nextHint: TextView,
@@ -1949,26 +1905,26 @@ class MainActivity : Activity() {
     ) {
         val base = App.serverUrl
         if (base == null || base.isEmpty()) {
-            loadingText.text = "�������÷�������ַ"
+            loadingText.text = "请先配置服务器地址"
             return
         }
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
 
-        // ֱ�� HTTP/HTTPS ֱ���������ӿ��ж�
+        // 直接 HTTP/HTTPS 直链，跳过接口判断
         if (url.startsWith("http")) {
             loadingText.visibility = View.GONE
             startExoPlayer(playerView, url, loadingText, nextHint, galleryUid)
             return
         }
 
-        // ���� gallery/host �ж� alist ���� / ����ֱ�� / ��������open
+        // 请求 gallery/host 判断 alist 代理 / 本地直链 / 阿里云盘open
         try {
             RetrofitClient.getService().getGalleryHost(galleryUid).enqueue(object : retrofit2.Callback<GalleryHostResponse> {
                 override fun onResponse(call: retrofit2.Call<GalleryHostResponse>, response: retrofit2.Response<GalleryHostResponse>) {
                     val body = response.body()
                     android.util.Log.d("OneList", "GalleryHost code=${body?.code} msg=${body?.msg} data=${body?.`data`} isAliOpen=${body?.isAliOpen}")
                     if (body == null || body.code != 200) {
-                        loadingText.text = "��ȡý�����Ϣʧ��: HTTP ${response.code()}" +
+                        loadingText.text = "获取媒体库信息失败: HTTP ${response.code()}" +
                             (if (body != null) " code=${body.code} msg=${body.msg}" else "")
                         return
                     }
@@ -1976,7 +1932,7 @@ class MainActivity : Activity() {
                     val isAliOpen = body.isAliOpen == true
 
                     if (isAliOpen) {
-                        loadingText.text = "���ڻ�ȡ�������̲��ŵ�ַ..."
+                        loadingText.text = "正在获取阿里云盘播放地址..."
                         try {
                             RetrofitClient.getService().getAliOpenVideo(
                                 AliOpenVideoRequest(file = url, galleryUid = galleryUid)
@@ -1984,7 +1940,7 @@ class MainActivity : Activity() {
                                 override fun onResponse(call: retrofit2.Call<AliOpenVideoResponse>, response: retrofit2.Response<AliOpenVideoResponse>) {
                                     val r = response.body()
                                     if (r == null || r.code != 200 || r.data == null) {
-                                        loadingText.text = "��ȡ���ŵ�ַʧ��: " + (r?.msg ?: "δ֪����")
+                                        loadingText.text = "获取播放地址失败: " + (r?.msg ?: "未知错误")
                                         return
                                     }
                                     try {
@@ -1995,26 +1951,26 @@ class MainActivity : Activity() {
                                                 loadingText.visibility = View.GONE
                                                 startExoPlayer(playerView, bestUrl, loadingText, nextHint, galleryUid)
                                             } else {
-                                                loadingText.text = "û�п��õĲ��ŵ�ַ"
+                                                loadingText.text = "没有可用的播放地址"
                                             }
                                         } else {
-                                            loadingText.text = "û�п��õĲ��ŵ�ַ"
+                                            loadingText.text = "没有可用的播放地址"
                                         }
                                     } catch (e: Exception) {
-                                        loadingText.text = "�������ŵ�ַ����: ${e.message}"
+                                        loadingText.text = "解析播放地址出错: ${e.message}"
                                     }
                                 }
                                 override fun onFailure(call: retrofit2.Call<AliOpenVideoResponse>, t: Throwable) {
-                                    loadingText.text = "��ȡ�������̵�ַʧ��: ${t.message}"
+                                    loadingText.text = "获取阿里云盘地址失败: ${t.message}"
                                 }
                             })
                         } catch (e: Exception) {
-                            loadingText.text = "�������: ${e.message}"
+                            loadingText.text = "请求出错: ${e.message}"
                         }
                         return
                     }
 
-                    // alist ���� �� ����ֱ��
+                    // alist 代理 或 本地直链
                     val videoSrc = if (alistHost.isNotEmpty()) {
                         if (url.startsWith("/alist/proxy/")) "$normalizedBase$url"
                         else "$normalizedBase/alist/proxy/$galleryUid$url"
@@ -2023,21 +1979,21 @@ class MainActivity : Activity() {
                         else "$normalizedBase/file/${url.trimStart('/')}"
                     }
                     android.util.Log.d("OneList", "Player resolved: alistHost='$alistHost' videoSrc='$videoSrc'")
-                    loadingText.text = "���ڲ���: $videoSrc"
+                    loadingText.text = "正在播放: $videoSrc"
                     startExoPlayer(playerView, videoSrc, loadingText, nextHint, galleryUid)
-                    // ���ŵ�ַ��ʾ10����Զ����أ������ڵ�����
+                    // 播放地址显示10秒后自动隐藏，避免遮挡画面
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        if (loadingText.text.toString().startsWith("���ڲ���")) {
+                        if (loadingText.text.toString().startsWith("正在播放")) {
                             loadingText.visibility = View.GONE
                         }
                     }, 10000)
                 }
                 override fun onFailure(call: retrofit2.Call<GalleryHostResponse>, t: Throwable) {
-                    loadingText.text = "��ȡý�����Ϣʧ��: ${t.message}"
+                    loadingText.text = "获取媒体库信息失败: ${t.message}"
                 }
             })
         } catch (e: Exception) {
-            loadingText.text = "����: ${e.message}"
+            loadingText.text = "错误: ${e.message}"
         }
     }
 
@@ -2045,17 +2001,17 @@ class MainActivity : Activity() {
         playerView: PlayerView, videoUrl: String,
         loadingText: TextView, nextHint: TextView, galleryUid: String
     ) {
-        // Use OkHttp as data source �� fixes TLS/SSL issues on old Android (4.4)
+        // Use OkHttp as data source — fixes TLS/SSL issues on old Android (4.4)
         // where the built-in HttpsURLConnection doesn't support modern TLS.
         //
-        // URL ������ԣ�
-        //   ���� MediaItem.setUri() ֮ǰ���� URL����Ϊ��
-        //   1. android.net.Uri.encode �ѿո����Ϊ '+'��OkHttp/Gin ����
-        //   2. MediaItem.Builder.setUri() �ڲ����ٴν��� URL������˫�ر���
-        //   ��Ϊ�� OkHttp �������б��룺�������õ� ExoPlayer ����ԭʼ URL��
-        //   �� URLEncoder ��ÿ�� path segment ���루�ո��%20�����ġ�UTF-8 %XX����
-        //   ���� OkHttp �� HttpUrl.Builder.addEncodedPathSegment ��������
-        //   ���� OkHttp �����ٴα��룬��֤�������յ�������ȷ�� URL��
+        // URL 编码策略：
+        //   不在 MediaItem.setUri() 之前编码 URL，因为：
+        //   1. android.net.Uri.encode 把空格编码为 '+'，OkHttp/Gin 不认
+        //   2. MediaItem.Builder.setUri() 内部会再次解析 URL，可能双重编码
+        //   改为在 OkHttp 拦截器中编码：拦截器拿到 ExoPlayer 传的原始 URL，
+        //   用 URLEncoder 对每个 path segment 编码（空格→%20，中文→UTF-8 %XX），
+        //   再用 OkHttp 的 HttpUrl.Builder.addEncodedPathSegment 构造请求，
+        //   这样 OkHttp 不会再次编码，保证服务器收到的是正确的 URL。
         val okHttpClientForVideo = okhttp3.OkHttpClient.Builder()
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
@@ -2065,7 +2021,7 @@ class MainActivity : Activity() {
                     val originalReq = chain.request()
                     val originalUrlStr = originalReq.url.toString()
 
-                    // ֻ�� URL ������/�ո�ȷǷ��ַ�ʱ�ű���
+                    // 只有 URL 含中文/空格等非法字符时才编码
                     val needsEncoding = originalUrlStr.any { it.code > 127 || it == ' ' }
                     if (!needsEncoding) {
                         if (token != null && token.isNotEmpty()) {
@@ -2076,8 +2032,8 @@ class MainActivity : Activity() {
                         return@addInterceptor chain.proceed(originalReq)
                     }
 
-                    // �ֶ���� URL���� path segment �� URLEncoder ����
-                    // ��OkHttp �� addEncodedPathSegment �� API ������/���ɷ��ʣ�
+                    // 手动拆分 URL，按 path segment 用 URLEncoder 编码
+                    // （OkHttp 的 addEncodedPathSegment 等 API 不可用/不可访问）
                     val encodedUrlStr = try {
                         val schemeEnd = originalUrlStr.indexOf("://")
                         val scheme = originalUrlStr.substring(0, schemeEnd)
@@ -2100,11 +2056,11 @@ class MainActivity : Activity() {
                         originalUrlStr
                     }
 
-                    android.util.Log.d("OneList", "Interceptor: '$originalUrlStr' �� '$encodedUrlStr'")
+                    android.util.Log.d("OneList", "Interceptor: '$originalUrlStr' → '$encodedUrlStr'")
 
-                    // ֱ���ñ����� URL �ַ�����������
-                    // Request.Builder.url(String) �ڲ����� toHttpUrl()��OkHttp ����
-                    // ����������Ҫ�ⲿ import ��չ���������ѱ���� %XX �����ٴα��롣
+                    // 直接用编码后的 URL 字符串构造请求。
+                    // Request.Builder.url(String) 内部调用 toHttpUrl()（OkHttp 包内
+                    // 方法，不需要外部 import 扩展函数），已编码的 %XX 不会再次编码。
                     val newReq = try {
                         val reqBuilder = originalReq.newBuilder().url(encodedUrlStr)
                         if (token != null && token.isNotEmpty()) {
@@ -2121,8 +2077,8 @@ class MainActivity : Activity() {
             .build()
         val dataSourceFactory = OkHttpDataSource.Factory(okHttpClientForVideo)
 
-        // �����ļ���չ���ƶ� MIME type����ԭʼ URL ��Ϊ MediaItem ֻ��������
-        // ʵ�� URL ���������б��룩
+        // 根据文件扩展名推断 MIME type（用原始 URL 因为 MediaItem 只是容器，
+        // 实际 URL 在拦截器中编码）
         val lowerUrl = videoUrl.lowercase()
         val mimeType = when {
             lowerUrl.contains(".mp4") -> "video/mp4"
@@ -2136,7 +2092,7 @@ class MainActivity : Activity() {
             else -> "video/mp4"
         }
 
-        // �ͷžɲ��������Զ�����ʱ�� player �Դ��ڣ�
+        // 释放旧播放器（自动连播时旧 player 仍存在）
         player?.release()
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(
@@ -2144,7 +2100,7 @@ class MainActivity : Activity() {
             )
             .build().also { exo ->
                 playerView.player = exo
-                // ֱ����ԭʼ URL��������/�ո񣩣������������
+                // 直接用原始 URL（含中文/空格），拦截器会编码
                 val mediaItem = MediaItem.Builder()
                     .setUri(videoUrl)
                     .setMimeType(mimeType)
@@ -2152,11 +2108,10 @@ class MainActivity : Activity() {
                 exo.setMediaItem(mediaItem)
                 exo.playWhenReady = true
                 exo.prepare()
-                android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
                 
-                // ���������ʱ�������ſ�ʼ��
+                // Start heartbeat on play
                 startHeartbeat(exo)
-                
+                android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         val stateName = when (state) {
@@ -2167,15 +2122,14 @@ class MainActivity : Activity() {
                             else -> "UNKNOWN($state)"
                         }
                         android.util.Log.d("OneList", "Player state: $stateName")
-                        
-                        // ���Ž����Զ�������һ�����б��������ţ�
+                        // 播放结束自动播放下一个（列表连续播放）
                         if (state == com.google.android.exoplayer2.Player.STATE_ENDED) {
-                            // ֹͣ����
+                            // Stop heartbeat
                             stopHeartbeat()
                             
                             val played = playNextInPlaylist(playerView, loadingText, nextHint, galleryUid)
                             if (!played) {
-                                toast("�������")
+                                toast("播放完毕")
                             }
                         }
                     }
@@ -2212,7 +2166,7 @@ class MainActivity : Activity() {
                             android.util.Log.e("OneList", "  -> ${t::class.java.name}: ${t.message}")
                             t = t.cause
                         }
-                        // ��ʾ cause ���������Ĵ�����Ϣ��"Source error" ̫��ͳ��
+                        // 显示 cause 链中最具体的错误信息（"Source error" 太笼统）
                         var detail = error.message ?: ""
                         var cause: Throwable? = error.cause
                         while (cause != null) {
@@ -2220,7 +2174,7 @@ class MainActivity : Activity() {
                             if (cm != null && cm.isNotEmpty()) detail = cm
                             cause = cause.cause
                         }
-                        toast("����ʧ�� [$errorCodeName]: $detail")
+                        toast("播放失败 [$errorCodeName]: $detail")
                     }
                 })
             }
@@ -2239,7 +2193,7 @@ class MainActivity : Activity() {
         // Back button (if not on home)
         if (currentScreen != Screen.HOME && currentScreen != Screen.LOGIN) {
             val backBtn = TextView(this).apply {
-                text = "�� ����"
+                text = "← 返回"
                 setTextColor(Color.parseColor("#6366f1"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
                 isClickable = true
@@ -2265,7 +2219,7 @@ class MainActivity : Activity() {
         // Search button
         if (showSearch) {
             val searchBtn = TextView(this).apply {
-                text = "?? ����"
+                text = "🔍 搜索"
                 setTextColor(Color.parseColor("#aaaaaa"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
                 isClickable = true
@@ -2280,7 +2234,7 @@ class MainActivity : Activity() {
         // Logout button
         if (showLogout) {
             val logoutBtn = TextView(this).apply {
-                text = "�˳�"
+                text = "退出"
                 setTextColor(Color.parseColor("#888888"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
                 isClickable = true
@@ -2299,9 +2253,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * ����ǰ��Ļ���뷵��ջ������
-     * - HOME/SEARCH ���������ƣ����ⷵ��ʱ�����ظ���ҳ��
-     * - ÿ�ε���������Ļǰ���ã��ѡ��뿪ʱ����Ļ����ջ
+     * 将当前屏幕推入返回栈。规则：
+     * - HOME/SEARCH 不再往里推（避免返回时出现重复首页）
+     * - 每次导航到新屏幕前调用，把「离开时的屏幕」存栈
      */
     private fun pushCurrentToBackStack() {
         when (currentScreen) {
@@ -2320,7 +2274,7 @@ class MainActivity : Activity() {
                                     currentGalleryId, currentGalleryTitle, currentGalleryType,
                                     detailFromSearch, tv,
                                     currentSeasonEpisodes!!,
-                                    currentSeasonTitle ?: "�缯"
+                                    currentSeasonTitle ?: "剧集"
                                 )
                             )
                         }
@@ -2343,11 +2297,11 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            Screen.PLAYER, Screen.LOGIN -> { /* ������ */ }
+            Screen.PLAYER, Screen.LOGIN -> { /* 不推入 */ }
         }
     }
 
-    /** ���� ScreenState �ָ���Ӧ��Ļ���û�������ݣ��������� API�� */
+    /** 根据 ScreenState 恢复对应屏幕（用缓存的数据，不再请求 API） */
     private fun restoreScreen(state: ScreenState) {
         when (state) {
             ScreenState.Home -> showHome()
@@ -2363,7 +2317,7 @@ class MainActivity : Activity() {
                 currentGalleryTitle = state.galleryTitle
                 currentGalleryType = state.galleryType
                 detailFromSearch = state.fromSearch
-                renderMovieDetail(state.movie) // ֱ����Ⱦ������������
+                renderMovieDetail(state.movie) // 直接渲染，不重新请求
             }
             is ScreenState.TvDetailScreen -> {
                 currentGalleryId = state.galleryId
@@ -2382,21 +2336,21 @@ class MainActivity : Activity() {
                 currentSeasonTitle = state.seasonTitle
                 showEpisodeList(state.episodes, state.seasonTitle, restoreFromCache = true)
             }
-            is ScreenState.PlayerScreen -> { /* ������û�з����Լ��ĳ��� */ }
+            is ScreenState.PlayerScreen -> { /* 播放器没有返回自己的场景 */ }
         }
     }
 
     private fun navigateBack() {
         when (currentScreen) {
-            Screen.LOGIN -> {} // ��¼ҳ���ܷ���
-            Screen.HOME -> finish() // ��ҳֱ���˳�APP
+            Screen.LOGIN -> {} // 登录页不能返回
+            Screen.HOME -> finish() // 首页直接退出APP
             else -> {
                 if (screenBackStack.isNotEmpty()) {
                     val prev = screenBackStack.removeLast()
                     android.util.Log.d("OneList", "Navigate back from $currentScreen -> ${prev::class.java.simpleName}")
                     restoreScreen(prev)
                 } else {
-                    // ��ջ���ף�����ҳ
+                    // 空栈兜底：回首页
                     showHome()
                 }
             }
@@ -2408,73 +2362,50 @@ class MainActivity : Activity() {
     private fun playNext() {
         val pl = currentPlaylist ?: return
         if (currentPlayIndex >= pl.size - 1) {
-            toast("�Ѿ������һ����")
+            toast("已经是最后一个了")
             return
         }
         currentPlayIndex++
         val next = pl[currentPlayIndex]
         android.util.Log.d("OneList", "playNext: index=$currentPlayIndex title='${next.title}'")
-        toast("��һ��: ${next.title ?: ""}")
-        
-        // �ӵ�ǰ��ƵԪ�����ƶ����ͺ�ID���缯����ʱ������ͬ�ĸ�����Ϣ��
-        showPlayer(
-            url = next.url,
-            galleryUid = next.galleryUid,
-            playlist = pl,
-            playIndex = currentPlayIndex,
-            pushToBackStack = false,
-            videoDataType = currentVideoDataType,
-            videoDataId = currentVideoDataId,
-            videoTitle = next.title,
-            videoGalleryTitle = currentVideoGalleryTitle
-        )
+        toast("下一集: ${next.title ?: ""}")
+        showPlayer(next.url, next.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
     }
 
     private fun playPrevious() {
         val pl = currentPlaylist ?: return
         if (currentPlayIndex <= 0) {
-            toast("�Ѿ��ǵ�һ����")
+            toast("已经是第一个了")
             return
         }
         currentPlayIndex--
         val prev = pl[currentPlayIndex]
         android.util.Log.d("OneList", "playPrevious: index=$currentPlayIndex title='${prev.title}'")
-        toast("��һ��: ${prev.title ?: ""}")
-        
-        showPlayer(
-            url = prev.url,
-            galleryUid = prev.galleryUid,
-            playlist = pl,
-            playIndex = currentPlayIndex,
-            pushToBackStack = false,
-            videoDataType = currentVideoDataType,
-            videoDataId = currentVideoDataId,
-            videoTitle = prev.title,
-            videoGalleryTitle = currentVideoGalleryTitle
-        )
+        toast("上一集: ${prev.title ?: ""}")
+        showPlayer(prev.url, prev.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
     }
 
     // ==================== KEY EVENTS ====================
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
-            // ESC �� BACK ����������һҳ
+            // ESC 或 BACK 键：返回上一页
             if (event.keyCode == KeyEvent.KEYCODE_ESCAPE || event.keyCode == KeyEvent.KEYCODE_BACK) {
                 navigateBack()
                 return true
             }
             
-            // ������ҳ��ķ��������
+            // 播放器页面的方向键控制
             if (currentScreen == Screen.PLAYER && player != null) {
                 when (event.keyCode) {
-                    // ����������� 5 ��
+                    // 左方向键：快退 5 秒
                     KeyEvent.KEYCODE_DPAD_LEFT -> {
                         val newPos = (player!!.currentPosition - 5000).coerceAtLeast(0)
                         player!!.seekTo(newPos)
                         android.util.Log.d("OneList", "Seek backward 5s to ${newPos}ms")
                         return true
                     }
-                    // �ҷ��������� 5 ��
+                    // 右方向键：快进 5 秒
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         val duration = player!!.duration
                         val newPos = if (duration > 0) (player!!.currentPosition + 5000).coerceAtMost(duration) else player!!.currentPosition + 5000
@@ -2482,12 +2413,12 @@ class MainActivity : Activity() {
                         android.util.Log.d("OneList", "Seek forward 5s to ${newPos}ms")
                         return true
                     }
-                    // �Ϸ��������һ��/��һ����Ӱ
+                    // 上方向键：上一集/上一个电影
                     KeyEvent.KEYCODE_DPAD_UP -> {
                         playPrevious()
                         return true
                     }
-                    // �·��������һ��/��һ����Ӱ
+                    // 下方向键：下一集/下一个电影
                     KeyEvent.KEYCODE_DPAD_DOWN -> {
                         playNext()
                         return true
@@ -2498,7 +2429,7 @@ class MainActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
 
-    // onBackPressed ��Ϊ���ף�ȷ�� BACK ��ʼ���ܴ��������߼�
+    // onBackPressed 作为兜底，确保 BACK 键始终能触发返回逻辑
     @Deprecated("Use onBackPressedDispatcher instead", ReplaceWith("super.onBackPressed()"))
     override fun onBackPressed() {
         navigateBack()
@@ -2513,8 +2444,8 @@ class MainActivity : Activity() {
     // ==================== HELPERS ====================
 
     /**
-     * Ϊ��ť���ý��������ʽ��TV ң����ģʽ��
-     * - �۽��󣺷Ŵ� + ��� + ����������TV�Ż����Ŵ�1.12x��4dp��ɫ��ߣ�
+     * 为按钮设置焦点高亮样式（TV 遥控器模式）
+     * - 聚焦后：放大 + 描边 + 背景变亮（TV优化：放大1.12x，4dp白色描边）
      */
     private fun View.applyFocusGlow(defaultColor: Int = Color.parseColor("#6366f1"), focusedColor: Int = Color.parseColor("#8b8ef7"), strokeColor: Int = Color.WHITE) {
         val gd = GradientDrawable().apply {
@@ -2535,7 +2466,7 @@ class MainActivity : Activity() {
     }
 
     /**
-     * ��Ƭ/�б����������Ŵ� + ������ɫ��TV�Ż����Ŵ�1.1x�������Եı߿�
+     * 卡片/列表项焦点高亮：放大 + 背景变色（TV优化：放大1.1x，更明显的边框）
      */
     private fun View.applyCardFocus() {
         this.setOnFocusChangeListener { v, hasFocus ->
@@ -2545,7 +2476,7 @@ class MainActivity : Activity() {
                 v.animate().scaleX(scale).scaleY(scale).setDuration(150).start()
                 if (hasFocus) {
                     v.setBackgroundColor(Color.parseColor("#6366f1"))
-                    // ��ӿɼ��ı߿�
+                    // 添加可见的边框
                     val gd = GradientDrawable().apply {
                         setColor(Color.parseColor("#6366f1"))
                         setStroke(tvDp(3), Color.WHITE)
@@ -2560,7 +2491,7 @@ class MainActivity : Activity() {
     }
 
     /**
-     * TextView ������ʽ�����������ı���ť�ȣ����۽���ɫ + ��� + ��΢�Ŵ�TV�Ż���1.08x��
+     * TextView 焦点样式（顶部导航文本按钮等）：聚焦后反色 + 描边 + 轻微放大（TV优化：1.08x）
      */
     private fun TextView.applyTextFocus(focusedTextColor: Int = Color.WHITE, defaultTextColor: Int = Color.parseColor("#6366f1")) {
         this.setOnFocusChangeListener { v, hasFocus ->
@@ -2590,9 +2521,9 @@ class MainActivity : Activity() {
     // ==================== HELPERS ====================
 
     /**
-     * �ڼ�����������ʾ����״̬�����԰�ť
+     * 在加载容器中显示错误状态和重试按钮
      */
-    private fun showErrorInLoadingContainer(recyclerView: RecyclerView, errorMsg: String, progressBarId: Int = 0, loadingTextId: Int = 0) {
+    private fun showErrorInLoadingContainer(recyclerView: RecyclerView, errorMsg: String) {
         val parent = recyclerView.parent as? FrameLayout ?: return
         parent.removeAllViews()
         
@@ -2606,16 +2537,16 @@ class MainActivity : Activity() {
             setPadding(tvDp(32), tvDp(32), tvDp(32), tvDp(32))
         }
         
-        // ����ͼ�꣨�����ִ��棩
+        // 错误图标（用文字代替）
         val errorIcon = TextView(parent.context).apply {
-            text = "??"
+            text = "⚠️"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, tvDp(16))
         }
         errorLayout.addView(errorIcon)
         
-        // ������Ϣ
+        // 错误信息
         val errorText = TextView(parent.context).apply {
             text = errorMsg
             setTextColor(Color.parseColor("#cccccc"))
@@ -2625,9 +2556,9 @@ class MainActivity : Activity() {
         }
         errorLayout.addView(errorText)
         
-        // ���԰�ť
+        // 重试按钮
         val retryBtn = Button(parent.context).apply {
-            text = "����"
+            text = "重试"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
             setPadding(tvDp(32), tvDp(12), tvDp(32), tvDp(12))
@@ -2635,19 +2566,19 @@ class MainActivity : Activity() {
             isClickable = true
             applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE)
             setOnClickListener {
-                // ���¼�������
+                // 重新加载数据
                 currentPage = 1
                 isLoadingMore = false
                 hasMorePages = true
                 listItems.clear()
                 loadListData(recyclerView, parent.findViewById<Button>(android.R.id.button1) ?: run {
-                    // ����Ҳ�����ť�����´���
+                    // 如果找不到按钮，重新创建
                     val btn = Button(parent.context).apply {
                         visibility = View.GONE
                     }
                     parent.addView(btn)
                     btn
-                }, progressBarId, loadingTextId)
+                })
             }
         }
         errorLayout.addView(retryBtn)
@@ -2656,8 +2587,8 @@ class MainActivity : Activity() {
     }
 
     /**
-     * ������Ļ��ȶ�̬��������������TV���䣩
-     * ÿ����С���200dp��ȷ����Ƭ�ڲ�ͬ�ֱ����¶��к��ʴ�С
+     * 根据屏幕宽度动态计算网格列数（TV适配）
+     * 每列最小宽度200dp，确保卡片在不同分辨率下都有合适大小
      */
     private fun calculateGridColumns(): Int {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
@@ -2673,14 +2604,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * TV���䣺�Ŵ������׼������ֻ�����20-30%��
+     * TV适配：放大字体基准（相比手机增加20-30%）
      */
     private fun tvSp(baseSp: Float): Float {
         return baseSp * 1.25f
     }
 
     /**
-     * TV���䣺�����ࣨ����ֻ�����50%��
+     * TV适配：增大间距（相比手机增加50%）
      */
     private fun tvDp(baseDp: Int): Int {
         return (baseDp * 1.5f).toInt()
@@ -2709,4 +2640,3 @@ class MainActivity : Activity() {
         android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
     }
 }
-
