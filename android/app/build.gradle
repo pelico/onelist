@@ -8,11 +8,11 @@ android {
     compileSdk 33
 
     defaultConfig {
-        applicationId com.onelist.tv
+        applicationId "com.onelist.tv"
         minSdk 19
         targetSdk 28
         versionCode 1
-        versionName 1.0
+        versionName "1.0"
         multiDexEnabled true
     }
 
@@ -77,9 +77,9 @@ dependencies {
 
     // Video player
     def exoplayer_version = '2.18.7'
-    implementation com.google.android.exoplayer:exoplayer-core:
-    implementation com.google.android.exoplayer:exoplayer-ui:
-    implementation(com.google.android.exoplayer:extension-okhttp:) {
+    implementation "com.google.android.exoplayer:exoplayer-core:$exoplayer_version"
+    implementation "com.google.android.exoplayer:exoplayer-ui:$exoplayer_version"
+    implementation("com.google.android.exoplayer:extension-okhttp:$exoplayer_version") {
         exclude group: 'com.squareup.okhttp3'
     }
 }
