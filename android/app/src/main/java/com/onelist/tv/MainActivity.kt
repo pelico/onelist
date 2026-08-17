@@ -1,4 +1,4 @@
-package com.onelist.tv
+﻿package com.onelist.tv
 
 import android.app.Activity
 import android.content.Context
@@ -42,6 +42,59 @@ class MainActivity : Activity() {
     private var playerView: View? = null
     private var player: ExoPlayer? = null
 
+    // 播放列表：用于遥控器上下键切换集/电影
+    private data class PlayItem(val url: String, val galleryUid: String?, val title: String? = null)
+    private var currentPlaylist: List<PlayItem>? = null
+    private var currentPlayIndex: Int = 0
+    private var currentMovieList: List<Movie>? = null // 当前电影列表，用于构建播放列表
+
+    // 服务端连播列表：播放结束后自动播放同目录下一个视频
+    private var serverPlaylist: List<String> = emptyList()
+    private var serverPlaylistIndex: Int = 0
+
+    // ==================== 返回栈管理 ====================
+    /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
+    private sealed class ScreenState {
+        object Home : ScreenState()
+        object Search : ScreenState()
+        data class ListScreen(
+            val galleryId: String?,
+            val galleryTitle: String?,
+            val galleryType: String?
+        ) : ScreenState()
+        data class MovieDetailScreen(
+            val galleryId: String?,
+            val galleryTitle: String?,
+            val galleryType: String?,
+            val fromSearch: Boolean,
+            val movie: Movie
+        ) : ScreenState()
+        data class TvDetailScreen(
+            val galleryId: String?,
+            val galleryTitle: String?,
+            val galleryType: String?,
+            val fromSearch: Boolean,
+            val tv: Tv
+        ) : ScreenState()
+        data class EpisodeListScreen(
+            val galleryId: String?,
+            val galleryTitle: String?,
+            val galleryType: String?,
+            val fromSearch: Boolean,
+            val parentTv: Tv,
+            val episodes: List<Episode>,
+            val seasonTitle: String
+        ) : ScreenState()
+        data class PlayerScreen(
+            val prev: ScreenState, // 播放器前的屏幕，直接存作为pop后的状态
+            val url: String,
+            val galleryUid: String?
+        ) : ScreenState()
+    }
+
+    /** 返回栈：按遥控器返回键时 pop 栈顶并恢复 */
+    private val screenBackStack = ArrayDeque<ScreenState>()
+
     // State
     private var currentGalleryId: String? = null
     private var currentGalleryTitle: String? = null
@@ -51,12 +104,13 @@ class MainActivity : Activity() {
     private var hasMorePages = true
     private val listItems = mutableListOf<Any>() // Movie or Tv objects
     private var listAdapter: CardAdapter? = null
-
-    // Playlist for episode/movie navigation during playback
-    private data class PlayItem(val url: String, val galleryUid: String?, val title: String? = null)
-    private var currentPlaylist: List<PlayItem>? = null
-    private var currentPlayIndex: Int = 0
-    private var currentMovieList: List<Movie>? = null // Track movie list for player navigation
+    // 用于按返回键恢复详情/剧集列表时不重新请求 API
+    private var currentMovie: Movie? = null
+    private var currentTv: Tv? = null
+    private var currentSeasonEpisodes: List<Episode>? = null
+    private var currentSeasonTitle: String? = null
+    // 标记详情是否从搜索页进入（返回时要回搜索而非列表）
+    private var detailFromSearch = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +149,8 @@ class MainActivity : Activity() {
 
     private fun showLogin() {
         currentScreen = Screen.LOGIN
+        screenBackStack.clear()
+        player?.release(); player = null
         rootLayout.removeAllViews()
 
         val ctx = this
@@ -245,6 +301,11 @@ class MainActivity : Activity() {
 
     private fun showHome() {
         currentScreen = Screen.HOME
+        // 回到首页清空返回栈，避免返回时乱跳
+        screenBackStack.clear()
+        // 离开播放器界面时释放播放器，避免音频继续在后台播放
+        player?.release()
+        player = null
         rootLayout.removeAllViews()
 
         val scroll = ScrollView(this)
@@ -255,7 +316,7 @@ class MainActivity : Activity() {
         }
 
         // Top bar
-        val topBar = buildTopBar("Onelist", showSearch = true, showLogout = true)
+        val topBar = buildTopBar("悠悠TV", showSearch = true, showLogout = true)
         layout.addView(topBar)
 
         // Loading indicator
@@ -349,7 +410,6 @@ class MainActivity : Activity() {
 
         // Latest movies row
         if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
-            currentMovieList = data.latestMovies?.filter { it.url != null }
             val row = buildContentRow("最新电影", "movie", null)
             parent.addView(row)
             val recyclerView = buildHorizontalCardList(data.latestMovies.map { it as Any }, "movie")
@@ -474,13 +534,24 @@ class MainActivity : Activity() {
 
     // ==================== LIST SCREEN ====================
 
-    private fun showList() {
+    /**
+     * @param restoreFromCache true=按返回键恢复，复用已加载数据不重新请求API；false=首次进入，加载第一页
+     */
+    private fun showList(restoreFromCache: Boolean = false) {
+        // 只有正向导航（非按返回键恢复）才推入返回栈
+        if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.LIST
+        player?.release(); player = null
         rootLayout.removeAllViews()
-        currentPage = 1
-        isLoadingMore = false
-        hasMorePages = true
-        listItems.clear()
+        detailFromSearch = false
+
+        if (!restoreFromCache) {
+            // 首次进入：重置列表状态
+            currentPage = 1
+            isLoadingMore = false
+            hasMorePages = true
+            listItems.clear()
+        }
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -488,11 +559,9 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#0d0d1a"))
         }
 
-        // Top bar
         val topBar = buildTopBar(currentGalleryTitle ?: "浏览", showSearch = true, showLogout = false)
         layout.addView(topBar)
 
-        // RecyclerView grid
         listAdapter = CardAdapter(listItems, currentGalleryType ?: "movie") { item ->
             when (item) {
                 is Movie -> showMovieDetail(item)
@@ -509,7 +578,6 @@ class MainActivity : Activity() {
             weight = 1f
         })
 
-        // Load more button
         val loadMoreBtn = Button(this).apply {
             text = "加载更多"
             setTextColor(Color.WHITE)
@@ -534,8 +602,13 @@ class MainActivity : Activity() {
 
         rootLayout.addView(layout)
 
-        // Load first page
-        loadListData(recyclerView, loadMoreBtn)
+        if (!restoreFromCache) {
+            loadListData(recyclerView, loadMoreBtn)
+        } else {
+            // 恢复时保持和之前一致的加载更多按钮状态
+            loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
+            listAdapter?.notifyDataSetChanged()
+        }
     }
 
     private fun loadListData(recyclerView: RecyclerView, loadMoreBtn: Button) {
@@ -575,8 +648,7 @@ class MainActivity : Activity() {
                     if (body != null && body.code == 200) {
                         listItems.clear()
                         if (body.data != null) listItems.addAll(body.data!!)
-                        // Track movie list for player next/previous navigation
-                        currentMovieList = listItems.filterIsInstance<Movie>().filter { it.url != null }
+                        currentMovieList = listItems.filterIsInstance<Movie>()
                         hasMorePages = body.data != null && body.data!!.size >= 30
                         listAdapter?.notifyDataSetChanged()
                         loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
@@ -639,9 +711,8 @@ class MainActivity : Activity() {
                     if (body != null && body.code == 200 && body.data != null) {
                         val start = listItems.size
                         listItems.addAll(body.data!!)
+                        currentMovieList = listItems.filterIsInstance<Movie>()
                         listAdapter?.notifyItemRangeInserted(start, body.data!!.size)
-                        // Update movie list for player navigation
-                        currentMovieList = listItems.filterIsInstance<Movie>().filter { it.url != null }
                         hasMorePages = body.data!!.size >= 30
                         if (!hasMorePages) loadMoreBtn.visibility = View.GONE
                     }
@@ -658,9 +729,26 @@ class MainActivity : Activity() {
 
     // ==================== DETAIL SCREEN ====================
 
-    private fun showMovieDetail(movie: Movie) {
+    /**
+     * 从列表或搜索页点击卡片进入电影详情。
+     * @param fromSearch true=从搜索结果进入（按返回键要回搜索页）
+     */
+    private fun showMovieDetail(movie: Movie, fromSearch: Boolean = false) {
+        pushCurrentToBackStack()
+        detailFromSearch = fromSearch
+        renderMovieDetail(movie)
+    }
+
+    /** 纯渲染电影详情（用于返回键恢复，不推栈、不重新请求 API） */
+    private fun renderMovieDetail(movie: Movie) {
         currentScreen = Screen.DETAIL
+        player?.release(); player = null
         rootLayout.removeAllViews()
+        // 清除剧集列表缓存（进入电影详情后不可能还在剧集列表）
+        currentSeasonEpisodes = null
+        currentSeasonTitle = null
+        currentMovie = movie
+        currentTv = null
 
         val scroll = ScrollView(this)
         scroll.fillParent()
@@ -669,7 +757,6 @@ class MainActivity : Activity() {
             setPadding(0, dp(20), 0, dp(40))
         }
 
-        // Top bar with back button
         val topBar = buildTopBar(movie.title ?: "详情", showSearch = false, showLogout = false)
         layout.addView(topBar)
 
@@ -678,8 +765,7 @@ class MainActivity : Activity() {
             setPadding(dp(32), dp(16), dp(32), 0)
         }
 
-        // Poster
-        val posterUrl = RetrofitClient.imageUrl(movie.posterPath)
+        val posterUrl = RetrofitClient.imageUrl(movie.posterPath) ?: RetrofitClient.customImageUrl(movie.id)
         android.util.Log.d("OneList", "MovieDetail: title='${movie.title}' origTitle='${movie.originalTitle}' posterPath='${movie.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -695,13 +781,11 @@ class MainActivity : Activity() {
         }
         contentLayout.addView(posterView)
 
-        // Info panel
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(24), 0, 0, 0)
         }
 
-        // Title
         val titleView = TextView(this).apply {
             text = movie.title ?: movie.originalTitle ?: ""
             setTextColor(Color.WHITE)
@@ -710,7 +794,6 @@ class MainActivity : Activity() {
         }
         infoLayout.addView(titleView)
 
-        // Year + rating
         val metaText = buildString {
             if (movie.year != null) append(movie.year)
             if (movie.score != null) {
@@ -728,7 +811,6 @@ class MainActivity : Activity() {
             infoLayout.addView(metaView)
         }
 
-        // Genres
         if (movie.genres != null && movie.genres.isNotEmpty()) {
             val genreText = movie.genres.joinToString(" / ") { it.name ?: "" }
             val genreView = TextView(this).apply {
@@ -740,7 +822,6 @@ class MainActivity : Activity() {
             infoLayout.addView(genreView)
         }
 
-        // Play button
         val playBtn = Button(this).apply {
             text = "▶  播放"
             setTextColor(Color.WHITE)
@@ -748,13 +829,12 @@ class MainActivity : Activity() {
             setPadding(dp(32), dp(12), dp(32), dp(12))
             isFocusable = true
             isClickable = true
-            applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE) // 红色播放按钮，聚焦更亮 + 白描边
+            applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE)
             setOnClickListener {
                 if (movie.url != null) {
-                    // Build playlist from current movie list if available
-                    val playlist = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
-                    val index = playlist?.indexOfFirst { it.url == movie.url } ?: 0
-                    showPlayer(movie.url!!, movie.galleryUid, playlist, if (index >= 0) index else 0)
+                    val pl = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
+                    val idx = pl?.indexOfFirst { it.url == movie.url } ?: 0
+                    showPlayer(movie.url!!, movie.galleryUid, pl, if (idx >= 0) idx else 0)
                 } else {
                     toast("暂无播放源")
                 }
@@ -772,7 +852,6 @@ class MainActivity : Activity() {
         ))
         layout.addView(contentLayout)
 
-        // Description
         if (movie.desc != null && movie.desc!!.isNotEmpty()) {
             val descLabel = TextView(this).apply {
                 text = "简介"
@@ -795,10 +874,8 @@ class MainActivity : Activity() {
         scroll.addView(layout)
         rootLayout.addView(scroll)
 
-        // 进入详情页自动聚焦播放按钮，让用户一眼看到焦点位置
         playBtn.post { playBtn.requestFocus() }
 
-        // Fetch full detail if needed
         if (movie.desc == null && movie.id != null) {
             fetchMovieDetail(movie.id.toString(), titleView, infoLayout, playBtn)
         }
@@ -826,9 +903,22 @@ class MainActivity : Activity() {
         } catch (e: Exception) {}
     }
 
-    private fun showTvDetail(tv: Tv) {
+    private fun showTvDetail(tv: Tv, fromSearch: Boolean = false) {
+        pushCurrentToBackStack()
+        detailFromSearch = fromSearch
+        renderTvDetail(tv)
+    }
+
+    /** 纯渲染电视详情（用于返回键恢复，不推栈、不重新请求 API） */
+    private fun renderTvDetail(tv: Tv) {
         currentScreen = Screen.DETAIL
+        player?.release(); player = null
         rootLayout.removeAllViews()
+        // 进入TV详情后，可能跳到剧集列表，之后返回回来还能正确识别
+        currentSeasonEpisodes = null
+        currentSeasonTitle = null
+        currentMovie = null
+        currentTv = tv
 
         val scroll = ScrollView(this)
         scroll.fillParent()
@@ -845,8 +935,7 @@ class MainActivity : Activity() {
             setPadding(dp(32), dp(16), dp(32), 0)
         }
 
-        // Poster
-        val posterUrl = RetrofitClient.imageUrl(tv.posterPath)
+        val posterUrl = RetrofitClient.imageUrl(tv.posterPath) ?: RetrofitClient.customImageUrl(tv.id)
         android.util.Log.d("OneList", "TvDetail: name='${tv.name}' origName='${tv.originalName}' posterPath='${tv.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -862,7 +951,6 @@ class MainActivity : Activity() {
         }
         contentLayout.addView(posterView)
 
-        // Info
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(24), 0, 0, 0)
@@ -892,7 +980,6 @@ class MainActivity : Activity() {
         contentLayout.addView(infoLayout)
         layout.addView(contentLayout)
 
-        // Description
         if (tv.desc != null && tv.desc!!.isNotEmpty()) {
             val descLabel = TextView(this).apply {
                 text = "简介"
@@ -912,7 +999,6 @@ class MainActivity : Activity() {
             layout.addView(descView)
         }
 
-        // Seasons container
         val seasonsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(32), dp(24), dp(32), 0)
@@ -929,7 +1015,6 @@ class MainActivity : Activity() {
         scroll.addView(layout)
         rootLayout.addView(scroll)
 
-        // Fetch TV detail with seasons
         if (tv.id != null) {
             fetchTvDetail(tv.id.toString(), seasonsContainer)
         }
@@ -992,9 +1077,15 @@ class MainActivity : Activity() {
         } catch (e: Exception) {}
     }
 
-    private fun showEpisodeList(episodes: List<Episode>, seasonTitle: String) {
+    private fun showEpisodeList(episodes: List<Episode>, seasonTitle: String, restoreFromCache: Boolean = false) {
+        if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.DETAIL
+        player?.release(); player = null
         rootLayout.removeAllViews()
+        // 保存剧集列表缓存（返回剧集详情还能回播放器 → 再返回来恢复剧集列表）
+        currentSeasonEpisodes = episodes
+        currentSeasonTitle = seasonTitle
+        // currentMovie/currentTv 保留不变，因为从剧集列表返回回到 tv detail 时需要 currentTv
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1011,11 +1102,6 @@ class MainActivity : Activity() {
             setPadding(dp(24), dp(8), dp(24), dp(16))
         }
 
-        // Build playlist from all episodes for navigation
-        val playlist = episodes.filter { it.url != null }.map {
-            PlayItem(it.url!!, it.galleryUid, "E${it.episodeNumber ?: "?"} ${it.title ?: ""}")
-        }
-
         for (ep in episodes) {
             val epBtn = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1027,8 +1113,9 @@ class MainActivity : Activity() {
                 applyCardFocus()
                 setOnClickListener {
                     if (ep.url != null) {
-                        val index = playlist.indexOfFirst { it.url == ep.url }
-                        showPlayer(ep.url!!, ep.galleryUid, playlist, if (index >= 0) index else 0)
+                        val pl = episodes.map { PlayItem(it.url!!, it.galleryUid, it.title) }
+                        val idx = episodes.indexOf(ep)
+                        showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
                     } else {
                         toast("暂无播放源")
                     }
@@ -1071,8 +1158,15 @@ class MainActivity : Activity() {
 
     // ==================== SEARCH SCREEN ====================
 
-    private fun showSearch() {
+    /**
+     * 搜索页。正向导航时（从顶栏搜索图标进入）自动推栈。
+     * restoreFromCache=true 时不重新初始化数据——但搜索页没有缓存状态要求，
+     * 所以不管 restore 与否都重新渲染，只是不推栈。
+     */
+    private fun showSearch(restoreFromCache: Boolean = false) {
+        if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.SEARCH
+        player?.release(); player = null
         rootLayout.removeAllViews()
 
         val layout = LinearLayout(this).apply {
@@ -1218,7 +1312,7 @@ class MainActivity : Activity() {
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, 5)
                 adapter = CardAdapter(movies.map { it as Any }, "movie") { item ->
-                    if (item is Movie) showMovieDetail(item)
+                    if (item is Movie) showMovieDetail(item, fromSearch = true)
                 }
             }
             layout.addView(recyclerView, LinearLayout.LayoutParams(
@@ -1239,7 +1333,7 @@ class MainActivity : Activity() {
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, 5)
                 adapter = CardAdapter(tvs.map { it as Any }, "tv") { item ->
-                    if (item is Tv) showTvDetail(item)
+                    if (item is Tv) showTvDetail(item, fromSearch = true)
                 }
             }
             layout.addView(recyclerView, LinearLayout.LayoutParams(
@@ -1251,11 +1345,23 @@ class MainActivity : Activity() {
 
     // ==================== PLAYER SCREEN ====================
 
-    private fun showPlayer(url: String, galleryUid: String?, playlist: List<PlayItem>? = null, playIndex: Int = 0) {
+    private fun showPlayer(
+        url: String, galleryUid: String?,
+        playlist: List<PlayItem>? = null, playIndex: Int = 0,
+        pushToBackStack: Boolean = true
+    ) {
+        // 进入播放器前，将上一步（详情/剧集列表/搜索）推入返回栈
+        // 自动连播/上下键切换时不推栈，避免返回栈堆积重复的播放器页面
+        if (pushToBackStack) {
+            pushCurrentToBackStack()
+        }
         currentScreen = Screen.PLAYER
+        // 释放旧播放器，避免切换视频时旧视频继续在后台播放（音频叠加）
+        player?.release()
+        player = null
         rootLayout.removeAllViews()
 
-        // Store playlist context for next/previous navigation
+        // 保存播放列表状态（用于遥控器上下键切换）
         currentPlaylist = playlist
         currentPlayIndex = playIndex
 
@@ -1286,8 +1392,106 @@ class MainActivity : Activity() {
         ).apply { gravity = Gravity.CENTER }
         playerContainer.addView(loadingText, loadingLP)
 
+        // 连播提示（右上角显示"下一个"）
+        val nextHint = TextView(this).apply {
+            setTextColor(Color.parseColor("#cccccc"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            setBackgroundColor(Color.parseColor("#80000000"))
+            visibility = View.GONE
+        }
+        val nextHintLP = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(16); rightMargin = dp(16) }
+        playerContainer.addView(nextHint, nextHintLP)
+
         rootLayout.addView(playerContainer)
 
+        // 加载播放列表（同目录视频列表），然后播放当前视频
+        loadPlaylistAndPlay(playerView, loadingText, nextHint, url, galleryUid)
+    }
+
+    /**
+     * 请求 /v1/api/playlist 获取同目录视频列表，找到当前 url 的索引，
+     * 然后解析并播放。播放列表为空也能正常播放当前视频。
+     */
+    private fun loadPlaylistAndPlay(
+        playerView: PlayerView, loadingText: TextView, nextHint: TextView,
+        url: String, galleryUid: String
+    ) {
+        try {
+            RetrofitClient.getService().getPlaylist(galleryUid, url)
+                .enqueue(object : Callback<PlaylistResponse> {
+                    override fun onResponse(call: Call<PlaylistResponse>, response: Response<PlaylistResponse>) {
+                        val body = response.body()
+                        if (body != null && body.code == 200 && body.data != null && body.data!!.isNotEmpty()) {
+                            serverPlaylist = body.data!!
+                            // 查找当前 url 在列表中的位置
+                            serverPlaylistIndex = serverPlaylist.indexOfFirst { p ->
+                                p == url || p == url.trimStart('/') ||
+                                (url.startsWith("/file/") && p == url) ||
+                                (p.startsWith("/file/") && p.substring(5) == url.trimStart('/'))
+                            }
+                            if (serverPlaylistIndex < 0) serverPlaylistIndex = 0
+                            android.util.Log.d("OneList", "Playlist loaded: ${serverPlaylist.size} items, currentIndex=$serverPlaylistIndex")
+                            updateNextHint(nextHint)
+                        } else {
+                            android.util.Log.d("OneList", "Playlist empty or failed, single play mode")
+                        }
+                        // 解析并播放当前视频
+                        resolveAndPlay(playerView, loadingText, nextHint, url, galleryUid)
+                    }
+                    override fun onFailure(call: Call<PlaylistResponse>, t: Throwable) {
+                        android.util.Log.w("OneList", "Playlist load failed: ${t.message}, single play mode")
+                        resolveAndPlay(playerView, loadingText, nextHint, url, galleryUid)
+                    }
+                })
+        } catch (e: Exception) {
+            android.util.Log.w("OneList", "Playlist request error: ${e.message}, single play mode")
+            resolveAndPlay(playerView, loadingText, nextHint, url, galleryUid)
+        }
+    }
+
+    /**
+     * 更新右上角连播提示
+     */
+    private fun updateNextHint(nextHint: TextView) {
+        if (serverPlaylist.isNotEmpty() && serverPlaylistIndex < serverPlaylist.size - 1) {
+            val nextIdx = serverPlaylistIndex + 1
+            val nextName = serverPlaylist[nextIdx].substringAfterLast('/').substringBeforeLast('.')
+            nextHint.text = "下一个: $nextName  (${nextIdx + 1}/${serverPlaylist.size})"
+            nextHint.visibility = View.VISIBLE
+        } else {
+            nextHint.visibility = View.GONE
+        }
+    }
+
+    /**
+     * 播放列表中下一个视频（由 STATE_ENDED 触发）
+     */
+    private fun playNextInPlaylist(
+        playerView: PlayerView, loadingText: TextView, nextHint: TextView,
+        galleryUid: String
+    ): Boolean {
+        if (serverPlaylist.isEmpty() || serverPlaylistIndex >= serverPlaylist.size - 1) return false
+        serverPlaylistIndex++
+        val nextUrl = serverPlaylist[serverPlaylistIndex]
+        android.util.Log.d("OneList", "Auto-playing next: index=$serverPlaylistIndex url='$nextUrl'")
+        updateNextHint(nextHint)
+        // 显示 loading
+        loadingText.text = "正在加载下一集..."
+        loadingText.visibility = View.VISIBLE
+        resolveAndPlay(playerView, loadingText, nextHint, nextUrl, galleryUid)
+        return true
+    }
+
+    /**
+     * 解析视频源 URL（alist代理/本地直链/阿里云盘open），然后启动 ExoPlayer
+     */
+    private fun resolveAndPlay(
+        playerView: PlayerView, loadingText: TextView, nextHint: TextView,
+        url: String, galleryUid: String
+    ) {
         val base = App.serverUrl
         if (base == null || base.isEmpty()) {
             loadingText.text = "请先配置服务器地址"
@@ -1298,7 +1502,7 @@ class MainActivity : Activity() {
         // 直接 HTTP/HTTPS 直链，跳过接口判断
         if (url.startsWith("http")) {
             loadingText.visibility = View.GONE
-            startExoPlayer(playerView, url)
+            startExoPlayer(playerView, url, loadingText, nextHint, galleryUid)
             return
         }
 
@@ -1331,11 +1535,10 @@ class MainActivity : Activity() {
                                     try {
                                         val tasks = r.data!!.videoPreviewPlayInfo?.liveTranscodingTaskList
                                         if (tasks != null && tasks.isNotEmpty()) {
-                                            // 取最高清晰度（数组最后一个）
                                             val bestUrl = tasks.lastOrNull()?.url
                                             if (bestUrl != null) {
                                                 loadingText.visibility = View.GONE
-                                                startExoPlayer(playerView, bestUrl)
+                                                startExoPlayer(playerView, bestUrl, loadingText, nextHint, galleryUid)
                                             } else {
                                                 loadingText.text = "没有可用的播放地址"
                                             }
@@ -1358,17 +1561,21 @@ class MainActivity : Activity() {
 
                     // alist 代理 或 本地直链
                     val videoSrc = if (alistHost.isNotEmpty()) {
-                        // alist 代理模式: /alist/proxy/{uid} + url
                         if (url.startsWith("/alist/proxy/")) "$normalizedBase$url"
                         else "$normalizedBase/alist/proxy/$galleryUid$url"
                     } else {
-                        // 本地直链模式: /file/ + url（去前导 /）
                         if (url.startsWith("/file/")) "$normalizedBase$url"
                         else "$normalizedBase/file/${url.trimStart('/')}"
                     }
                     android.util.Log.d("OneList", "Player resolved: alistHost='$alistHost' videoSrc='$videoSrc'")
                     loadingText.text = "正在播放: $videoSrc"
-                    startExoPlayer(playerView, videoSrc)
+                    startExoPlayer(playerView, videoSrc, loadingText, nextHint, galleryUid)
+                    // 播放地址显示10秒后自动隐藏，避免遮挡画面
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        if (loadingText.text.toString().startsWith("正在播放")) {
+                            loadingText.visibility = View.GONE
+                        }
+                    }, 10000)
                 }
                 override fun onFailure(call: retrofit2.Call<GalleryHostResponse>, t: Throwable) {
                     loadingText.text = "获取媒体库信息失败: ${t.message}"
@@ -1379,7 +1586,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun startExoPlayer(playerView: PlayerView, videoUrl: String) {
+    private fun startExoPlayer(
+        playerView: PlayerView, videoUrl: String,
+        loadingText: TextView, nextHint: TextView, galleryUid: String
+    ) {
         // Use OkHttp as data source — fixes TLS/SSL issues on old Android (4.4)
         // where the built-in HttpsURLConnection doesn't support modern TLS.
         //
@@ -1471,6 +1681,8 @@ class MainActivity : Activity() {
             else -> "video/mp4"
         }
 
+        // 释放旧播放器（自动连播时旧 player 仍存在）
+        player?.release()
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(
                 com.google.android.exoplayer2.source.DefaultMediaSourceFactory(dataSourceFactory)
@@ -1496,6 +1708,13 @@ class MainActivity : Activity() {
                             else -> "UNKNOWN($state)"
                         }
                         android.util.Log.d("OneList", "Player state: $stateName")
+                        // 播放结束自动播放下一个（列表连续播放）
+                        if (state == com.google.android.exoplayer2.Player.STATE_ENDED) {
+                            val played = playNextInPlaylist(playerView, loadingText, nextHint, galleryUid)
+                            if (!played) {
+                                toast("播放完毕")
+                            }
+                        }
                     }
                     override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
                         val errorCodeName = when (error.errorCode) {
@@ -1542,34 +1761,6 @@ class MainActivity : Activity() {
                     }
                 })
             }
-    }
-
-    // ==================== PLAYLIST NAVIGATION ====================
-
-    private fun playNext() {
-        val playlist = currentPlaylist ?: return
-        if (currentPlayIndex >= playlist.size - 1) {
-            toast("已经是最后一个了")
-            return
-        }
-        currentPlayIndex++
-        val next = playlist[currentPlayIndex]
-        android.util.Log.d("OneList", "playNext: index=$currentPlayIndex title='${next.title}'")
-        toast("下一集: ${next.title ?: ""}")
-        showPlayer(next.url, next.galleryUid, playlist, currentPlayIndex)
-    }
-
-    private fun playPrevious() {
-        val playlist = currentPlaylist ?: return
-        if (currentPlayIndex <= 0) {
-            toast("已经是第一个了")
-            return
-        }
-        currentPlayIndex--
-        val prev = playlist[currentPlayIndex]
-        android.util.Log.d("OneList", "playPrevious: index=$currentPlayIndex title='${prev.title}'")
-        toast("上一集: ${prev.title ?: ""}")
-        showPlayer(prev.url, prev.galleryUid, playlist, currentPlayIndex)
     }
 
     // ==================== TOP BAR ====================
@@ -1644,15 +1835,137 @@ class MainActivity : Activity() {
         return bar
     }
 
+    /**
+     * 将当前屏幕推入返回栈。规则：
+     * - HOME/SEARCH 不再往里推（避免返回时出现重复首页）
+     * - 每次导航到新屏幕前调用，把「离开时的屏幕」存栈
+     */
+    private fun pushCurrentToBackStack() {
+        when (currentScreen) {
+            Screen.HOME -> screenBackStack.addLast(ScreenState.Home)
+            Screen.SEARCH -> screenBackStack.addLast(ScreenState.Search)
+            Screen.LIST -> screenBackStack.addLast(
+                ScreenState.ListScreen(currentGalleryId, currentGalleryTitle, currentGalleryType)
+            )
+            Screen.DETAIL -> {
+                when {
+                    currentSeasonEpisodes != null -> {
+                        val tv = currentTv
+                        if (tv != null) {
+                            screenBackStack.addLast(
+                                ScreenState.EpisodeListScreen(
+                                    currentGalleryId, currentGalleryTitle, currentGalleryType,
+                                    detailFromSearch, tv,
+                                    currentSeasonEpisodes!!,
+                                    currentSeasonTitle ?: "剧集"
+                                )
+                            )
+                        }
+                    }
+                    currentMovie != null -> {
+                        screenBackStack.addLast(
+                            ScreenState.MovieDetailScreen(
+                                currentGalleryId, currentGalleryTitle, currentGalleryType,
+                                detailFromSearch, currentMovie!!
+                            )
+                        )
+                    }
+                    currentTv != null -> {
+                        screenBackStack.addLast(
+                            ScreenState.TvDetailScreen(
+                                currentGalleryId, currentGalleryTitle, currentGalleryType,
+                                detailFromSearch, currentTv!!
+                            )
+                        )
+                    }
+                }
+            }
+            Screen.PLAYER, Screen.LOGIN -> { /* 不推入 */ }
+        }
+    }
+
+    /** 根据 ScreenState 恢复对应屏幕（用缓存的数据，不再请求 API） */
+    private fun restoreScreen(state: ScreenState) {
+        when (state) {
+            ScreenState.Home -> showHome()
+            ScreenState.Search -> showSearch()
+            is ScreenState.ListScreen -> {
+                currentGalleryId = state.galleryId
+                currentGalleryTitle = state.galleryTitle
+                currentGalleryType = state.galleryType
+                showList(restoreFromCache = true)
+            }
+            is ScreenState.MovieDetailScreen -> {
+                currentGalleryId = state.galleryId
+                currentGalleryTitle = state.galleryTitle
+                currentGalleryType = state.galleryType
+                detailFromSearch = state.fromSearch
+                renderMovieDetail(state.movie) // 直接渲染，不重新请求
+            }
+            is ScreenState.TvDetailScreen -> {
+                currentGalleryId = state.galleryId
+                currentGalleryTitle = state.galleryTitle
+                currentGalleryType = state.galleryType
+                detailFromSearch = state.fromSearch
+                renderTvDetail(state.tv)
+            }
+            is ScreenState.EpisodeListScreen -> {
+                currentGalleryId = state.galleryId
+                currentGalleryTitle = state.galleryTitle
+                currentGalleryType = state.galleryType
+                detailFromSearch = state.fromSearch
+                currentTv = state.parentTv
+                currentSeasonEpisodes = state.episodes
+                currentSeasonTitle = state.seasonTitle
+                showEpisodeList(state.episodes, state.seasonTitle, restoreFromCache = true)
+            }
+            is ScreenState.PlayerScreen -> { /* 播放器没有返回自己的场景 */ }
+        }
+    }
+
     private fun navigateBack() {
         when (currentScreen) {
-            Screen.LOGIN -> {} // Can't go back from login
-            Screen.HOME -> finish()
-            Screen.LIST -> showHome()
-            Screen.DETAIL -> showHome() // Simplified; could track back stack
-            Screen.SEARCH -> showHome()
-            Screen.PLAYER -> showHome()
+            Screen.LOGIN -> {} // 登录页不能返回
+            Screen.HOME -> finish() // 首页直接退出APP
+            else -> {
+                if (screenBackStack.isNotEmpty()) {
+                    val prev = screenBackStack.removeLast()
+                    android.util.Log.d("OneList", "Navigate back from $currentScreen -> ${prev::class.java.simpleName}")
+                    restoreScreen(prev)
+                } else {
+                    // 空栈兜底：回首页
+                    showHome()
+                }
+            }
         }
+    }
+
+    // ==================== PLAYLIST NAVIGATION ====================
+
+    private fun playNext() {
+        val pl = currentPlaylist ?: return
+        if (currentPlayIndex >= pl.size - 1) {
+            toast("已经是最后一个了")
+            return
+        }
+        currentPlayIndex++
+        val next = pl[currentPlayIndex]
+        android.util.Log.d("OneList", "playNext: index=$currentPlayIndex title='${next.title}'")
+        toast("下一集: ${next.title ?: ""}")
+        showPlayer(next.url, next.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
+    }
+
+    private fun playPrevious() {
+        val pl = currentPlaylist ?: return
+        if (currentPlayIndex <= 0) {
+            toast("已经是第一个了")
+            return
+        }
+        currentPlayIndex--
+        val prev = pl[currentPlayIndex]
+        android.util.Log.d("OneList", "playPrevious: index=$currentPlayIndex title='${prev.title}'")
+        toast("上一集: ${prev.title ?: ""}")
+        showPlayer(prev.url, prev.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
     }
 
     // ==================== KEY EVENTS ====================

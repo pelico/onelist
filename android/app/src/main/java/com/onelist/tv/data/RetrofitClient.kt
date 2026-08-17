@@ -76,6 +76,19 @@ object RetrofitClient {
         return "$normalizedBase/t/p/$stripped"
     }
 
+    /**
+     * 自定义封面 URL：当 poster_path 为空时，请求后端 /custom-image/{seed} 接口，
+     * 后端用 FNV-1a 哈希 + Fisher-Yates 洗牌从 picture/ 目录确定性分配一张随机封面。
+     * seed 用影片 ID，保证同一影片每次得到同一张图。
+     */
+    fun customImageUrl(videoId: Int?): String? {
+        if (videoId == null) return null
+        val base = getBaseUrl()
+        if (base.isEmpty()) return null
+        val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
+        return "$normalizedBase/custom-image/$videoId"
+    }
+
     fun videoUrl(url: String?, galleryUid: String?): String? {
         if (url == null || url.isEmpty()) return null
         val base = getBaseUrl()

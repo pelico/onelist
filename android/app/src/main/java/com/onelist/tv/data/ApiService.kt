@@ -97,7 +97,20 @@ interface ApiService {
     fun getAliOpenVideo(
         @Body body: AliOpenVideoRequest
     ): Call<AliOpenVideoResponse>
+
+    // 获取同目录视频文件列表（用于列表连续播放）
+    @GET("v1/api/playlist")
+    fun getPlaylist(
+        @Query("gallery_uid") galleryUid: String,
+        @Query("url") url: String
+    ): Call<PlaylistResponse>
 }
+
+data class PlaylistResponse(
+    @SerializedName("code") val code: Int?,
+    @SerializedName("msg") val msg: String?,
+    @SerializedName("data") val data: List<String>?
+)
 
 data class AliOpenVideoRequest(
     @SerializedName("file") val file: String,
