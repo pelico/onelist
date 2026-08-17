@@ -27,6 +27,16 @@ android {
         debug {
             signingConfig signingConfigs.debug
         }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            def keystoreFile = file('release-keystore.jks')
+            if (keystoreFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
     }
 
     compileOptions {
@@ -44,7 +54,7 @@ android {
     }
 }
 
-// Conditionally add release signing config and build type
+// Conditionally add release signing config if keystore exists
 def keystoreFile = file('app/release-keystore.jks')
 if (keystoreFile.exists()) {
     android.signingConfigs {
@@ -55,22 +65,6 @@ if (keystoreFile.exists()) {
             keyPassword 'onelist123'
             v1SigningEnabled true
             v2SigningEnabled true
-        }
-    }
-    
-    android.buildTypes {
-        release {
-            minifyEnabled false
-            signingConfig signingConfigs.release
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-} else {
-    android.buildTypes {
-        release {
-            minifyEnabled false
-            signingConfig signingConfigs.debug
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
