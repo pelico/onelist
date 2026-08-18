@@ -62,14 +62,17 @@ func PlayHistoryStats(c *gin.Context) {
 	userId := c.Query("user_id")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
+	logger.Info("play_history", fmt.Sprintf("统计查询 | user_id=%s start=%s end=%s", userId, startDate, endDate))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		list, err := hRepo.GetStats(userId, startDate, endDate)
 		if err != nil {
+			logger.Info("play_history", fmt.Sprintf("统计查询失败 | error=%s", err.Error()))
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
+		logger.Info("play_history", fmt.Sprintf("统计查询成功 | 返回%d条记录", len(list)))
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list})
 	}(repo)
 }
@@ -79,14 +82,17 @@ func PlayHistoryGalleryStats(c *gin.Context) {
 	userId := c.Query("user_id")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
+	logger.Info("play_history", fmt.Sprintf("媒体库统计查询 | user_id=%s start=%s end=%s", userId, startDate, endDate))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		stats, err := hRepo.GetGalleryStats(userId, startDate, endDate)
 		if err != nil {
+			logger.Info("play_history", fmt.Sprintf("媒体库统计查询失败 | error=%s", err.Error()))
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
+		logger.Info("play_history", fmt.Sprintf("媒体库统计查询成功 | 返回%d条", len(stats)))
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
 	}(repo)
 }
@@ -101,14 +107,17 @@ func PlayHistoryTopMovies(c *gin.Context) {
 	if err != nil || limit <= 0 {
 		limit = 10
 	}
+	logger.Info("play_history", fmt.Sprintf("Top影片查询 | user_id=%s gallery=%s start=%s end=%s limit=%d", userId, galleryUid, startDate, endDate, limit))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		stats, err := hRepo.GetTopMovies(userId, galleryUid, startDate, endDate, limit)
 		if err != nil {
+			logger.Info("play_history", fmt.Sprintf("Top影片查询失败 | error=%s", err.Error()))
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
+		logger.Info("play_history", fmt.Sprintf("Top影片查询成功 | 返回%d条", len(stats)))
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
 	}(repo)
 }
@@ -124,14 +133,17 @@ func PlayHistoryList(c *gin.Context) {
 	if errSize != nil {
 		size = 20
 	}
+	logger.Info("play_history", fmt.Sprintf("历史列表查询 | user_id=%s page=%d size=%d", userId, page, size))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		list, num, err := hRepo.GetHistoryList(userId, page, size)
 		if err != nil {
+			logger.Info("play_history", fmt.Sprintf("历史列表查询失败 | error=%s", err.Error()))
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": list, "num": num})
 			return
 		}
+		logger.Info("play_history", fmt.Sprintf("历史列表查询成功 | 总数=%d 本页%d条", num, len(list)))
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list, "num": num})
 	}(repo)
 }
