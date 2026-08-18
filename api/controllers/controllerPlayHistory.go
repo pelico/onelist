@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/msterzhang/onelist/api/database"
@@ -31,18 +32,14 @@ func PlayHistoryHeartbeat(c *gin.Context) {
 	}
 	
 	// 记录绑定后的数据
-	logger.Info("play_history", "心跳数据绑定成功",
-		"client_ip: "+clientIP+
-		", data_type: "+ph.DataType+
-		", data_id: "+strconv.Itoa(ph.DataId)+
-		", title: "+ph.Title+
-		", gallery_uid: "+ph.GalleryUid+
-		", duration: "+strconv.Itoa(ph.Duration)+
-		", position: "+strconv.Itoa(ph.Position))
+	logger.Info("play_history", fmt.Sprintf("心跳数据绑定成功 | ip=%s type=%s id=%d title=%s gallery=%s dur=%d pos=%d",
+		clientIP, ph.DataType, ph.DataId, ph.Title, ph.GalleryUid, ph.Duration, ph.Position))
 	
 	if len(ph.UserId) == 0 {
 		ph.UserId = c.GetString("UserId")
-		logger.Info("play_history", "心跳UserId自动填充", "user_id: "+ph.UserId)
+		logger.Info("play_history", fmt.Sprintf("心跳UserId自动填充 | user_id=%s (len=%d)", ph.UserId, len(ph.UserId)))
+	} else {
+		logger.Info("play_history", fmt.Sprintf("心跳UserId已有 | user_id=%s", ph.UserId))
 	}
 	
 	db := database.NewDb()
@@ -50,18 +47,12 @@ func PlayHistoryHeartbeat(c *gin.Context) {
 	func(hRepo repository.PlayHistoryRepository) {
 		result, err := hRepo.Heartbeat(ph)
 		if err != nil {
-			logger.Info("play_history", "心跳上报失败", "error: "+err.Error()+", client_ip: "+clientIP)
+			logger.Info("play_history", fmt.Sprintf("心跳上报失败 | error=%s", err.Error()))
 			c.JSON(200, gin.H{"code": 201, "msg": "上报失败!", "data": result})
 			return
 		}
-		logger.Info("play_history", "心跳上报成功", 
-			"client_ip: "+clientIP+
-			", record_id: "+strconv.Itoa(int(result.Id))+
-			", user_id: "+result.UserId+
-			", data_type: "+result.DataType+
-			", data_id: "+strconv.Itoa(result.DataId)+
-			", title: "+result.Title+
-			", duration: "+strconv.Itoa(result.Duration))
+		logger.Info("play_history", fmt.Sprintf("心跳上报成功 | id=%d user_id=%s type=%s data_id=%d title=%s dur=%d gallery=%s",
+			result.Id, result.UserId, result.DataType, result.DataId, result.Title, result.Duration, result.GalleryUid))
 		c.JSON(200, gin.H{"code": 200, "msg": "上报成功!", "data": result})
 	}(repo)
 }
