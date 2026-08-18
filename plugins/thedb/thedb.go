@@ -359,25 +359,60 @@ func ChunkPerson(person models.ThePerson) error {
 }
 
 // 检查是否已存在此电影（优先按URL查找更新），存在则更新，不存在则创建
+// 关键：刮削后确保记录 ID 为 TMDB ID（而非 CreateBasicMovieRecord 的自增 ID），
+// 使 APP 和 WEB 心跳的 data_id 一致。
 func ChunkTheMovie(themovie models.TheMovie) error {
 	db := database.NewDb()
 	dbThemovie := models.TheMovie{}
 	// 先按 URL 查找（支持基础记录更新）
 	err := db.Model(&models.TheMovie{}).Where("url = ?", themovie.Url).First(&dbThemovie).Error
 	if err == nil {
-		// 找到记录，更新（保留原有的播放状态等，不更新ID）
-		themovie.ID = dbThemovie.ID
-		themovie.CreatedAt = dbThemovie.CreatedAt
-		themovie.Star = dbThemovie.Star
-		themovie.Heart = dbThemovie.Heart
-		themovie.Played = dbThemovie.Played
+		// 找到记录
+		oldId := dbThemovie.ID
+		if oldId == themovie.ID {
+			// ID 一致（已刮削过或无基础记录），直接更新
+			themovie.CreatedAt = dbThemovie.CreatedAt
+			themovie.Star = dbThemovie.Star
+			themovie.Heart = dbThemovie.Heart
+			themovie.Played = dbThemovie.Played
+			return db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
+		}
+		// ID 不一致：基础记录用自增 ID，需迁移为 TMDB ID
+		logger.Info("themovie", fmt.Sprintf("迁移电影ID: 自增 %d → TMDB %d (url=%s)", oldId, themovie.ID, themovie.Url))
+
+		// 检查 TMDB ID 记录是否已存在（可能来自其他媒体库先刮削）
+		var existingTmdb models.TheMovie
+		tmdbExists := db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).First(&existingTmdb).Error == nil
+
+		if !tmdbExists {
+			// TMDB ID 记录不存在：迁移关联数据，删除旧记录，用 TMDB ID 重建
+			db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+			db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+			db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+			db.Model(&models.PlayHistory{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+			db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&models.TheMovie{})
+			themovie.CreatedAt = dbThemovie.CreatedAt
+			themovie.Star = dbThemovie.Star
+			themovie.Heart = dbThemovie.Heart
+			themovie.Played = dbThemovie.Played
+			return db.Model(&models.TheMovie{}).Create(&themovie).Error
+		}
+		// TMDB ID 记录已存在：迁移关联数据到已有记录，删除旧自增记录，更新已有记录
+		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+		db.Model(&models.PlayHistory{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
+		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&models.TheMovie{})
+		themovie.CreatedAt = existingTmdb.CreatedAt
+		themovie.Star = existingTmdb.Star || dbThemovie.Star
+		themovie.Heart = existingTmdb.Heart || dbThemovie.Heart
+		themovie.Played = existingTmdb.Played || dbThemovie.Played
 		return db.Model(&models.TheMovie{}).Where("id = ?", themovie.ID).Omit("id").Updates(&themovie).Error
 	}
 	// 按 URL 未找到，先在同一媒体库内按 TMDB ID 查找
 	err = db.Model(&models.TheMovie{}).Where("id = ? AND gallery_uid = ?", themovie.ID, themovie.GalleryUid).First(&dbThemovie).Error
 	if err == nil {
-		// 同一媒体库内找到，更新（保留播放状态和创建时间）
-		themovie.ID = dbThemovie.ID
+		// 同一媒体库内找到（ID 已是 TMDB ID），直接更新
 		themovie.CreatedAt = dbThemovie.CreatedAt
 		themovie.Star = dbThemovie.Star
 		themovie.Heart = dbThemovie.Heart
