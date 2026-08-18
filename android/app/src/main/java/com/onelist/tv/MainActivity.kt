@@ -639,7 +639,9 @@ class MainActivity : Activity() {
         try {
             val service = RetrofitClient.getService()
             val token = App.token
-            android.util.Log.d("OneList", "API call to: ${RetrofitClient.getBaseUrl()}v1/api/home")
+            val baseUrl = RetrofitClient.getBaseUrl()
+            val normalizedBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+            android.util.Log.d("OneList", "API call to: ${normalizedBase}v1/api/home")
             android.util.Log.d("OneList", "Token: ${token?.take(20)}...")
             
             service.getHome().enqueue(object : Callback<ApiResponse<HomeData>> {

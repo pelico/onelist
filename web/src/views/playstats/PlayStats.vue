@@ -351,7 +351,7 @@ export default defineComponent({
                 if (res.data.code === 200 && res.data.data) {
                     userOptions.value = res.data.data.map(u => ({
                         label: u.user_email,
-                        value: u.user_email
+                        value: u.user_id
                     }))
                 }
             }).catch(() => { })
