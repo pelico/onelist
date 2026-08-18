@@ -176,12 +176,6 @@ class MainActivity : Activity() {
         val token = App.token
         if (token.isNullOrEmpty()) return
         
-        // 清理已有的 SSE 连接，避免重复连接导致资源泄漏
-        try { sseEventSource?.cancel() } catch (_: Exception) {}
-        sseEventSource = null
-        try { sseClient?.dispatcher?.executorService?.shutdown() } catch (_: Exception) {}
-        sseClient = null
-        
         sseClient = OkHttpClient.Builder().build()
         
         val baseUrl = RetrofitClient.getBaseUrl()
@@ -358,9 +352,8 @@ class MainActivity : Activity() {
         heartbeatExecutor?.scheduleAtFixedRate({
             // ExoPlayer 强制要求在主线程访问其属性，否则抛 IllegalStateException
             runOnUiThread {
-                // 用 this.player（类字段）检查，而非函数参数 player。
-                // onDestroy 将类字段设为 null，但 lambda 捕获的参数引用仍非空，
-                // 仅检查参数无法防御 Activity 销毁后的竞态。
+                // 防御 onStop/onDestroy 后 runOnUiThread 仍执行的竞态：
+                // lambda 捕获的 player 参数始终非空，但类字段 this.player 已被置 null
                 if (isDestroying || this.player == null) return@runOnUiThread
                 try {
                     val currentPosition = player.currentPosition
@@ -2518,6 +2511,31 @@ class MainActivity : Activity() {
     @Deprecated("Use onBackPressedDispatcher instead", ReplaceWith("super.onBackPressed()"))
     override fun onBackPressed() {
         navigateBack()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Android TV 退出时 onDestroy 不一定被调用（Home键/切换应用），
+        // 但 onStop 一定会在 Activity 不可见时调用。
+        // 在此释放所有重量级资源，防止二次进入时资源冲突导致闪退。
+        stopHeartbeat()
+        player?.release()
+        player = null
+        try { sseEventSource?.cancel() } catch (_: Exception) {}
+        sseEventSource = null
+        try { sseClient?.dispatcher?.executorService?.shutdown() } catch (_: Exception) {}
+        try { sseClient?.connectionPool?.evictAll() } catch (_: Exception) {}
+        sseClient = null
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // 从后台恢复时，重新初始化 SSE 并回到首页
+        // （播放器已在 onStop 中释放，不能留在播放器页面）
+        if (::currentScreen.isInitialized && currentScreen != Screen.HOME && currentScreen != Screen.LOGIN) {
+            showHome()
+        }
+        initSSE()
     }
 
     override fun onDestroy() {
