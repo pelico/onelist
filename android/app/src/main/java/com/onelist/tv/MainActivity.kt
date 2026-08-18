@@ -905,6 +905,7 @@ class MainActivity : Activity() {
         }
         
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
+            id = android.R.id.progress
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
@@ -914,6 +915,7 @@ class MainActivity : Activity() {
         loadingContainer.addView(progressBar)
         
         val loadingText = TextView(this).apply {
+            id = android.R.id.text1
             text = "加载中..."
             setTextColor(Color.GRAY)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
