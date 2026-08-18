@@ -352,9 +352,7 @@ class MainActivity : Activity() {
         heartbeatExecutor?.scheduleAtFixedRate({
             // ExoPlayer 强制要求在主线程访问其属性，否则抛 IllegalStateException
             runOnUiThread {
-                // 防御 onStop/onDestroy 后 runOnUiThread 仍执行的竞态：
-                // lambda 捕获的 player 参数始终非空，但类字段 this.player 已被置 null
-                if (isDestroying || this.player == null) return@runOnUiThread
+                if (isDestroying) return@runOnUiThread
                 try {
                     val currentPosition = player.currentPosition
                     val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
@@ -2515,27 +2513,25 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
-        // Android TV 退出时 onDestroy 不一定被调用（Home键/切换应用），
-        // 但 onStop 一定会在 Activity 不可见时调用。
-        // 在此释放所有重量级资源，防止二次进入时资源冲突导致闪退。
+        // onStop 在 Activity 不可见时触发（Home键、灭屏、切换应用等）。
+        // 只暂停播放 + 停心跳 + 断 SSE，不 release 播放器、不动 view 树。
+        // 真正需要 release 的场景（切视频、返回首页、onDestroy）已有代码处理。
+        player?.pause()
         stopHeartbeat()
-        player?.release()
-        player = null
         try { sseEventSource?.cancel() } catch (_: Exception) {}
         sseEventSource = null
         try { sseClient?.dispatcher?.executorService?.shutdown() } catch (_: Exception) {}
-        try { sseClient?.connectionPool?.evictAll() } catch (_: Exception) {}
         sseClient = null
     }
 
     override fun onStart() {
         super.onStart()
-        // 从后台恢复时，重新初始化 SSE 并回到首页
-        // （播放器已在 onStop 中释放，不能留在播放器页面）
-        if (currentScreen != Screen.HOME && currentScreen != Screen.LOGIN) {
-            showHome()
+        // 避免与 onCreate() 重复建 SSE 连接：只在 SSE 未初始化时才重连
+        if (sseEventSource == null) initSSE()
+        // 如果恢复时仍在播放页且 player 存活，重新挂上心跳
+        if (currentScreen == Screen.PLAYER && player != null) {
+            startHeartbeat(player!!)
         }
-        initSSE()
     }
 
     override fun onDestroy() {
