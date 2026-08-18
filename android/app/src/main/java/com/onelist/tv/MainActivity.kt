@@ -68,6 +68,7 @@ class MainActivity : Activity() {
     private var sseClient: OkHttpClient? = null
     private var sseEventSource: EventSource? = null
     private val gson = Gson()
+    private var isDestroying = false
 
     // Play statistics heartbeat
     private var heartbeatExecutor: ScheduledExecutorService? = null
@@ -171,6 +172,7 @@ class MainActivity : Activity() {
     // ==================== SSE 消息中心初始化 ====================
     
     private fun initSSE() {
+        if (isDestroying) return
         val token = App.token
         if (token.isNullOrEmpty()) return
         
@@ -216,9 +218,10 @@ class MainActivity : Activity() {
             
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: okhttp3.Response?) {
                 android.util.Log.e("OneList", "SSE failure: ${t?.message}")
+                if (isDestroying) return
                 // 30秒后重连
                 Handler(Looper.getMainLooper()).postDelayed({
-                    initSSE()
+                    if (!isDestroying) initSSE()
                 }, 30000)
             }
             
@@ -230,6 +233,7 @@ class MainActivity : Activity() {
     
     private fun showMessage(msg: Message) {
         runOnUiThread {
+            if (isDestroying) return@runOnUiThread
             if (msg.priority == "forced") {
                 // 强制通知：全屏弹窗，必须确认
                 showForcedMessageDialog(msg)
@@ -2436,9 +2440,19 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        isDestroying = true
+        // 清理 SSE 资源
+        try { sseEventSource?.cancel() } catch (_: Exception) {}
+        sseEventSource = null
+        try { sseClient?.dispatcher?.executorService?.shutdown() } catch (_: Exception) {}
+        try { sseClient?.connectionPool?.evictAll() } catch (_: Exception) {}
+        sseClient = null
+        // 清理心跳资源
+        stopHeartbeat()
+        // 释放播放器
         player?.release()
         player = null
+        super.onDestroy()
     }
 
     // ==================== HELPERS ====================
