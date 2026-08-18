@@ -1161,6 +1161,23 @@ class MainActivity : Activity() {
         currentMovie = movie
         currentTv = null
 
+        // 预加载该电影所属 gallery 的完整列表，确保自动连播时能匹配 URL 更新心跳元数据
+        if (movie.galleryUid != null) {
+            RetrofitClient.getService().getMovieListByGallery(movie.galleryUid!!, 1, 100)
+                .enqueue(object : Callback<ApiListResponse<Movie>> {
+                    override fun onResponse(call: Call<ApiListResponse<Movie>>, response: Response<ApiListResponse<Movie>>) {
+                        val body = response.body()
+                        if (body != null && body.code == 200 && body.data != null) {
+                            currentMovieList = body.data!!
+                            android.util.Log.d("OneList", "Detail: preloaded ${currentMovieList!!.size} movies for gallery '${movie.galleryUid}'")
+                        }
+                    }
+                    override fun onFailure(call: Call<ApiListResponse<Movie>>, t: Throwable) {
+                        android.util.Log.w("OneList", "Detail: failed to preload movie list: ${t.message}")
+                    }
+                })
+        }
+
         val scroll = ScrollView(this)
         scroll.fillParent()
         val layout = LinearLayout(this).apply {
@@ -1937,7 +1954,9 @@ class MainActivity : Activity() {
             val mu = m.url ?: return@firstOrNull false
             mu == nextUrl || mu == nextUrl.trimStart('/') ||
             (nextUrl.startsWith("/file/") && mu == nextUrl) ||
-            (mu.startsWith("/file/") && mu.substring(5) == nextUrl.trimStart('/'))
+            (mu.startsWith("/file/") && mu.substring(5) == nextUrl.trimStart('/')) ||
+            mu.endsWith(nextUrl) || nextUrl.endsWith(mu) ||
+            mu.substringAfterLast('/') == nextUrl.substringAfterLast('/')
         }
         if (nextMovie != null) {
             currentVideoDataId = nextMovie.id
@@ -1950,7 +1969,9 @@ class MainActivity : Activity() {
             val nextItem = currentPlaylist?.firstOrNull { p ->
                 p.url == nextUrl || p.url == nextUrl.trimStart('/') ||
                 (nextUrl.startsWith("/file/") && p.url == nextUrl) ||
-                (p.url.startsWith("/file/") && p.url.substring(5) == nextUrl.trimStart('/'))
+                (p.url.startsWith("/file/") && p.url.substring(5) == nextUrl.trimStart('/')) ||
+                p.url.endsWith(nextUrl) || nextUrl.endsWith(p.url) ||
+                p.url.substringAfterLast('/') == nextUrl.substringAfterLast('/')
             }
             if (nextItem != null && currentVideoDataType == "tv") {
                 // 电视剧：dataId 不变（同一部剧），只更新 title 和 galleryUid
