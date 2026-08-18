@@ -2532,7 +2532,7 @@ class MainActivity : Activity() {
         super.onStart()
         // 从后台恢复时，重新初始化 SSE 并回到首页
         // （播放器已在 onStop 中释放，不能留在播放器页面）
-        if (::currentScreen.isInitialized && currentScreen != Screen.HOME && currentScreen != Screen.LOGIN) {
+        if (currentScreen != Screen.HOME && currentScreen != Screen.LOGIN) {
             showHome()
         }
         initSSE()
