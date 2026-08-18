@@ -338,11 +338,13 @@ class MainActivity : Activity() {
     private fun startHeartbeat(player: ExoPlayer) {
         // 如果没有视频元数据，不上报
         if (currentVideoDataType == null || currentVideoDataId == null || currentVideoTitle == null) {
-            android.util.Log.d("OneList", "Heartbeat skipped: no video metadata")
+            android.util.Log.w("OneList", "Heartbeat skipped: metadata missing — type=$currentVideoDataType id=$currentVideoDataId title=$currentVideoTitle")
             return
         }
 
         stopHeartbeat() // 先停止之前的
+
+        android.util.Log.d("OneList", "Heartbeat starting: type=${currentVideoDataType} id=${currentVideoDataId} title='${currentVideoTitle}' gallery='${currentVideoGalleryUid}' galleryTitle='${currentVideoGalleryTitle}'")
 
         lastHeartbeatPosition = player.currentPosition
         
@@ -353,6 +355,8 @@ class MainActivity : Activity() {
                 val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
                 val positionSeconds = (currentPosition / 1000).toInt()
                 val totalDurationSeconds = (player.duration / 1000).toInt()
+
+                android.util.Log.d("OneList", "Heartbeat tick: pos=${positionSeconds}s dur=${durationSeconds}s total=${totalDurationSeconds}s")
 
                 if (durationSeconds > 0) {
                     val request = HeartbeatRequest(
@@ -368,23 +372,26 @@ class MainActivity : Activity() {
 
                     RetrofitClient.getService().sendHeartbeat(request).enqueue(object : Callback<ApiResponse<PlayHistory>> {
                         override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
-                            if (response.body()?.code == 200) {
-                                android.util.Log.d("OneList", "Heartbeat sent: pos=$positionSeconds dur=$durationSeconds")
+                            val body = response.body()
+                            if (body != null && body.code == 200) {
+                                android.util.Log.d("OneList", "Heartbeat OK: pos=$positionSeconds dur=$durationSeconds")
+                            } else {
+                                android.util.Log.w("OneList", "Heartbeat rejected: HTTP ${response.code()} code=${body?.code} msg=${body?.msg}")
                             }
                         }
                         override fun onFailure(call: Call<ApiResponse<PlayHistory>>, t: Throwable) {
-                            android.util.Log.e("OneList", "Heartbeat failed", t)
+                            android.util.Log.e("OneList", "Heartbeat network failed: ${t.message}", t)
                         }
                     })
                 }
 
                 lastHeartbeatPosition = currentPosition
             } catch (e: Exception) {
-                android.util.Log.e("OneList", "Heartbeat error", e)
+                android.util.Log.e("OneList", "Heartbeat error: ${e.message}", e)
             }
-        }, 0, 30, TimeUnit.SECONDS)
+        }, 5, 30, TimeUnit.SECONDS)
 
-        android.util.Log.d("OneList", "Heartbeat started for: ${currentVideoTitle}")
+        android.util.Log.d("OneList", "Heartbeat scheduled: first in 5s, then every 30s")
     }
 
     /**
@@ -402,6 +409,7 @@ class MainActivity : Activity() {
     private fun showScreen(screen: Screen) {
         currentScreen = screen
         rootLayout.removeAllViews()
+        stopHeartbeat()
         player?.release()
         player = null
 
@@ -574,6 +582,7 @@ class MainActivity : Activity() {
         // 回到首页清空返回栈，避免返回时乱跳
         screenBackStack.clear()
         // 离开播放器界面时释放播放器，避免音频继续在后台播放
+        stopHeartbeat()
         player?.release()
         player = null
         rootLayout.removeAllViews()
@@ -875,6 +884,7 @@ class MainActivity : Activity() {
         // 只有正向导航（非按返回键恢复）才推入返回栈
         if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.LIST
+        stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
         detailFromSearch = false
@@ -1140,6 +1150,7 @@ class MainActivity : Activity() {
     /** 纯渲染电影详情（用于返回键恢复，不推栈、不重新请求 API） */
     private fun renderMovieDetail(movie: Movie) {
         currentScreen = Screen.DETAIL
+        stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
         // 清除剧集列表缓存（进入电影详情后不可能还在剧集列表）
@@ -1236,6 +1247,7 @@ class MainActivity : Activity() {
                     currentVideoTitle = movie.title
                     currentVideoGalleryUid = movie.galleryUid
                     currentVideoGalleryTitle = currentGalleryTitle
+                    android.util.Log.d("OneList", "Movie play: id=${movie.id} title='${movie.title}' galleryUid='${movie.galleryUid}' galleryTitle='$currentGalleryTitle' url='${movie.url}'")
                     val pl = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                     val idx = pl?.indexOfFirst { it.url == movie.url } ?: 0
                     showPlayer(movie.url!!, movie.galleryUid, pl, if (idx >= 0) idx else 0)
@@ -1316,6 +1328,7 @@ class MainActivity : Activity() {
     /** 纯渲染电视详情（用于返回键恢复，不推栈、不重新请求 API） */
     private fun renderTvDetail(tv: Tv) {
         currentScreen = Screen.DETAIL
+        stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
         // 进入TV详情后，可能跳到剧集列表，之后返回回来还能正确识别
@@ -1485,6 +1498,7 @@ class MainActivity : Activity() {
     private fun showEpisodeList(episodes: List<Episode>, seasonTitle: String, restoreFromCache: Boolean = false) {
         if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.DETAIL
+        stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
         // 保存剧集列表缓存（返回剧集详情还能回播放器 → 再返回来恢复剧集列表）
@@ -1524,6 +1538,7 @@ class MainActivity : Activity() {
                         currentVideoTitle = currentTv?.name ?: ep.title
                         currentVideoGalleryUid = ep.galleryUid
                         currentVideoGalleryTitle = currentGalleryTitle
+                        android.util.Log.d("OneList", "TV play: tvId=${currentTv?.id} title='${currentVideoTitle}' galleryUid='${ep.galleryUid}' galleryTitle='$currentGalleryTitle' url='${ep.url}'")
                         val pl = episodes.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                         val idx = episodes.indexOf(ep)
                         showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
@@ -1577,6 +1592,7 @@ class MainActivity : Activity() {
     private fun showSearch(restoreFromCache: Boolean = false) {
         if (!restoreFromCache) pushCurrentToBackStack()
         currentScreen = Screen.SEARCH
+        stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
 
@@ -1791,6 +1807,7 @@ class MainActivity : Activity() {
         }
         currentScreen = Screen.PLAYER
         // 释放旧播放器，避免切换视频时旧视频继续在后台播放（音频叠加）
+        stopHeartbeat()
         player?.release()
         player = null
         rootLayout.removeAllViews()
