@@ -358,13 +358,15 @@ class MainActivity : Activity() {
         heartbeatExecutor?.scheduleAtFixedRate({
             // ExoPlayer 强制要求在主线程访问其属性，否则抛 IllegalStateException
             runOnUiThread {
-                // Activity 已销毁时不再访问 player，避免闪退
-                if (isDestroying || player == null) return@runOnUiThread
+                // 用 this.player（类字段）检查，而非函数参数 player。
+                // onDestroy 将类字段设为 null，但 lambda 捕获的参数引用仍非空，
+                // 仅检查参数无法防御 Activity 销毁后的竞态。
+                if (isDestroying || this.player == null) return@runOnUiThread
                 try {
-                    val currentPosition = player!!.currentPosition
+                    val currentPosition = player.currentPosition
                     val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
                     val positionSeconds = (currentPosition / 1000).toInt()
-                    val totalDurationSeconds = (player!!.duration / 1000).toInt()
+                    val totalDurationSeconds = (player.duration / 1000).toInt()
 
                     android.util.Log.d("OneList", "Heartbeat tick: pos=${positionSeconds}s dur=${durationSeconds}s total=${totalDurationSeconds}s")
 
