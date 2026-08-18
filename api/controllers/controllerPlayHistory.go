@@ -72,7 +72,19 @@ func PlayHistoryStats(c *gin.Context) {
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		logger.Info("play_history", fmt.Sprintf("统计查询成功 | 返回%d条记录", len(list)))
+		// 打印前5条记录的详情，帮助诊断 Android 数据是否被查到
+		detail := ""
+		limit := len(list)
+		if limit > 5 {
+			limit = 5
+		}
+		for i := 0; i < limit; i++ {
+			if i > 0 {
+				detail += "; "
+			}
+			detail += fmt.Sprintf("[%d]uid=%s,did=%d,t=%s", list[i].Id, list[i].UserId, list[i].DataId, list[i].Title)
+		}
+		logger.Info("play_history", fmt.Sprintf("统计查询成功 | 返回%d条记录 | 前%d条: %s", len(list), limit, detail))
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list})
 	}(repo)
 }
@@ -143,7 +155,19 @@ func PlayHistoryList(c *gin.Context) {
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": list, "num": num})
 			return
 		}
-		logger.Info("play_history", fmt.Sprintf("历史列表查询成功 | 总数=%d 本页%d条", num, len(list)))
+		// 打印本页前3条记录详情，帮助诊断 Android 数据是否出现在列表中
+		listDetail := ""
+		listLimit := len(list)
+		if listLimit > 3 {
+			listLimit = 3
+		}
+		for i := 0; i < listLimit; i++ {
+			if i > 0 {
+				listDetail += "; "
+			}
+			listDetail += fmt.Sprintf("[%d]uid=%s,did=%d,t=%s", list[i].Id, list[i].UserId, list[i].DataId, list[i].Title)
+		}
+		logger.Info("play_history", fmt.Sprintf("历史列表查询成功 | 总数=%d 本页%d条 | 前%d条: %s", num, len(list), listLimit, listDetail))
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list, "num": num})
 	}(repo)
 }
