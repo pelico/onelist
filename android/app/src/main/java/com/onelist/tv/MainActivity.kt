@@ -1931,6 +1931,38 @@ class MainActivity : Activity() {
         serverPlaylistIndex++
         val nextUrl = serverPlaylist[serverPlaylistIndex]
         android.util.Log.d("OneList", "Auto-playing next: index=$serverPlaylistIndex url='$nextUrl'")
+
+        // 自动连播时更新心跳元数据：从 currentMovieList 中查找匹配的电影，更新 dataId 和 title
+        // 这样自动播放的下一部电影才能生成正确的播放统计记录
+        val nextMovie = currentMovieList?.firstOrNull { m ->
+            val mu = m.url ?: return@firstOrNull false
+            mu == nextUrl || mu == nextUrl.trimStart('/') ||
+            (nextUrl.startsWith("/file/") && mu == nextUrl) ||
+            (mu.startsWith("/file/") && mu.substring(5) == nextUrl.trimStart('/'))
+        }
+        if (nextMovie != null) {
+            currentVideoDataId = nextMovie.id
+            currentVideoTitle = nextMovie.title
+            currentVideoGalleryUid = nextMovie.galleryUid
+            android.util.Log.d("OneList", "Auto-play heartbeat updated (movie): id=${nextMovie.id} title='${nextMovie.title}' galleryUid='${nextMovie.galleryUid}'")
+        } else {
+            // 电视剧集自动连播：currentMovieList 为空，尝试从 currentPlaylist 查找
+            // 电视剧的 dataId 是剧集 ID（同一部剧不变），但 title 需要更新为当前集
+            val nextItem = currentPlaylist?.firstOrNull { p ->
+                p.url == nextUrl || p.url == nextUrl.trimStart('/') ||
+                (nextUrl.startsWith("/file/") && p.url == nextUrl) ||
+                (p.url.startsWith("/file/") && p.url.substring(5) == nextUrl.trimStart('/'))
+            }
+            if (nextItem != null && currentVideoDataType == "tv") {
+                // 电视剧：dataId 不变（同一部剧），只更新 title 和 galleryUid
+                currentVideoTitle = nextItem.title ?: currentVideoTitle
+                currentVideoGalleryUid = nextItem.galleryUid ?: currentVideoGalleryUid
+                android.util.Log.d("OneList", "Auto-play heartbeat updated (tv): title='${currentVideoTitle}' galleryUid='${currentVideoGalleryUid}'")
+            } else {
+                android.util.Log.d("OneList", "Auto-play: no matching item found for url='$nextUrl', keeping old heartbeat metadata")
+            }
+        }
+
         updateNextHint(nextHint)
         // 显示 loading
         loadingText.text = "正在加载下一集..."
