@@ -350,7 +350,6 @@ class MainActivity : Activity() {
         heartbeatExecutor?.scheduleAtFixedRate({
             // ExoPlayer 强制要求在主线程访问其属性，否则抛 IllegalStateException
             runOnUiThread {
-                if (isDestroying) return@runOnUiThread
                 try {
                     val currentPosition = player.currentPosition
                     val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
@@ -2512,30 +2511,21 @@ class MainActivity : Activity() {
     override fun onStop() {
         super.onStop()
         // onStop 在 Activity 不可见时触发（Home键、灭屏、切换应用等）。
-        // 只暂停播放 + 停心跳 + 断 SSE，不 release 播放器、不动 view 树。
-        // 真正需要 release 的场景（切视频、返回首页、onDestroy）已有代码处理。
+        // 只做最最小化：暂停播放。不 release 播放器、不动 view 树、不停心跳、不断 SSE。
+        // 心跳/SSE 清理交给 onDestroy()；恢复播放由 onStart() 对称处理。
         player?.pause()
-        stopHeartbeat()
-        try { sseEventSource?.cancel() } catch (_: Exception) {}
-        sseEventSource = null
-        try { sseClient?.dispatcher?.executorService?.shutdown() } catch (_: Exception) {}
-        sseClient = null
     }
 
     override fun onStart() {
         super.onStart()
-        // 避免与 onCreate() 重复建 SSE 连接：只在 SSE 未初始化时才重连
-        if (sseEventSource == null) initSSE()
-        // 如果恢复时仍在播放页且 player 存活：
-        // 1. 恢复播放（onStop 只做了 pause，这里对应 resume）
-        // 2. 重新挂上心跳
+        // 对称 onStop() 的 pause：恢复播放（排除已结束/空闲状态）。
+        // 不碰 SSE 和心跳——SSE 由 onCreate/onDestroy 管理，心跳由 startExoPlayer 启动。
         if (currentScreen == Screen.PLAYER && player != null) {
             val p = player!!
             if (p.playbackState != com.google.android.exoplayer2.Player.STATE_ENDED &&
                 p.playbackState != com.google.android.exoplayer2.Player.STATE_IDLE) {
                 p.play()
             }
-            startHeartbeat(p)
         }
     }
 
