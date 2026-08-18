@@ -218,11 +218,9 @@ class MainActivity : Activity() {
             
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: okhttp3.Response?) {
                 android.util.Log.e("OneList", "SSE failure: ${t?.message}")
-                if (isDestroying) return
-                // 30秒后重连
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (!isDestroying) initSSE()
-                }, 30000)
+                // 不在这里做延迟重连：onStop() cancel 会触发 onFailure，
+                // 此时 Activity 可能只是短暂不可见，重连由 onStart() 负责。
+                // OkHttp EventSource 自身也有内部重连机制。
             }
             
             override fun onClosed(eventSource: EventSource) {
@@ -2528,9 +2526,16 @@ class MainActivity : Activity() {
         super.onStart()
         // 避免与 onCreate() 重复建 SSE 连接：只在 SSE 未初始化时才重连
         if (sseEventSource == null) initSSE()
-        // 如果恢复时仍在播放页且 player 存活，重新挂上心跳
+        // 如果恢复时仍在播放页且 player 存活：
+        // 1. 恢复播放（onStop 只做了 pause，这里对应 resume）
+        // 2. 重新挂上心跳
         if (currentScreen == Screen.PLAYER && player != null) {
-            startHeartbeat(player!!)
+            val p = player!!
+            if (p.playbackState != com.google.android.exoplayer2.Player.STATE_ENDED &&
+                p.playbackState != com.google.android.exoplayer2.Player.STATE_IDLE) {
+                p.play()
+            }
+            startHeartbeat(p)
         }
     }
 
