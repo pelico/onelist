@@ -981,6 +981,11 @@ class MainActivity : Activity() {
             // 恢复时保持和之前一致的加载更多按钮状态
             loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
             listAdapter?.notifyDataSetChanged()
+            // 显示列表，隐藏加载指示器
+            recyclerView.visibility = View.VISIBLE
+            val parent = recyclerView.parent as? FrameLayout
+            parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
+            parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
         }
     }
 
@@ -1223,6 +1228,12 @@ class MainActivity : Activity() {
             applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE)
             setOnClickListener {
                 if (movie.url != null) {
+                    // 设置心跳元数据，使播放统计正常上报
+                    currentVideoDataType = "movie"
+                    currentVideoDataId = movie.id
+                    currentVideoTitle = movie.title
+                    currentVideoGalleryUid = movie.galleryUid
+                    currentVideoGalleryTitle = currentGalleryTitle
                     val pl = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                     val idx = pl?.indexOfFirst { it.url == movie.url } ?: 0
                     showPlayer(movie.url!!, movie.galleryUid, pl, if (idx >= 0) idx else 0)
@@ -1505,6 +1516,12 @@ class MainActivity : Activity() {
                 applyCardFocus()
                 setOnClickListener {
                     if (ep.url != null) {
+                        // 设置心跳元数据，使播放统计正常上报
+                        currentVideoDataType = "tv"
+                        currentVideoDataId = currentTv?.id
+                        currentVideoTitle = currentTv?.name ?: ep.title
+                        currentVideoGalleryUid = ep.galleryUid
+                        currentVideoGalleryTitle = currentGalleryTitle
                         val pl = episodes.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                         val idx = episodes.indexOf(ep)
                         showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
