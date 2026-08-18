@@ -176,6 +176,12 @@ class MainActivity : Activity() {
         val token = App.token
         if (token.isNullOrEmpty()) return
         
+        // 清理已有的 SSE 连接，避免重复连接导致资源泄漏
+        try { sseEventSource?.cancel() } catch (_: Exception) {}
+        sseEventSource = null
+        try { sseClient?.dispatcher?.executorService?.shutdown() } catch (_: Exception) {}
+        sseClient = null
+        
         sseClient = OkHttpClient.Builder().build()
         
         val baseUrl = RetrofitClient.getBaseUrl()
@@ -352,11 +358,13 @@ class MainActivity : Activity() {
         heartbeatExecutor?.scheduleAtFixedRate({
             // ExoPlayer 强制要求在主线程访问其属性，否则抛 IllegalStateException
             runOnUiThread {
+                // Activity 已销毁时不再访问 player，避免闪退
+                if (isDestroying || player == null) return@runOnUiThread
                 try {
-                    val currentPosition = player.currentPosition
+                    val currentPosition = player!!.currentPosition
                     val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
                     val positionSeconds = (currentPosition / 1000).toInt()
-                    val totalDurationSeconds = (player.duration / 1000).toInt()
+                    val totalDurationSeconds = (player!!.duration / 1000).toInt()
 
                     android.util.Log.d("OneList", "Heartbeat tick: pos=${positionSeconds}s dur=${durationSeconds}s total=${totalDurationSeconds}s")
 
