@@ -371,6 +371,10 @@ class MainActivity : Activity() {
                             totalDuration = totalDurationSeconds
                         )
 
+                        // Debug: 打印实际发送的 JSON body
+                        val jsonBody = com.google.gson.Gson().toJson(request)
+                        android.util.Log.d("OneList", "Heartbeat JSON: $jsonBody")
+
                         RetrofitClient.getService().sendHeartbeat(request).enqueue(object : Callback<ApiResponse<PlayHistory>> {
                             override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
                                 val body = response.body()
