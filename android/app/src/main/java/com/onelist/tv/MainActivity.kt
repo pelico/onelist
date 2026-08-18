@@ -179,7 +179,8 @@ class MainActivity : Activity() {
         sseClient = OkHttpClient.Builder().build()
         
         val baseUrl = RetrofitClient.getBaseUrl()
-        val url = "${baseUrl}v1/api/message/sse?token=${java.net.URLEncoder.encode(token, "UTF-8")}"
+        val normalizedBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val url = "${normalizedBase}v1/api/message/sse?token=${java.net.URLEncoder.encode(token, "UTF-8")}"
         
         val request = Request.Builder().url(url).build()
         
@@ -2432,6 +2433,33 @@ class MainActivity : Activity() {
 
     // ==================== PLAYLIST NAVIGATION ====================
 
+    /**
+     * 遥控器上下键切集时更新心跳元数据。
+     * 电影：通过 URL 在 currentMovieList 中查找以获取正确的 dataId。
+     * 电视剧：dataId（剧集 ID）不变，只更新集标题。
+     */
+    private fun updateHeartbeatMetadataForItem(item: PlayItem) {
+        if (currentVideoDataType == "movie") {
+            val movie = currentMovieList?.firstOrNull { m ->
+                val mu = m.url ?: return@firstOrNull false
+                mu == item.url || mu == item.url.trimStart('/') ||
+                (mu.startsWith("/file/") && mu.substring(5) == item.url.trimStart('/')) ||
+                (item.url.startsWith("/file/") && item.url.substring(5) == mu.trimStart('/'))
+            }
+            if (movie != null) {
+                currentVideoDataId = movie.id
+                currentVideoTitle = movie.title
+                currentVideoGalleryUid = movie.galleryUid
+                android.util.Log.d("OneList", "Nav heartbeat updated (movie): id=${movie.id} title='${movie.title}'")
+            } else {
+                android.util.Log.w("OneList", "Nav: movie not found for url='${item.url}', keeping old metadata")
+            }
+        } else if (currentVideoDataType == "tv") {
+            currentVideoTitle = item.title ?: currentVideoTitle
+            android.util.Log.d("OneList", "Nav heartbeat updated (tv): title='${currentVideoTitle}'")
+        }
+    }
+
     private fun playNext() {
         val pl = currentPlaylist ?: return
         if (currentPlayIndex >= pl.size - 1) {
@@ -2441,6 +2469,7 @@ class MainActivity : Activity() {
         currentPlayIndex++
         val next = pl[currentPlayIndex]
         android.util.Log.d("OneList", "playNext: index=$currentPlayIndex title='${next.title}'")
+        updateHeartbeatMetadataForItem(next)
         toast("下一集: ${next.title ?: ""}")
         showPlayer(next.url, next.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
     }
@@ -2454,6 +2483,7 @@ class MainActivity : Activity() {
         currentPlayIndex--
         val prev = pl[currentPlayIndex]
         android.util.Log.d("OneList", "playPrevious: index=$currentPlayIndex title='${prev.title}'")
+        updateHeartbeatMetadataForItem(prev)
         toast("上一集: ${prev.title ?: ""}")
         showPlayer(prev.url, prev.galleryUid, pl, currentPlayIndex, pushToBackStack = false)
     }
