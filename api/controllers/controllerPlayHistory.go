@@ -14,23 +14,54 @@ import (
 
 // PlayHistoryHeartbeat 心跳上报（所有登录用户）
 func PlayHistoryHeartbeat(c *gin.Context) {
+	// 记录请求来源，帮助诊断
+	clientIP := c.ClientIP()
+	authHeader := c.GetHeader("Authorization")
+	logger.Info("play_history", "心跳请求到达", 
+		"client_ip: "+clientIP+
+		", has_auth: "+strconv.FormatBool(len(authHeader) > 0)+
+		", auth_prefix: "+func() string { if len(authHeader) > 20 { return authHeader[:20]+"..." }; return authHeader }())
+	
 	ph := models.PlayHistory{}
 	err := c.ShouldBind(&ph)
 	if err != nil {
+		logger.Info("play_history", "心跳参数绑定失败", "error: "+err.Error()+", client_ip: "+clientIP)
 		c.JSON(200, gin.H{"code": 201, "msg": "参数解析失败!", "data": nil})
 		return
 	}
+	
+	// 记录绑定后的数据
+	logger.Info("play_history", "心跳数据绑定成功",
+		"client_ip: "+clientIP+
+		", data_type: "+ph.DataType+
+		", data_id: "+strconv.Itoa(ph.DataId)+
+		", title: "+ph.Title+
+		", gallery_uid: "+ph.GalleryUid+
+		", duration: "+strconv.Itoa(ph.Duration)+
+		", position: "+strconv.Itoa(ph.Position))
+	
 	if len(ph.UserId) == 0 {
 		ph.UserId = c.GetString("UserId")
+		logger.Info("play_history", "心跳UserId自动填充", "user_id: "+ph.UserId)
 	}
+	
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		result, err := hRepo.Heartbeat(ph)
 		if err != nil {
+			logger.Info("play_history", "心跳上报失败", "error: "+err.Error()+", client_ip: "+clientIP)
 			c.JSON(200, gin.H{"code": 201, "msg": "上报失败!", "data": result})
 			return
 		}
+		logger.Info("play_history", "心跳上报成功", 
+			"client_ip: "+clientIP+
+			", record_id: "+strconv.Itoa(int(result.Id))+
+			", user_id: "+result.UserId+
+			", data_type: "+result.DataType+
+			", data_id: "+strconv.Itoa(result.DataId)+
+			", title: "+result.Title+
+			", duration: "+strconv.Itoa(result.Duration))
 		c.JSON(200, gin.H{"code": 200, "msg": "上报成功!", "data": result})
 	}(repo)
 }

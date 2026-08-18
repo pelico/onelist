@@ -350,44 +350,47 @@ class MainActivity : Activity() {
         
         heartbeatExecutor = Executors.newSingleThreadScheduledExecutor()
         heartbeatExecutor?.scheduleAtFixedRate({
-            try {
-                val currentPosition = player.currentPosition
-                val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
-                val positionSeconds = (currentPosition / 1000).toInt()
-                val totalDurationSeconds = (player.duration / 1000).toInt()
+            // ExoPlayer 强制要求在主线程访问其属性，否则抛 IllegalStateException
+            runOnUiThread {
+                try {
+                    val currentPosition = player.currentPosition
+                    val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
+                    val positionSeconds = (currentPosition / 1000).toInt()
+                    val totalDurationSeconds = (player.duration / 1000).toInt()
 
-                android.util.Log.d("OneList", "Heartbeat tick: pos=${positionSeconds}s dur=${durationSeconds}s total=${totalDurationSeconds}s")
+                    android.util.Log.d("OneList", "Heartbeat tick: pos=${positionSeconds}s dur=${durationSeconds}s total=${totalDurationSeconds}s")
 
-                if (durationSeconds > 0) {
-                    val request = HeartbeatRequest(
-                        dataType = currentVideoDataType!!,
-                        dataId = currentVideoDataId!!,
-                        title = currentVideoTitle!!,
-                        galleryUid = currentVideoGalleryUid ?: "",
-                        galleryTitle = currentVideoGalleryTitle ?: "",
-                        duration = durationSeconds,
-                        position = positionSeconds,
-                        totalDuration = totalDurationSeconds
-                    )
+                    if (durationSeconds > 0) {
+                        val request = HeartbeatRequest(
+                            dataType = currentVideoDataType!!,
+                            dataId = currentVideoDataId!!,
+                            title = currentVideoTitle!!,
+                            galleryUid = currentVideoGalleryUid ?: "",
+                            galleryTitle = currentVideoGalleryTitle ?: "",
+                            duration = durationSeconds,
+                            position = positionSeconds,
+                            totalDuration = totalDurationSeconds
+                        )
 
-                    RetrofitClient.getService().sendHeartbeat(request).enqueue(object : Callback<ApiResponse<PlayHistory>> {
-                        override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
-                            val body = response.body()
-                            if (body != null && body.code == 200) {
-                                android.util.Log.d("OneList", "Heartbeat OK: pos=$positionSeconds dur=$durationSeconds")
-                            } else {
-                                android.util.Log.w("OneList", "Heartbeat rejected: HTTP ${response.code()} code=${body?.code} msg=${body?.msg}")
+                        RetrofitClient.getService().sendHeartbeat(request).enqueue(object : Callback<ApiResponse<PlayHistory>> {
+                            override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
+                                val body = response.body()
+                                if (body != null && body.code == 200) {
+                                    android.util.Log.d("OneList", "Heartbeat OK: pos=$positionSeconds dur=$durationSeconds")
+                                } else {
+                                    android.util.Log.w("OneList", "Heartbeat rejected: HTTP ${response.code()} code=${body?.code} msg=${body?.msg}")
+                                }
                             }
-                        }
-                        override fun onFailure(call: Call<ApiResponse<PlayHistory>>, t: Throwable) {
-                            android.util.Log.e("OneList", "Heartbeat network failed: ${t.message}", t)
-                        }
-                    })
-                }
+                            override fun onFailure(call: Call<ApiResponse<PlayHistory>>, t: Throwable) {
+                                android.util.Log.e("OneList", "Heartbeat network failed: ${t.message}", t)
+                            }
+                        })
+                    }
 
-                lastHeartbeatPosition = currentPosition
-            } catch (e: Exception) {
-                android.util.Log.e("OneList", "Heartbeat error: ${e.message}", e)
+                    lastHeartbeatPosition = currentPosition
+                } catch (e: Exception) {
+                    android.util.Log.e("OneList", "Heartbeat error: ${e.message}", e)
+                }
             }
         }, 5, 30, TimeUnit.SECONDS)
 

@@ -130,7 +130,7 @@ interface ApiService {
     ): Call<ApiResponse<PlayHistory>>
 
     // 获取今日播放时长
-    @POST("v1/api/play-history/today-duration")
+    @GET("v1/api/play-history/today")
     fun getTodayDuration(): Call<ApiResponse<Int>>
 }
 
