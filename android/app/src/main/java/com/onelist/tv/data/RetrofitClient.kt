@@ -25,7 +25,29 @@ object RetrofitClient {
         } else {
             original
         }
-        chain.proceed(request)
+
+        val response = chain.proceed(request)
+
+        // 检测后端返回 code=203（JWT 过期并附带新 token），自动刷新后重试请求
+        try {
+            val peekBody = response.peekBody(Long.MAX_VALUE)
+            val json = org.json.JSONObject(peekBody.string())
+            if (json.optInt("code") == 203 && json.has("token")) {
+                val newToken = json.getString("token")
+                App.token = newToken
+                android.util.Log.d("OneList", "Token auto-refreshed by interceptor")
+                // 用新 token 重试原始请求，关闭旧响应避免连接泄漏
+                val retryRequest = original.newBuilder()
+                    .header("Authorization", newToken)
+                    .build()
+                response.close()
+                return@Interceptor chain.proceed(retryRequest)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("OneList", "Token refresh check failed: ${e.message}")
+        }
+
+        response
     }
 
     private val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
