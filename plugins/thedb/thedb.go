@@ -390,7 +390,7 @@ func ChunkTheMovie(themovie models.TheMovie) error {
 			db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
 			db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
 			db.Model(&models.PlayHistory{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
-			db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&models.TheMovie{})
+			db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&dbThemovie)
 			themovie.CreatedAt = dbThemovie.CreatedAt
 			themovie.Star = dbThemovie.Star
 			themovie.Heart = dbThemovie.Heart
@@ -402,7 +402,7 @@ func ChunkTheMovie(themovie models.TheMovie) error {
 		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
 		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
 		db.Model(&models.PlayHistory{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", themovie.ID)
-		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&models.TheMovie{})
+		db.Model(&models.TheMovie{}).Where("id = ?", oldId).Delete(&dbThemovie)
 		themovie.CreatedAt = existingTmdb.CreatedAt
 		themovie.Star = existingTmdb.Star || dbThemovie.Star
 		themovie.Heart = existingTmdb.Heart || dbThemovie.Heart
