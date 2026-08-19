@@ -7,7 +7,6 @@ import (
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
-	"github.com/msterzhang/onelist/api/utils/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,30 +16,22 @@ func PlayHistoryHeartbeat(c *gin.Context) {
 	ph := models.PlayHistory{}
 	err := c.ShouldBind(&ph)
 	if err != nil {
-		logger.Debug("play_history", "心跳参数绑定失败", "error: "+err.Error())
 		c.JSON(200, gin.H{"code": 201, "msg": "参数解析失败!", "data": nil})
 		return
 	}
-	
+
 	if len(ph.UserId) == 0 {
 		ph.UserId = c.GetString("UserId")
 	}
-	
+
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		result, err := hRepo.Heartbeat(ph)
 		if err != nil {
-			logger.Debug("play_history", "心跳上报失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "上报失败!", "data": result})
 			return
 		}
-		logger.Debug("play_history", "心跳上报成功",
-			"user_id: "+result.UserId+
-			", type: "+result.DataType+
-			", data_id: "+strconv.Itoa(result.DataId)+
-			", title: "+result.Title+
-			", dur: "+strconv.Itoa(result.Duration))
 		c.JSON(200, gin.H{"code": 200, "msg": "上报成功!", "data": result})
 	}(repo)
 }
@@ -50,18 +41,14 @@ func PlayHistoryStats(c *gin.Context) {
 	userId := c.Query("user_id")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
-	logger.Debug("play_history", "统计查询",
-		"user_id: "+userId+", start: "+startDate+", end: "+endDate)
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		list, err := hRepo.GetStats(userId, startDate, endDate)
 		if err != nil {
-			logger.Debug("play_history", "统计查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		logger.Debug("play_history", "统计查询成功", "返回: "+strconv.Itoa(len(list))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list})
 	}(repo)
 }
@@ -71,18 +58,14 @@ func PlayHistoryGalleryStats(c *gin.Context) {
 	userId := c.Query("user_id")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
-	logger.Debug("play_history", "媒体库统计查询",
-		"user_id: "+userId+", start: "+startDate+", end: "+endDate)
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		stats, err := hRepo.GetGalleryStats(userId, startDate, endDate)
 		if err != nil {
-			logger.Debug("play_history", "媒体库统计查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		logger.Debug("play_history", "媒体库统计查询成功", "返回: "+strconv.Itoa(len(stats))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
 	}(repo)
 }
@@ -93,22 +76,18 @@ func PlayHistoryTopMovies(c *gin.Context) {
 	galleryUid := c.Query("gallery_uid")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
-	limit, err := strconv.Atoi(c.Query("limit"))
-	if err != nil || limit <= 0 {
-		limit = 10
+	limit := 10
+	if l, err := strconv.Atoi(c.Query("limit")); err == nil && l > 0 {
+		limit = l
 	}
-	logger.Debug("play_history", "Top影片查询",
-		"user_id: "+userId+", gallery: "+galleryUid+", limit: "+strconv.Itoa(limit))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		stats, err := hRepo.GetTopMovies(userId, galleryUid, startDate, endDate, limit)
 		if err != nil {
-			logger.Debug("play_history", "Top影片查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		logger.Debug("play_history", "Top影片查询成功", "返回: "+strconv.Itoa(len(stats))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
 	}(repo)
 }
@@ -116,27 +95,22 @@ func PlayHistoryTopMovies(c *gin.Context) {
 // PlayHistoryList 播放历史列表（管理员）
 func PlayHistoryList(c *gin.Context) {
 	userId := c.Query("user_id")
-	page, errPage := strconv.Atoi(c.Query("page"))
-	size, errSize := strconv.Atoi(c.Query("size"))
-	if errPage != nil {
-		page = 1
+	page := 1
+	size := 20
+	if p, err := strconv.Atoi(c.Query("page")); err == nil {
+		page = p
 	}
-	if errSize != nil {
-		size = 20
+	if s, err := strconv.Atoi(c.Query("size")); err == nil {
+		size = s
 	}
-	logger.Debug("play_history", "历史列表查询",
-		"user_id: "+userId+", page: "+strconv.Itoa(page)+", size: "+strconv.Itoa(size))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		list, num, err := hRepo.GetHistoryList(userId, page, size)
 		if err != nil {
-			logger.Debug("play_history", "历史列表查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": list, "num": num})
 			return
 		}
-		logger.Debug("play_history", "历史列表查询成功",
-			"总数: "+strconv.Itoa(num)+", 本页: "+strconv.Itoa(len(list))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list, "num": num})
 	}(repo)
 }
