@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/msterzhang/onelist/api/database"
@@ -15,31 +14,16 @@ import (
 
 // PlayHistoryHeartbeat 心跳上报（所有登录用户）
 func PlayHistoryHeartbeat(c *gin.Context) {
-	// 记录请求来源，帮助诊断
-	clientIP := c.ClientIP()
-	authHeader := c.GetHeader("Authorization")
-	logger.Info("play_history", "心跳请求到达", 
-		"client_ip: "+clientIP+
-		", has_auth: "+strconv.FormatBool(len(authHeader) > 0)+
-		", auth_prefix: "+func() string { if len(authHeader) > 20 { return authHeader[:20]+"..." }; return authHeader }())
-	
 	ph := models.PlayHistory{}
 	err := c.ShouldBind(&ph)
 	if err != nil {
-		logger.Info("play_history", "心跳参数绑定失败", "error: "+err.Error()+", client_ip: "+clientIP)
+		logger.Debug("play_history", "心跳参数绑定失败", "error: "+err.Error())
 		c.JSON(200, gin.H{"code": 201, "msg": "参数解析失败!", "data": nil})
 		return
 	}
 	
-	// 记录绑定后的数据
-	logger.Info("play_history", fmt.Sprintf("心跳数据绑定成功 | ip=%s type=%s id=%d title=%s gallery=%s dur=%d pos=%d",
-		clientIP, ph.DataType, ph.DataId, ph.Title, ph.GalleryUid, ph.Duration, ph.Position))
-	
 	if len(ph.UserId) == 0 {
 		ph.UserId = c.GetString("UserId")
-		logger.Info("play_history", fmt.Sprintf("心跳UserId自动填充 | user_id=%s (len=%d)", ph.UserId, len(ph.UserId)))
-	} else {
-		logger.Info("play_history", fmt.Sprintf("心跳UserId已有 | user_id=%s", ph.UserId))
 	}
 	
 	db := database.NewDb()
@@ -47,12 +31,16 @@ func PlayHistoryHeartbeat(c *gin.Context) {
 	func(hRepo repository.PlayHistoryRepository) {
 		result, err := hRepo.Heartbeat(ph)
 		if err != nil {
-			logger.Info("play_history", fmt.Sprintf("心跳上报失败 | error=%s", err.Error()))
+			logger.Debug("play_history", "心跳上报失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "上报失败!", "data": result})
 			return
 		}
-		logger.Info("play_history", fmt.Sprintf("心跳上报成功 | id=%d user_id=%s type=%s data_id=%d title=%s dur=%d gallery=%s",
-			result.Id, result.UserId, result.DataType, result.DataId, result.Title, result.Duration, result.GalleryUid))
+		logger.Debug("play_history", "心跳上报成功",
+			"user_id: "+result.UserId+
+			", type: "+result.DataType+
+			", data_id: "+strconv.Itoa(result.DataId)+
+			", title: "+result.Title+
+			", dur: "+strconv.Itoa(result.Duration))
 		c.JSON(200, gin.H{"code": 200, "msg": "上报成功!", "data": result})
 	}(repo)
 }
@@ -62,29 +50,18 @@ func PlayHistoryStats(c *gin.Context) {
 	userId := c.Query("user_id")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
-	logger.Info("play_history", fmt.Sprintf("统计查询 | user_id=%s start=%s end=%s", userId, startDate, endDate))
+	logger.Debug("play_history", "统计查询",
+		"user_id: "+userId+", start: "+startDate+", end: "+endDate)
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		list, err := hRepo.GetStats(userId, startDate, endDate)
 		if err != nil {
-			logger.Info("play_history", fmt.Sprintf("统计查询失败 | error=%s", err.Error()))
+			logger.Debug("play_history", "统计查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		// 打印前5条记录的详情，帮助诊断 Android 数据是否被查到
-		detail := ""
-		limit := len(list)
-		if limit > 5 {
-			limit = 5
-		}
-		for i := 0; i < limit; i++ {
-			if i > 0 {
-				detail += "; "
-			}
-			detail += fmt.Sprintf("[%d]uid=%s,did=%d,t=%s", list[i].Id, list[i].UserId, list[i].DataId, list[i].Title)
-		}
-		logger.Info("play_history", fmt.Sprintf("统计查询成功 | 返回%d条记录 | 前%d条: %s", len(list), limit, detail))
+		logger.Debug("play_history", "统计查询成功", "返回: "+strconv.Itoa(len(list))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list})
 	}(repo)
 }
@@ -94,17 +71,18 @@ func PlayHistoryGalleryStats(c *gin.Context) {
 	userId := c.Query("user_id")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
-	logger.Info("play_history", fmt.Sprintf("媒体库统计查询 | user_id=%s start=%s end=%s", userId, startDate, endDate))
+	logger.Debug("play_history", "媒体库统计查询",
+		"user_id: "+userId+", start: "+startDate+", end: "+endDate)
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		stats, err := hRepo.GetGalleryStats(userId, startDate, endDate)
 		if err != nil {
-			logger.Info("play_history", fmt.Sprintf("媒体库统计查询失败 | error=%s", err.Error()))
+			logger.Debug("play_history", "媒体库统计查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		logger.Info("play_history", fmt.Sprintf("媒体库统计查询成功 | 返回%d条", len(stats)))
+		logger.Debug("play_history", "媒体库统计查询成功", "返回: "+strconv.Itoa(len(stats))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
 	}(repo)
 }
@@ -119,17 +97,18 @@ func PlayHistoryTopMovies(c *gin.Context) {
 	if err != nil || limit <= 0 {
 		limit = 10
 	}
-	logger.Info("play_history", fmt.Sprintf("Top影片查询 | user_id=%s gallery=%s start=%s end=%s limit=%d", userId, galleryUid, startDate, endDate, limit))
+	logger.Debug("play_history", "Top影片查询",
+		"user_id: "+userId+", gallery: "+galleryUid+", limit: "+strconv.Itoa(limit))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		stats, err := hRepo.GetTopMovies(userId, galleryUid, startDate, endDate, limit)
 		if err != nil {
-			logger.Info("play_history", fmt.Sprintf("Top影片查询失败 | error=%s", err.Error()))
+			logger.Debug("play_history", "Top影片查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": nil})
 			return
 		}
-		logger.Info("play_history", fmt.Sprintf("Top影片查询成功 | 返回%d条", len(stats)))
+		logger.Debug("play_history", "Top影片查询成功", "返回: "+strconv.Itoa(len(stats))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": stats})
 	}(repo)
 }
@@ -145,29 +124,19 @@ func PlayHistoryList(c *gin.Context) {
 	if errSize != nil {
 		size = 20
 	}
-	logger.Info("play_history", fmt.Sprintf("历史列表查询 | user_id=%s page=%d size=%d", userId, page, size))
+	logger.Debug("play_history", "历史列表查询",
+		"user_id: "+userId+", page: "+strconv.Itoa(page)+", size: "+strconv.Itoa(size))
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
 		list, num, err := hRepo.GetHistoryList(userId, page, size)
 		if err != nil {
-			logger.Info("play_history", fmt.Sprintf("历史列表查询失败 | error=%s", err.Error()))
+			logger.Debug("play_history", "历史列表查询失败", "error: "+err.Error())
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": list, "num": num})
 			return
 		}
-		// 打印本页前3条记录详情，帮助诊断 Android 数据是否出现在列表中
-		listDetail := ""
-		listLimit := len(list)
-		if listLimit > 3 {
-			listLimit = 3
-		}
-		for i := 0; i < listLimit; i++ {
-			if i > 0 {
-				listDetail += "; "
-			}
-			listDetail += fmt.Sprintf("[%d]uid=%s,did=%d,t=%s", list[i].Id, list[i].UserId, list[i].DataId, list[i].Title)
-		}
-		logger.Info("play_history", fmt.Sprintf("历史列表查询成功 | 总数=%d 本页%d条 | 前%d条: %s", num, len(list), listLimit, listDetail))
+		logger.Debug("play_history", "历史列表查询成功",
+			"总数: "+strconv.Itoa(num)+", 本页: "+strconv.Itoa(len(list))+"条")
 		c.JSON(200, gin.H{"code": 200, "msg": "查询成功!", "data": list, "num": num})
 	}(repo)
 }
