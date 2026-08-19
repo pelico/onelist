@@ -175,24 +175,28 @@ class MainActivity : Activity() {
         if (isDestroying) return
         val token = App.token
         if (token.isNullOrEmpty()) return
-        
-        sseClient = OkHttpClient.Builder().build()
-        
+
+        // SSE 长连接：禁用 read timeout，靠服务端 30s 心跳保活。
+        // 默认 10s 超时会导致每 30s 断连一次。
+        sseClient = OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .build()
+
         val baseUrl = RetrofitClient.getBaseUrl()
         val normalizedBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val url = "${normalizedBase}v1/api/message/sse?token=${java.net.URLEncoder.encode(token, "UTF-8")}"
-        
+
         val request = Request.Builder().url(url).build()
-        
+
         val factory = EventSources.createFactory(sseClient!!)
         sseEventSource = factory.newEventSource(request, object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: okhttp3.Response) {
                 android.util.Log.d("OneList", "SSE connected")
             }
-            
+
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                 android.util.Log.d("OneList", "SSE message: type=$type data=$data")
-                
+
                 when (type) {
                     "init" -> {
                         // 初始未读消息
@@ -216,18 +220,29 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            
+
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: okhttp3.Response?) {
                 android.util.Log.e("OneList", "SSE failure: ${t?.message}")
-                // 不在这里做延迟重连：onStop() cancel 会触发 onFailure，
-                // 此时 Activity 可能只是短暂不可见，重连由 onStart() 负责。
-                // OkHttp EventSource 自身也有内部重连机制。
+                // 应用层延迟重连：OkHttp EventSource 内部重试可能不够可靠，
+                // 5 秒后尝试重建连接。onDestroy 会设 isDestroying 阻止僵尸重连。
+                Handler(Looper.getMainLooper()).postDelayed({
+                    reconnectSSE()
+                }, 5000)
             }
-            
+
             override fun onClosed(eventSource: EventSource) {
                 android.util.Log.d("OneList", "SSE closed")
             }
         })
+    }
+
+    private fun reconnectSSE() {
+        if (isDestroying) return
+        // 清理旧连接
+        try { sseEventSource?.cancel() } catch (_: Exception) {}
+        sseEventSource = null
+        // 重建连接
+        initSSE()
     }
     
     private fun showMessage(msg: Message) {

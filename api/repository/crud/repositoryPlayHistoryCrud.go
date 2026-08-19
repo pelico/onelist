@@ -66,8 +66,16 @@ func (r *RepositoryPlayHistoryCRUD) Heartbeat(ph models.PlayHistory) (models.Pla
 			ph.UserId, ph.DataId, ph.DataType, startDate, endDate).
 			Order("id desc").First(&existing).Error
 		if err == nil && existing.Id != 0 {
-			// 更新已有记录：累加观看时长，更新位置
-			existing.Duration += ph.Duration
+			// 更新已有记录：用位置增量计算实际观看时长（排除快进/跳过/暂停时间）
+			positionDelta := ph.Position - existing.Position
+			if positionDelta < 0 {
+				positionDelta = 0 // 回退进度（拖动进度条），不计入
+			}
+			actualDuration := positionDelta
+			if ph.Duration > 0 && ph.Duration < actualDuration {
+				actualDuration = ph.Duration // 快进时 position 跳变超过心跳间隔，取心跳间隔
+			}
+			existing.Duration += actualDuration
 			existing.Position = ph.Position
 			existing.TotalDuration = ph.TotalDuration
 			retErr = r.db.Save(&existing).Error
