@@ -73,6 +73,7 @@ class MainActivity : Activity() {
     // Play statistics heartbeat
     private var heartbeatExecutor: ScheduledExecutorService? = null
     private var lastHeartbeatPosition: Long = 0
+    private var lastHeartbeatRealTime: Long = 0 // 真实时间戳，用于限制快进导致的时长虚高
     
     // Current video metadata for heartbeat
     private var currentVideoDataType: String? = null
@@ -258,9 +259,7 @@ class MainActivity : Activity() {
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
 
-        // 半透明遮罩 + 居中卡片
         val layout = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#99000000"))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -281,47 +280,77 @@ class MainActivity : Activity() {
             }
         }
 
-        // 图标
-        val icon = TextView(this).apply {
-            text = "📩"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
-            gravity = Gravity.CENTER
-        }
-        card.addView(icon)
+        if (autoDismiss) {
+            // 普通通知：半透明小卡片，无按钮，不遮挡播放画面
+            layout.setBackgroundColor(Color.parseColor("#00000000")) // 完全透明背景，可看到视频
+            card.layoutParams = FrameLayout.LayoutParams(
+                (resources.displayMetrics.widthPixels * 0.45).toInt(),
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.CENTER }
+            card.background = GradientDrawable().apply {
+                setColor(Color.parseColor("#cc1e1e2e")) // 半透明底色
+                cornerRadius = tvDp(12).toFloat()
+            }
+            card.setPadding(tvDp(24), tvDp(20), tvDp(24), tvDp(20))
 
-        // 标题
-        val title = TextView(this).apply {
-            text = if (msg.priority == "forced") "重要通知" else "消息通知"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(22f))
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(0, tvDp(12), 0, tvDp(8))
-        }
-        card.addView(title)
+            val title = TextView(this).apply {
+                text = "消息通知"
+                setTextColor(Color.parseColor("#cdd6f4"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                gravity = Gravity.CENTER
+            }
+            card.addView(title)
 
-        // 内容
-        val content = TextView(this).apply {
-            text = msg.content
-            setTextColor(Color.parseColor("#cdd6f4"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            gravity = Gravity.CENTER
-            setPadding(tvDp(24), 0, tvDp(24), 0)
-        }
-        card.addView(content)
+            val content = TextView(this).apply {
+                text = msg.content
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
+                gravity = Gravity.CENTER
+                setPadding(0, tvDp(8), 0, 0)
+            }
+            card.addView(content)
+        } else {
+            // 强制通知：全遮罩 + 大卡片 + 确认按钮
+            layout.setBackgroundColor(Color.parseColor("#99000000"))
 
-        // 确认按钮
-        val confirmBtn = Button(this).apply {
-            text = "我知道了"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            setPadding(tvDp(36), tvDp(10), tvDp(36), tvDp(10))
-            isFocusable = true
-            isClickable = true
-            applyFocusGlow()
-            setOnClickListener { dialog.dismiss() }
+            val icon = TextView(this).apply {
+                text = "📩"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
+                gravity = Gravity.CENTER
+            }
+            card.addView(icon)
+
+            val title = TextView(this).apply {
+                text = "重要通知"
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(22f))
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = Gravity.CENTER
+                setPadding(0, tvDp(12), 0, tvDp(8))
+            }
+            card.addView(title)
+
+            val content = TextView(this).apply {
+                text = msg.content
+                setTextColor(Color.parseColor("#cdd6f4"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                gravity = Gravity.CENTER
+                setPadding(tvDp(24), 0, tvDp(24), 0)
+            }
+            card.addView(content)
+
+            val confirmBtn = Button(this).apply {
+                text = "我知道了"
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                setPadding(tvDp(36), tvDp(10), tvDp(36), tvDp(10))
+                isFocusable = true
+                isClickable = true
+                applyFocusGlow()
+                setOnClickListener { dialog.dismiss() }
+            }
+            card.addView(confirmBtn)
         }
-        card.addView(confirmBtn)
 
         layout.addView(card)
         dialog.setContentView(layout)
@@ -369,6 +398,7 @@ class MainActivity : Activity() {
         android.util.Log.d("OneList", "Heartbeat starting: type=${currentVideoDataType} id=${currentVideoDataId} title='${currentVideoTitle}' gallery='${currentVideoGalleryUid}' galleryTitle='${currentVideoGalleryTitle}'")
 
         lastHeartbeatPosition = player.currentPosition
+        lastHeartbeatRealTime = System.currentTimeMillis()
         
         heartbeatExecutor = Executors.newSingleThreadScheduledExecutor()
         heartbeatExecutor?.scheduleAtFixedRate({
@@ -376,7 +406,12 @@ class MainActivity : Activity() {
             runOnUiThread {
                 try {
                     val currentPosition = player.currentPosition
-                    val durationSeconds = ((currentPosition - lastHeartbeatPosition) / 1000).coerceAtLeast(0).toInt()
+                    val now = System.currentTimeMillis()
+                    val realElapsedMs = now - lastHeartbeatRealTime
+                    // 位置差值（可能被快进放大）与真实经过时间取较小值，防止快进虚报时长
+                    val positionDiffMs = (currentPosition - lastHeartbeatPosition).coerceAtLeast(0)
+                    val effectiveMs = minOf(positionDiffMs, realElapsedMs + 2000) // +2s 容忍调度抖动
+                    val durationSeconds = (effectiveMs / 1000).toInt()
                     val positionSeconds = (currentPosition / 1000).toInt()
                     val totalDurationSeconds = (player.duration / 1000).toInt()
 
@@ -408,6 +443,7 @@ class MainActivity : Activity() {
                     }
 
                     lastHeartbeatPosition = currentPosition
+                    lastHeartbeatRealTime = now
                 } catch (e: Exception) {
                     android.util.Log.e("OneList", "Heartbeat error: ${e.message}", e)
                 }
