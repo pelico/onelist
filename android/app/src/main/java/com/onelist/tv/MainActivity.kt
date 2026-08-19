@@ -809,7 +809,7 @@ class MainActivity : Activity() {
                     v.animate().cancel()
                     v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
                     (v as TextView).setTextColor(Color.WHITE)
-                    v.setBackgroundColor(Color.parseColor("#2a2a4e"))
+                    v.setBackgroundColor(Color.parseColor("#6366f1"))
                 } else {
                     v.animate().cancel()
                     v.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
@@ -2695,7 +2695,7 @@ class MainActivity : Activity() {
                 v.animate().scaleX(scale).scaleY(scale).setDuration(150).start()
                 this.setTextColor(if (hasFocus) focusedTextColor else defaultTextColor)
                 if (hasFocus) {
-                    this.setBackgroundColor(Color.parseColor("#2a2a4e"))
+                    this.setBackgroundColor(Color.parseColor("#6366f1"))
                 } else {
                     this.setBackgroundColor(Color.TRANSPARENT)
                 }

@@ -2,6 +2,9 @@ package com.onelist.tv
 
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +19,7 @@ import com.onelist.tv.data.RetrofitClient
 import com.onelist.tv.data.Tv
 import okhttp3.OkHttpClient
 import java.io.ByteArrayInputStream
+import java.util.concurrent.TimeUnit
 
 class CardAdapter(
     private val items: List<Any>,
@@ -24,8 +28,14 @@ class CardAdapter(
 ) : RecyclerView.Adapter<CardAdapter.CardViewHolder>() {
 
     companion object {
-        // 共享 OkHttpClient，复用 Retrofit 的客户端（含拦截器）
-        private val okHttpClient: OkHttpClient by lazy { RetrofitClient.okHttpClient }
+        // 专用图片客户端：无拦截器，避免 authInterceptor 给图片请求加 Authorization 头
+        private val imageClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .build()
+        }
+        private val mainHandler = Handler(Looper.getMainLooper())
     }
 
     class CardViewHolder(view: View) : RecyclerView.ViewHolder(view)
@@ -58,7 +68,6 @@ class CardAdapter(
         }
         card.addView(title)
 
-        // Focus background color block (matching search button style)
         val normalBg = GradientDrawable().apply {
             cornerRadius = dp(ctx, 8).toFloat()
             setColor(Color.TRANSPARENT)
@@ -103,28 +112,36 @@ class CardAdapter(
                 itemTitle = "?"
                 posterPath = null
                 itemId = null
-                android.util.Log.w("OneList", "Card[$position] Unknown item type: ${item::class.java.name}")
+                Log.w("OneList", "Card[$position] Unknown item type: ${item::class.java.name}")
             }
         }
 
         val displayTitle = if (itemTitle.isNullOrEmpty()) "(未知)" else itemTitle
         titleView.text = displayTitle
 
-        // Try scraped poster first, fall back to custom image (same logic as detail page)
-        val url = RetrofitClient.imageUrl(posterPath) ?: RetrofitClient.customImageUrl(itemId)
+        val scrapedUrl = RetrofitClient.imageUrl(posterPath)
+        val customUrl = RetrofitClient.customImageUrl(itemId)
 
         val placeholder = GradientDrawable().apply {
             setColor(Color.parseColor("#1a1a2e"))
             cornerRadius = 4f
         }
 
-        if (!url.isNullOrEmpty()) {
-            try {
-                // 优先用 OkHttp 直接取字节，绕过 Glide HTTP 层对重定向/响应头的处理问题
-                okHttpClient.newCall(okhttp3.Request.Builder().url(url).get().build()).enqueue(object : okhttp3.Callback {
+        // 刮削封面：Glide 直接加载 URL（原始方案，稳定可靠）
+        if (!scrapedUrl.isNullOrEmpty()) {
+            Glide.with(poster)
+                .load(scrapedUrl)
+                .placeholder(placeholder)
+                .error(placeholder)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .into(poster)
+        } else if (!customUrl.isNullOrEmpty()) {
+            // 自定义封面：OkHttp 取字节 + Glide 解码，绕过 Glide HTTP 层
+            imageClient.newCall(okhttp3.Request.Builder().url(customUrl).get().build())
+                .enqueue(object : okhttp3.Callback {
                     override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                        android.util.Log.e("OneList", "Card OkHttp fetch failed url=$url: ${e.message}")
-                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        Log.e("OneList", "Card custom image fetch failed url=$customUrl: ${e.message}")
+                        mainHandler.post {
                             poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                             poster.setImageDrawable(null)
                         }
@@ -132,7 +149,7 @@ class CardAdapter(
                     override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                         val body = response.body?.bytes()
                         if (body != null && body.isNotEmpty()) {
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            mainHandler.post {
                                 try {
                                     Glide.with(poster)
                                         .load(ByteArrayInputStream(body))
@@ -141,25 +158,20 @@ class CardAdapter(
                                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                                         .into(poster)
                                 } catch (ex: Exception) {
-                                    android.util.Log.e("OneList", "Card Glide decode failed: ${ex.message}")
+                                    Log.e("OneList", "Card Glide decode failed: ${ex.message}")
                                     poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                                     poster.setImageDrawable(null)
                                 }
                             }
                         } else {
-                            android.util.Log.w("OneList", "Card OkHttp empty body url=$url code=${response.code}")
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            Log.w("OneList", "Card custom image empty body url=$customUrl code=${response.code}")
+                            mainHandler.post {
                                 poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                                 poster.setImageDrawable(null)
                             }
                         }
                     }
                 })
-            } catch (e: Exception) {
-                android.util.Log.e("OneList", "Card image load failed: ${e.message}")
-                poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
-                poster.setImageDrawable(null)
-            }
         } else {
             poster.setBackgroundColor(Color.parseColor("#2a2a4e"))
             poster.setImageDrawable(null)
