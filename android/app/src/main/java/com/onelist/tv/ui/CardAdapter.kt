@@ -44,11 +44,14 @@ class CardAdapter(
         val ctx = parent.context
         val cardWidth = dp(ctx, 140)
         val cardHeight = dp(ctx, 210)
+        val margin = dp(ctx, 8)
 
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(cardWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
-            setPadding(dp(ctx, 12), dp(ctx, 8), dp(ctx, 12), dp(ctx, 8))
+            layoutParams = RecyclerView.LayoutParams(cardWidth, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(margin, margin, margin, margin)
+            }
+            setPadding(dp(ctx, 4), dp(ctx, 4), dp(ctx, 4), dp(ctx, 4))
             isClickable = true
             isFocusable = true
         }
@@ -80,8 +83,9 @@ class CardAdapter(
                 setColor(if (hasFocus) Color.parseColor("#6366f1") else Color.TRANSPARENT)
             }
             v.background = bg
-            v.scaleX = if (hasFocus) 1.05f else 1f
-            v.scaleY = if (hasFocus) 1.05f else 1f
+            v.scaleX = if (hasFocus) 1.08f else 1f
+            v.scaleY = if (hasFocus) 1.08f else 1f
+            v.bringToFront()
         }
 
         return CardViewHolder(card)
