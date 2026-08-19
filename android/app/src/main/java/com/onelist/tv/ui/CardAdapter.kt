@@ -82,21 +82,25 @@ class CardAdapter(
 
         val itemTitle: String?
         val posterPath: String?
+        val itemId: Int?
 
         when (item) {
             is Movie -> {
                 itemTitle = item.title ?: item.originalTitle
                 posterPath = item.posterPath
-                android.util.Log.d("OneList", "Card[$position] Movie: title='${item.title}' origTitle='${item.originalTitle}' posterPath='$posterPath' id=${item.id}")
+                itemId = item.id
+                android.util.Log.d("OneList", "Card[$position] Movie: title='${item.title}' origTitle='${item.originalTitle}' posterPath='$posterPath' id=$itemId")
             }
             is Tv -> {
                 itemTitle = item.name ?: item.originalName
                 posterPath = item.posterPath
-                android.util.Log.d("OneList", "Card[$position] Tv: name='${item.name}' origName='${item.originalName}' posterPath='$posterPath' id=${item.id}")
+                itemId = item.id
+                android.util.Log.d("OneList", "Card[$position] Tv: name='${item.name}' origName='${item.originalName}' posterPath='$posterPath' id=$itemId")
             }
             else -> {
                 itemTitle = "?"
                 posterPath = null
+                itemId = null
                 android.util.Log.w("OneList", "Card[$position] Unknown item type: ${item::class.java.name}")
             }
         }
@@ -104,15 +108,16 @@ class CardAdapter(
         val displayTitle = if (itemTitle.isNullOrEmpty()) "(未知)" else itemTitle
         titleView.text = displayTitle
 
-        val url = RetrofitClient.imageUrl(posterPath)
-        android.util.Log.d("OneList", "Card[$position] posterPath='$posterPath' -> imageUrl='$url' title='$displayTitle'")
+        // Try scraped poster first, fall back to custom image (same logic as detail page)
+        val url = RetrofitClient.imageUrl(posterPath) ?: RetrofitClient.customImageUrl(itemId)
+        android.util.Log.d("OneList", "Card[$position] posterPath='$posterPath' -> url='$url' title='$displayTitle'")
 
         val placeholder = GradientDrawable().apply {
             setColor(Color.parseColor("#1a1a2e"))
             cornerRadius = 4f
         }
 
-        if (url != null && url.isNotEmpty()) {
+        if (!url.isNullOrEmpty()) {
             try {
                 Glide.with(poster.context)
                     .load(url)
