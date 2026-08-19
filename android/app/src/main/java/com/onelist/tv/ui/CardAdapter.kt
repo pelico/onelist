@@ -89,13 +89,11 @@ class CardAdapter(
                 itemTitle = item.title ?: item.originalTitle
                 posterPath = item.posterPath
                 itemId = item.id
-                android.util.Log.d("OneList", "Card[$position] Movie: title='${item.title}' origTitle='${item.originalTitle}' posterPath='$posterPath' id=$itemId")
             }
             is Tv -> {
                 itemTitle = item.name ?: item.originalName
                 posterPath = item.posterPath
                 itemId = item.id
-                android.util.Log.d("OneList", "Card[$position] Tv: name='${item.name}' origName='${item.originalName}' posterPath='$posterPath' id=$itemId")
             }
             else -> {
                 itemTitle = "?"
@@ -110,7 +108,6 @@ class CardAdapter(
 
         // Try scraped poster first, fall back to custom image (same logic as detail page)
         val url = RetrofitClient.imageUrl(posterPath) ?: RetrofitClient.customImageUrl(itemId)
-        android.util.Log.d("OneList", "Card[$position] posterPath='$posterPath' -> url='$url' title='$displayTitle'")
 
         val placeholder = GradientDrawable().apply {
             setColor(Color.parseColor("#1a1a2e"))

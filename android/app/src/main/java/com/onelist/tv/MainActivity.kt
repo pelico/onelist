@@ -195,8 +195,6 @@ class MainActivity : Activity() {
             }
 
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                android.util.Log.d("OneList", "SSE message: type=$type data=$data")
-
                 when (type) {
                     "init" -> {
                         // 初始未读消息
@@ -382,8 +380,6 @@ class MainActivity : Activity() {
                     val positionSeconds = (currentPosition / 1000).toInt()
                     val totalDurationSeconds = (player.duration / 1000).toInt()
 
-                    android.util.Log.d("OneList", "Heartbeat tick: pos=${positionSeconds}s dur=${durationSeconds}s total=${totalDurationSeconds}s")
-
                     if (durationSeconds > 0) {
                         val request = HeartbeatRequest(
                             dataType = currentVideoDataType!!,
@@ -396,15 +392,11 @@ class MainActivity : Activity() {
                             totalDuration = totalDurationSeconds
                         )
 
-                        // Debug: 打印实际发送的 JSON body
-                        val jsonBody = com.google.gson.Gson().toJson(request)
-                        android.util.Log.d("OneList", "Heartbeat JSON: $jsonBody")
-
                         RetrofitClient.getService().sendHeartbeat(request).enqueue(object : Callback<ApiResponse<PlayHistory>> {
                             override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
                                 val body = response.body()
                                 if (body != null && body.code == 200) {
-                                    android.util.Log.d("OneList", "Heartbeat OK: pos=$positionSeconds dur=$durationSeconds")
+                                    // heartbeat success — no log to reduce noise
                                 } else {
                                     android.util.Log.w("OneList", "Heartbeat rejected: HTTP ${response.code()} code=${body?.code} msg=${body?.msg}")
                                 }
@@ -576,15 +568,11 @@ class MainActivity : Activity() {
             call.enqueue(object : Callback<LoginResponse> {
                 override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
                     val body = response.body()
-                    android.util.Log.d("OneList", "Login response code: ${response.code()}")
-                    android.util.Log.d("OneList", "Login body: code=${body?.code}, msg=${body?.msg}")
-                    android.util.Log.d("OneList", "Login token: ${body?.token?.take(30)}...")
-                    
+
                     if (body != null && body.code == 200 && body.token != null) {
                         App.token = body.token
                         App.userId = body.user?.id
                         App.username = username
-                        android.util.Log.d("OneList", "Saved token: ${App.token?.take(30)}...")
                         toast("登录成功")
                         showHome()
                     } else {
@@ -667,41 +655,19 @@ class MainActivity : Activity() {
         // Fetch home data
         try {
             val service = RetrofitClient.getService()
-            val token = App.token
-            val baseUrl = RetrofitClient.getBaseUrl()
-            val normalizedBase = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-            android.util.Log.d("OneList", "API call to: ${normalizedBase}v1/api/home")
-            android.util.Log.d("OneList", "Token: ${token?.take(20)}...")
-            
+
             service.getHome().enqueue(object : Callback<ApiResponse<HomeData>> {
                 override fun onResponse(call: Call<ApiResponse<HomeData>>, response: Response<ApiResponse<HomeData>>) {
-                    android.util.Log.d("OneList", "HTTP code: ${response.code()}")
-                    android.util.Log.d("OneList", "Response raw: ${response.errorBody()?.string() ?: "no error body"}")
-                    
                     val body = response.body()
-                    if (body != null) {
-                        android.util.Log.d("OneList", "Body code: ${body.code}")
-                        android.util.Log.d("OneList", "Body msg: ${body.msg}")
-                        android.util.Log.d("OneList", "Body data null: ${body.data == null}")
-                    } else {
-                        // Body is null - could be deserialization failure
+                    if (body == null) {
                         val rawError = try { response.errorBody()?.string() } catch (e: Exception) { null }
-                        android.util.Log.e("OneList", "Body is null! HTTP ${response.code()}, errorBody: $rawError")
+                        android.util.Log.e("OneList", "Home API body null! HTTP ${response.code()}, errorBody: $rawError")
                     }
                     
                     if (body != null && body.code == 200 && body.data != null) {
                         // 隐藏加载指示器
                         loadingContainer.visibility = View.GONE
                         val data = body.data!!
-                        android.util.Log.d("OneList", "Home data: latestMovies=${data.latestMovies?.size ?: 0} latestTvs=${data.latestTvs?.size ?: 0} galleries=${data.galleries?.size ?: 0}")
-                        if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
-                            val m = data.latestMovies!![0]
-                            android.util.Log.d("OneList", "First latestMovie: title='${m.title}' origTitle='${m.originalTitle}' posterPath='${m.posterPath}' backdropPath='${m.backdropPath}' id=${m.id}")
-                        }
-                        if (data.latestTvs != null && data.latestTvs.isNotEmpty()) {
-                            val t = data.latestTvs!![0]
-                            android.util.Log.d("OneList", "First latestTv: name='${t.name}' origName='${t.originalName}' posterPath='${t.posterPath}' backdropPath='${t.backdropPath}' id=${t.id}")
-                        }
                         renderHomeData(layout, data)
                     } else {
                         val currentToken = App.token
@@ -735,15 +701,6 @@ class MainActivity : Activity() {
     private fun renderHomeData(parent: LinearLayout, data: HomeData) {
         val ctx = this
 
-        // Debug: log overall data structure
-        android.util.Log.d("OneList", "renderHomeData: galleries=${data.galleries?.size ?: 0} latestMovies=${data.latestMovies?.size ?: 0} latestTvs=${data.latestTvs?.size ?: 0} galleryItems keys=${data.galleryItems?.keys?.joinToString(",") ?: "null"}")
-        if (data.galleries != null) {
-            for (g in data.galleries) {
-                val itemCount = data.galleryItems?.get(g.galleryUid)?.let { if (it.isJsonArray) it.asJsonArray.size() else "not-array" } ?: "missing"
-                android.util.Log.d("OneList", "  Gallery: title='${g.title}' uid='${g.galleryUid}' type='${g.galleryType}' isTv=${g.isTv} isAlist=${g.isAlist} items=$itemCount")
-            }
-        }
-
         // Latest movies row
         if (data.latestMovies != null && data.latestMovies.isNotEmpty()) {
             val row = buildContentRow("最新电影", "movie", null)
@@ -776,12 +733,7 @@ class MainActivity : Activity() {
                     gallery.isTv == true -> "tv"
                     else -> "movie"
                 }
-                android.util.Log.d("OneList", "Gallery '${gallery.title}' uid=${gallery.galleryUid} items=${items.size} type=$galleryType")
                 if (items.isNotEmpty()) {
-                    // Log first item to debug field mapping
-                    val first = items[0]
-                    android.util.Log.d("OneList", "  First item: title='${first.title}' name='${first.name}' poster='${first.posterPath}'")
-
                     val row = buildContentRow(gallery.title ?: "媒体库", galleryType, gallery.galleryUid)
                     parent.addView(row)
                     // Per-item type detection: has "title" field -> Movie, has "name" field -> Tv
