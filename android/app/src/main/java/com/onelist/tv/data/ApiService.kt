@@ -132,6 +132,38 @@ interface ApiService {
     // 获取今日播放时长
     @GET("v1/api/play-history/today")
     fun getTodayDuration(): Call<ApiResponse<Int>>
+
+    // ==================== 最爱 API ====================
+
+    // 获取最爱列表
+    @POST("v1/api/heart/data/list")
+    fun getHeartList(
+        @Query("data_type") dataType: String,
+        @Query("page") page: Int = 1,
+        @Query("size") size: Int = 30
+    ): Call<ApiListResponse<com.google.gson.JsonElement>>
+
+    // 切换最爱状态
+    @POST("v1/api/heart/renew")
+    fun toggleHeart(
+        @Body body: HeartToggleRequest
+    ): Call<ApiResponse<Any>>
+
+    // ==================== 已播放 API ====================
+
+    // 获取已播放列表
+    @POST("v1/api/played/data/list")
+    fun getPlayedDataList(
+        @Query("data_type") dataType: String,
+        @Query("page") page: Int = 1,
+        @Query("size") size: Int = 30
+    ): Call<ApiListResponse<com.google.gson.JsonElement>>
+
+    // 切换已播放状态
+    @POST("v1/api/played/renew")
+    fun togglePlayed(
+        @Body body: HeartToggleRequest
+    ): Call<ApiResponse<Any>>
 }
 
 // ==================== 消息中心数据模型 ====================
@@ -220,4 +252,9 @@ data class GameFile(
     @com.google.gson.annotations.SerializedName("name") val name: String,
     @com.google.gson.annotations.SerializedName("file") val file: String,
     @com.google.gson.annotations.SerializedName("url") val url: String
+)
+
+data class HeartToggleRequest(
+    @SerializedName("data_type") val dataType: String,
+    @SerializedName("data_id") val dataId: Int
 )

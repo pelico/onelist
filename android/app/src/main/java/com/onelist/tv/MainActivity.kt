@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
 class MainActivity : Activity() {
 
     // Current screen state
-    private enum class Screen { LOGIN, HOME, LIST, DETAIL, SEARCH, PLAYER }
+    private enum class Screen { LOGIN, HOME, LIST, DETAIL, SEARCH, PLAYER, HEART, PLAYED }
     private var currentScreen = Screen.LOGIN
 
     // Root container
@@ -120,6 +120,8 @@ class MainActivity : Activity() {
             val url: String,
             val galleryUid: String?
         ) : ScreenState()
+        object HeartScreen : ScreenState()
+        object PlayedScreen : ScreenState()
     }
 
     /** 返回栈：按遥控器返回键时 pop 栈顶并恢复 */
@@ -671,7 +673,7 @@ class MainActivity : Activity() {
         }
 
         // Top bar
-        val topBar = buildTopBar("悠悠TV", showSearch = true, showLogout = true)
+        val topBar = buildTopBar("悠悠TV", showSearch = true, showLogout = true, showUserPages = true)
         layout.addView(topBar)
 
         // Loading container with ProgressBar
@@ -923,6 +925,292 @@ class MainActivity : Activity() {
         container.addView(rightGradient)
         
         return container
+    }
+
+    // ==================== USER COLLECTION PAGES (最爱 / 已播放) ====================
+
+    private enum class UserPageType { HEART, PLAYED }
+
+    // 最爱页状态
+    private var heartDataType = "movie"
+    private var heartPage = 1
+    private var heartTotal = 0
+    private var heartItems = listOf<Any>()
+
+    // 已播放页状态
+    private var playedDataType = "movie"
+    private var playedPage = 1
+    private var playedTotal = 0
+    private var playedItems = listOf<Any>()
+
+    private fun showHeartPage() {
+        pushCurrentToBackStack()
+        showUserCollectionPage(UserPageType.HEART)
+    }
+
+    private fun showPlayedPage() {
+        pushCurrentToBackStack()
+        showUserCollectionPage(UserPageType.PLAYED)
+    }
+
+    private fun showUserCollectionPage(pageType: UserPageType) {
+        currentScreen = if (pageType == UserPageType.HEART) Screen.HEART else Screen.PLAYED
+        stopHeartbeat()
+        player?.release(); player = null
+        rootLayout.removeAllViews()
+
+        val isHeart = pageType == UserPageType.HEART
+        val title = if (isHeart) "我的最爱" else "已播放"
+        val currentDataType = if (isHeart) heartDataType else playedDataType
+        val currentPageNum = if (isHeart) heartPage else playedPage
+        val total = if (isHeart) heartTotal else playedTotal
+        val items = if (isHeart) heartItems else playedItems
+
+        val scroll = ScrollView(this).apply { fillParent() }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, tvDp(20), 0, tvDp(40))
+        }
+
+        val topBar = buildTopBar(title, showSearch = true, showLogout = false)
+        layout.addView(topBar)
+
+        // Type tabs: 电影 / 剧集
+        val tabsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(tvDp(24), 0, tvDp(24), tvDp(12))
+        }
+        val movieTab = TextView(this).apply {
+            text = "电影"
+            setTextColor(if (currentDataType == "movie") Color.WHITE else Color.GRAY)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setPadding(tvDp(16), tvDp(6), tvDp(16), tvDp(6))
+            isClickable = true
+            isFocusable = true
+            val bg = GradientDrawable().apply {
+                setColor(if (currentDataType == "movie") Color.parseColor("#6366f1") else Color.parseColor("#1a1a2e"))
+                cornerRadius = tvDp(16).toFloat()
+            }
+            background = bg
+            applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
+            setOnClickListener {
+                if (isHeart) { heartDataType = "movie"; heartPage = 1 } else { playedDataType = "movie"; playedPage = 1 }
+                showUserCollectionPage(pageType)
+            }
+        }
+        tabsLayout.addView(movieTab)
+
+        val tvTab = TextView(this).apply {
+            text = "剧集"
+            setTextColor(if (currentDataType == "tv") Color.WHITE else Color.GRAY)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setPadding(tvDp(16), tvDp(6), tvDp(16), tvDp(6))
+            isClickable = true
+            isFocusable = true
+            val bg = GradientDrawable().apply {
+                setColor(if (currentDataType == "tv") Color.parseColor("#6366f1") else Color.parseColor("#1a1a2e"))
+                cornerRadius = tvDp(16).toFloat()
+            }
+            background = bg
+            applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
+            setOnClickListener {
+                if (isHeart) { heartDataType = "tv"; heartPage = 1 } else { playedDataType = "tv"; playedPage = 1 }
+                showUserCollectionPage(pageType)
+            }
+        }
+        tabsLayout.addView(tvTab)
+        layout.addView(tabsLayout)
+
+        // Content area (created first so pagination buttons can reference these views)
+        val contentContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0
+            ).apply { weight = 1f }
+        }
+
+        val loadingContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        loadingContainer.addView(ProgressBar(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply { gravity = Gravity.CENTER }
+        })
+        contentContainer.addView(loadingContainer)
+
+        val emptyView = TextView(this).apply {
+            text = if (isHeart) "暂无最爱内容" else "暂无播放记录"
+            setTextColor(Color.GRAY)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply { gravity = Gravity.CENTER }
+        }
+        contentContainer.addView(emptyView)
+
+        val gridContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            setPadding(tvDp(16), 0, tvDp(16), 0)
+            visibility = View.GONE
+        }
+        contentContainer.addView(gridContainer)
+
+        // Page info + pagination (references content views above)
+        val pageLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, tvDp(8), 0, tvDp(12))
+        }
+        val pageInfoText = TextView(this).apply {
+            text = "$total 条记录"
+            setTextColor(Color.parseColor("#6366f1"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
+            setPadding(tvDp(16), 0, tvDp(16), 0)
+        }
+        pageLayout.addView(pageInfoText)
+
+        val prevBtn = Button(this).apply {
+            text = "上一页"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
+            setPadding(tvDp(16), tvDp(4), tvDp(16), tvDp(4))
+            isFocusable = true; isClickable = true
+            applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
+            setOnClickListener {
+                if (isHeart) { if (heartPage > 1) heartPage-- } else { if (playedPage > 1) playedPage-- }
+                fetchUserCollectionData(pageType, layout, gridContainer, loadingContainer, emptyView, pageInfoText)
+            }
+        }
+        pageLayout.addView(prevBtn)
+
+        val nextBtn = Button(this).apply {
+            text = "下一页"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
+            setPadding(tvDp(16), tvDp(4), tvDp(16), tvDp(4))
+            isFocusable = true; isClickable = true
+            applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
+            setOnClickListener {
+                val maxPage = if (total > 0) Math.ceil(total / 30.0).toInt() else 1
+                if (isHeart) { if (heartPage < maxPage) heartPage++ } else { if (playedPage < maxPage) playedPage++ }
+                fetchUserCollectionData(pageType, layout, gridContainer, loadingContainer, emptyView, pageInfoText)
+            }
+        }
+        pageLayout.addView(nextBtn)
+
+        // Add to layout in visual order: pagination first, then content
+        layout.addView(pageLayout)
+        layout.addView(contentContainer)
+        scroll.addView(layout)
+        rootLayout.addView(scroll)
+
+        // Update page info text
+        val startIdx = (currentPageNum - 1) * 30 + 1
+        val endIdx = minOf(currentPageNum * 30, total)
+        pageInfoText.text = if (total > 0) "$total 的 $startIdx-$endIdx" else "暂无数据"
+
+        // Fetch data
+        fetchUserCollectionData(pageType, layout, gridContainer, loadingContainer, emptyView, pageInfoText)
+    }
+
+    private fun fetchUserCollectionData(
+        pageType: UserPageType,
+        rootLayout: LinearLayout,
+        gridContainer: LinearLayout,
+        loadingContainer: FrameLayout,
+        emptyView: TextView,
+        pageInfoText: TextView
+    ) {
+        val isHeart = pageType == UserPageType.HEART
+        val dataType = if (isHeart) heartDataType else playedDataType
+        val page = if (isHeart) heartPage else playedPage
+        val isMo = resources.displayMetrics.widthPixels < 800
+        val pageSize = if (isMo) 12 else 30
+
+        val service = RetrofitClient.getService()
+        val call = if (isHeart) {
+            service.getHeartList(dataType, page, pageSize)
+        } else {
+            service.getPlayedDataList(dataType, page, pageSize)
+        }
+
+        loadingContainer.visibility = View.VISIBLE
+        gridContainer.visibility = View.GONE
+        emptyView.visibility = View.GONE
+
+        call.enqueue(object : Callback<ApiListResponse<com.google.gson.JsonElement>> {
+            override fun onResponse(call: Call<ApiListResponse<com.google.gson.JsonElement>>, response: Response<ApiListResponse<com.google.gson.JsonElement>>) {
+                val body = response.body()
+                loadingContainer.visibility = View.GONE
+
+                if (body != null && body.code == 200 && body.data != null) {
+                    val gson = Gson()
+                    val parsedItems = body.data!!.mapNotNull { jsonElement ->
+                        val obj = jsonElement.asJsonObject
+                        when {
+                            obj.has("title") && !obj.get("title").isJsonNull -> gson.fromJson(jsonElement, Movie::class.java) as Any
+                            obj.has("name") && !obj.get("name").isJsonNull -> gson.fromJson(jsonElement, Tv::class.java) as Any
+                            else -> null
+                        }
+                    }
+                    val totalNum = body.num ?: 0
+
+                    if (isHeart) { heartItems = parsedItems; heartTotal = totalNum } else { playedItems = parsedItems; playedTotal = totalNum }
+
+                    // Update page info
+                    val startIdx = (page - 1) * pageSize + 1
+                    val endIdx = minOf(page * pageSize, totalNum)
+                    pageInfoText.text = if (totalNum > 0) "$totalNum 的 $startIdx-$endIdx" else "暂无数据"
+
+                    if (parsedItems.isEmpty()) {
+                        emptyView.visibility = View.VISIBLE
+                    } else {
+                        gridContainer.removeAllViews()
+                        val adapter = CardAdapter(parsedItems, if (dataType == "tv") "tv" else "movie") { item ->
+                            when (item) {
+                                is Movie -> showMovieDetail(item)
+                                is Tv -> showTvDetail(item)
+                            }
+                        }
+                        val columns = if (isMo) 3 else 6
+                        val recyclerView = RecyclerView(this@MainActivity).apply {
+                            layoutManager = GridLayoutManager(this@MainActivity, columns)
+                            this.adapter = adapter
+                            clipToPadding = false
+                            clipChildren = false
+                        }
+                        gridContainer.addView(recyclerView, LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.MATCH_PARENT
+                        ))
+                        gridContainer.visibility = View.VISIBLE
+                    }
+                } else {
+                    emptyView.visibility = View.VISIBLE
+                    if (isHeart) { heartItems = emptyList(); heartTotal = 0 } else { playedItems = emptyList(); playedTotal = 0 }
+                    pageInfoText.text = "暂无数据"
+                }
+            }
+
+            override fun onFailure(call: Call<ApiListResponse<com.google.gson.JsonElement>>, t: Throwable) {
+                loadingContainer.visibility = View.GONE
+                emptyView.text = "加载失败: ${t.message}"
+                emptyView.visibility = View.VISIBLE
+                if (isHeart) { heartItems = emptyList(); heartTotal = 0 } else { playedItems = emptyList(); playedTotal = 0 }
+                pageInfoText.text = "暂无数据"
+            }
+        })
     }
 
     // ==================== LIST SCREEN ====================
@@ -1298,6 +1586,12 @@ class MainActivity : Activity() {
             infoLayout.addView(genreView)
         }
 
+        // 按钮行：播放 + 喜爱
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, tvDp(20), 0, 0)
+        }
+
         val playBtn = Button(this).apply {
             text = "▶  播放"
             setTextColor(Color.WHITE)
@@ -1323,11 +1617,60 @@ class MainActivity : Activity() {
                 }
             }
         }
-        infoLayout.addView(playBtn, LinearLayout.LayoutParams.WRAP_CONTENT.let {
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = tvDp(20)
+        btnRow.addView(playBtn)
+
+        // 喜爱按钮
+        var isHearted = movie.heart == true
+        val heartBtn = Button(this).apply {
+            text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setPadding(tvDp(20), tvDp(12), tvDp(20), tvDp(12))
+            isFocusable = true
+            isClickable = true
+            val activeColor = Color.parseColor("#e50914")
+            val inactiveColor = Color.parseColor("#333355")
+            background = GradientDrawable().apply {
+                cornerRadius = tvDp(8).toFloat()
+                setColor(if (isHearted) activeColor else inactiveColor)
             }
-        })
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.scaleX = 1.05f; v.scaleY = 1.05f
+                } else {
+                    v.scaleX = 1f; v.scaleY = 1f
+                }
+            }
+            setOnClickListener {
+                if (movie.id == null) return@setOnClickListener
+                isHearted = !isHearted
+                text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
+                background = GradientDrawable().apply {
+                    cornerRadius = tvDp(8).toFloat()
+                    setColor(if (isHearted) activeColor else inactiveColor)
+                }
+                RetrofitClient.getService().toggleHeart(HeartToggleRequest("movie", movie.id)).enqueue(object : Callback<ApiResponse<Any>> {
+                    override fun onResponse(call: Call<ApiResponse<Any>>, response: Response<ApiResponse<Any>>) {}
+                    override fun onFailure(call: Call<ApiResponse<Any>>, t: Throwable) {
+                        // 回滚 UI
+                        isHearted = !isHearted
+                        runOnUiThread {
+                            text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
+                            background = GradientDrawable().apply {
+                                cornerRadius = tvDp(8).toFloat()
+                                setColor(if (isHearted) activeColor else inactiveColor)
+                            }
+                        }
+                    }
+                })
+            }
+        }
+        val heartLp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            leftMargin = tvDp(12)
+        }
+        btnRow.addView(heartBtn, heartLp)
+
+        infoLayout.addView(btnRow)
 
         contentLayout.addView(infoLayout, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1376,7 +1719,8 @@ class MainActivity : Activity() {
                             renderMovieDetail(Movie(
                                 id = detail.id, title = detail.title, posterPath = detail.posterPath,
                                 overview = detail.overview, url = detail.url, voteAverage = detail.voteAverage,
-                                releaseDate = detail.releaseDate, genres = detail.genres, galleryUid = detail.galleryUid
+                                releaseDate = detail.releaseDate, genres = detail.genres, galleryUid = detail.galleryUid,
+                                heart = detail.heart
                             ))
                         }
                     }
@@ -1460,6 +1804,55 @@ class MainActivity : Activity() {
             }
             infoLayout.addView(metaView)
         }
+
+        // 喜爱按钮
+        var isHearted = tv.heart == true
+        val heartBtn = Button(this).apply {
+            text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setPadding(tvDp(20), tvDp(10), tvDp(20), tvDp(10))
+            isFocusable = true
+            isClickable = true
+            val activeColor = Color.parseColor("#e50914")
+            val inactiveColor = Color.parseColor("#333355")
+            background = GradientDrawable().apply {
+                cornerRadius = tvDp(8).toFloat()
+                setColor(if (isHearted) activeColor else inactiveColor)
+            }
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.scaleX = 1.05f; v.scaleY = 1.05f
+                } else {
+                    v.scaleX = 1f; v.scaleY = 1f
+                }
+            }
+            setOnClickListener {
+                if (tv.id == null) return@setOnClickListener
+                isHearted = !isHearted
+                text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
+                background = GradientDrawable().apply {
+                    cornerRadius = tvDp(8).toFloat()
+                    setColor(if (isHearted) activeColor else inactiveColor)
+                }
+                RetrofitClient.getService().toggleHeart(HeartToggleRequest("tv", tv.id)).enqueue(object : Callback<ApiResponse<Any>> {
+                    override fun onResponse(call: Call<ApiResponse<Any>>, response: Response<ApiResponse<Any>>) {}
+                    override fun onFailure(call: Call<ApiResponse<Any>>, t: Throwable) {
+                        isHearted = !isHearted
+                        runOnUiThread {
+                            text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
+                            background = GradientDrawable().apply {
+                                cornerRadius = tvDp(8).toFloat()
+                                setColor(if (isHearted) activeColor else inactiveColor)
+                            }
+                        }
+                    }
+                })
+            }
+        }
+        infoLayout.addView(heartBtn, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = tvDp(16)
+        })
 
         contentLayout.addView(infoLayout)
         layout.addView(contentLayout)
@@ -2325,7 +2718,7 @@ class MainActivity : Activity() {
 
     // ==================== TOP BAR ====================
 
-    private fun buildTopBar(title: String, showSearch: Boolean, showLogout: Boolean): LinearLayout {
+    private fun buildTopBar(title: String, showSearch: Boolean, showLogout: Boolean, showUserPages: Boolean = false): LinearLayout {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -2358,6 +2751,33 @@ class MainActivity : Activity() {
         val titleLp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         titleLp.leftMargin = tvDp(8)
         bar.addView(titleView, titleLp)
+
+        // User pages buttons (最爱 / 已播放)
+        if (showUserPages) {
+            val heartBtn = TextView(this).apply {
+                text = "❤ 最爱"
+                setTextColor(Color.parseColor("#aaaaaa"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                isClickable = true
+                isFocusable = true
+                setPadding(tvDp(12), tvDp(4), tvDp(12), tvDp(4))
+                applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
+                setOnClickListener { showHeartPage() }
+            }
+            bar.addView(heartBtn)
+
+            val playedBtn = TextView(this).apply {
+                text = "✓ 已播放"
+                setTextColor(Color.parseColor("#aaaaaa"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                isClickable = true
+                isFocusable = true
+                setPadding(tvDp(12), tvDp(4), tvDp(12), tvDp(4))
+                applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
+                setOnClickListener { showPlayedPage() }
+            }
+            bar.addView(playedBtn)
+        }
 
         // Search button
         if (showSearch) {
@@ -2441,6 +2861,8 @@ class MainActivity : Activity() {
                 }
             }
             Screen.PLAYER, Screen.LOGIN -> { /* 不推入 */ }
+            Screen.HEART -> screenBackStack.addLast(ScreenState.HeartScreen)
+            Screen.PLAYED -> screenBackStack.addLast(ScreenState.PlayedScreen)
         }
     }
 
@@ -2480,6 +2902,8 @@ class MainActivity : Activity() {
                 showEpisodeList(state.episodes, state.seasonTitle, restoreFromCache = true)
             }
             is ScreenState.PlayerScreen -> { /* 播放器没有返回自己的场景 */ }
+            is ScreenState.HeartScreen -> showHeartPage()
+            is ScreenState.PlayedScreen -> showPlayedPage()
         }
     }
 
