@@ -7,6 +7,7 @@ import (
 	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/repository"
 	"github.com/msterzhang/onelist/api/repository/crud"
+	"github.com/msterzhang/onelist/api/utils/logger"
 
 	"github.com/gin-gonic/gin"
 )
