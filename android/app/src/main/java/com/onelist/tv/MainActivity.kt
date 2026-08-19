@@ -658,11 +658,16 @@ class MainActivity : Activity() {
         player = null
         rootLayout.removeAllViews()
 
-        val scroll = ScrollView(this)
+        val scroll = ScrollView(this).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
         scroll.fillParent()
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, tvDp(20), 0, tvDp(40))
+            clipChildren = false
+            clipToPadding = false
         }
 
         // Top bar
@@ -870,6 +875,8 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 tvDp(280)
             )
+            clipChildren = false
+            clipToPadding = false
         }
         
         val recyclerView = RecyclerView(this).apply {
