@@ -248,85 +248,95 @@ class MainActivity : Activity() {
     private fun showMessage(msg: Message) {
         runOnUiThread {
             if (isDestroying) return@runOnUiThread
-            if (msg.priority == "forced") {
-                // 强制通知：全屏弹窗，必须确认
-                showForcedMessageDialog(msg)
-            } else {
-                // 普通通知通过Toast
-                toast("📩 ${msg.content}")
-            }
-            
+            // 统一使用卡片弹窗样式，普通通知 4 秒自动关闭，强制通知需确认
+            showNotificationDialog(msg, autoDismiss = msg.priority != "forced")
             // 自动标记为已读
             markMessageAsRead(msg.id)
         }
     }
-    
-    private fun showForcedMessageDialog(msg: Message) {
-        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+
+    private fun showNotificationDialog(msg: Message, autoDismiss: Boolean) {
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar)
         dialog.setCancelable(false)
         dialog.setCanceledOnTouchOutside(false)
-        
+
+        // 半透明遮罩 + 居中卡片
         val layout = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#000000"))
+            setBackgroundColor(Color.parseColor("#99000000"))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        
-        val contentLayout = LinearLayout(this).apply {
+
+        val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(40), dp(40), dp(40), dp(40))
+            setPadding(tvDp(40), tvDp(30), tvDp(40), tvDp(30))
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
+                (resources.displayMetrics.widthPixels * 0.7).toInt(),
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#1e1e2e"))
+                cornerRadius = tvDp(16).toFloat()
+            }
         }
-        
+
+        // 图标
         val icon = TextView(this).apply {
             text = "📩"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(72f))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
             gravity = Gravity.CENTER
         }
-        contentLayout.addView(icon)
-        
+        card.addView(icon)
+
+        // 标题
         val title = TextView(this).apply {
-            text = "重要通知"
+            text = if (msg.priority == "forced") "重要通知" else "消息通知"
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(22f))
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(0, tvDp(20), 0, tvDp(10))
+            setPadding(0, tvDp(12), 0, tvDp(8))
         }
-        contentLayout.addView(title)
-        
+        card.addView(title)
+
+        // 内容
         val content = TextView(this).apply {
             text = msg.content
-            setTextColor(Color.LTGRAY)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+            setTextColor(Color.parseColor("#cdd6f4"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
             gravity = Gravity.CENTER
-            setPadding(tvDp(20), 0, tvDp(20), 0)
+            setPadding(tvDp(24), 0, tvDp(24), 0)
         }
-        contentLayout.addView(content)
-        
+        card.addView(content)
+
+        // 确认按钮
         val confirmBtn = Button(this).apply {
             text = "我知道了"
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
-            setPadding(tvDp(40), tvDp(12), tvDp(40), tvDp(12))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setPadding(tvDp(36), tvDp(10), tvDp(36), tvDp(10))
             isFocusable = true
             isClickable = true
             applyFocusGlow()
-            setOnClickListener {
-                dialog.dismiss()
-            }
+            setOnClickListener { dialog.dismiss() }
         }
-        contentLayout.addView(confirmBtn)
-        
-        layout.addView(contentLayout)
+        card.addView(confirmBtn)
+
+        layout.addView(card)
         dialog.setContentView(layout)
         dialog.show()
+
+        // 普通通知自动关闭
+        if (autoDismiss) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!isDestroying) {
+                    try { dialog.dismiss() } catch (_: Exception) {}
+                }
+            }, 4000)
+        }
     }
     
     private fun markMessageAsRead(messageId: Int) {
