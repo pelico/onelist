@@ -497,6 +497,8 @@ class MainActivity : Activity() {
             Screen.DETAIL -> {} // showDetail is called with params
             Screen.SEARCH -> showSearch()
             Screen.PLAYER -> {} // showPlayer is called with params
+            Screen.HEART -> showHeartPage()
+            Screen.PLAYED -> showPlayedPage()
         }
     }
 
