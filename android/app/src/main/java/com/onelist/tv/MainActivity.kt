@@ -873,7 +873,7 @@ class MainActivity : Activity() {
             }
         }
         
-        // 创建带边缘渐变提示的容器
+        // 创建水平卡片列表容器
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -895,37 +895,7 @@ class MainActivity : Activity() {
             )
         }
         container.addView(recyclerView)
-        
-        // 左侧渐变遮罩（指示可以向左滚动）
-        val leftGradient = View(this).apply {
-            layoutParams = FrameLayout.LayoutParams(tvDp(40), FrameLayout.LayoutParams.MATCH_PARENT).apply {
-                gravity = Gravity.START
-            }
-            background = GradientDrawable().apply {
-                orientation = GradientDrawable.Orientation.RIGHT_LEFT
-                colors = intArrayOf(
-                    Color.parseColor("#0d0d1a"),
-                    Color.TRANSPARENT
-                )
-            }
-        }
-        container.addView(leftGradient)
-        
-        // 右侧渐变遮罩（指示可以向右滚动）
-        val rightGradient = View(this).apply {
-            layoutParams = FrameLayout.LayoutParams(tvDp(40), FrameLayout.LayoutParams.MATCH_PARENT).apply {
-                gravity = Gravity.END
-            }
-            background = GradientDrawable().apply {
-                orientation = GradientDrawable.Orientation.LEFT_RIGHT
-                colors = intArrayOf(
-                    Color.parseColor("#0d0d1a"),
-                    Color.TRANSPARENT
-                )
-            }
-        }
-        container.addView(rightGradient)
-        
+
         return container
     }
 
