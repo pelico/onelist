@@ -2543,6 +2543,20 @@ class MainActivity : Activity() {
             // 播放器页面的方向键控制
             if (currentScreen == Screen.PLAYER && player != null) {
                 when (event.keyCode) {
+                    // OK键 / 确认键 / 媒体播放暂停键：切换播放/暂停
+                    KeyEvent.KEYCODE_DPAD_CENTER,
+                    KeyEvent.KEYCODE_ENTER,
+                    KeyEvent.KEYCODE_NUMPAD_ENTER,
+                    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                        if (player!!.isPlaying) {
+                            player!!.pause()
+                            android.util.Log.d("OneList", "Pause by remote key")
+                        } else {
+                            player!!.play()
+                            android.util.Log.d("OneList", "Play by remote key")
+                        }
+                        return true
+                    }
                     // 左方向键：快退 5 秒
                     KeyEvent.KEYCODE_DPAD_LEFT -> {
                         val newPos = (player!!.currentPosition - 5000).coerceAtLeast(0)

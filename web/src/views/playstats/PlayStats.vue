@@ -22,9 +22,9 @@
                                 <i class='bx bx-trash'></i> 清理记录
                             </n-button>
                         </template>
-                        确认清理 {{ cleanDays }} 天前的播放记录？
+                        确认清理 {{ cleanDays === 0 ? '全部' : cleanDays + ' 天前' }}的播放记录？
                     </n-popconfirm>
-                    <n-input-number v-model:value="cleanDays" :min="1" :max="365" size="small" style="width: 100px">
+                    <n-input-number v-model:value="cleanDays" :min="0" :max="365" size="small" style="width: 100px">
                         <template #suffix>天</template>
                     </n-input-number>
                 </n-space>
@@ -441,7 +441,10 @@ export default defineComponent({
 
         // 清理记录
         function handleClean() {
-            apiPost(`${proxy.COMMON.apiUrl}/v1/api/play-history/clean?days=${cleanDays.value}`).then(res => {
+            const url = cleanDays.value === 0
+                ? `${proxy.COMMON.apiUrl}/v1/api/play-history/clean?all=true`
+                : `${proxy.COMMON.apiUrl}/v1/api/play-history/clean?days=${cleanDays.value}`
+            apiPost(url).then(res => {
                 if (res.data.code === 200) {
                     proxy.COMMON.ShowMsg(`清理成功，删除了 ${res.data.data} 条记录`)
                     fetchAll()
