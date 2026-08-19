@@ -399,6 +399,7 @@ class MainActivity : Activity() {
 
         lastHeartbeatPosition = player.currentPosition
         lastHeartbeatRealTime = System.currentTimeMillis()
+        var lastTickPlayerReady = false // 上一次心跳时播放器是否处于可播放状态
         
         heartbeatExecutor = Executors.newSingleThreadScheduledExecutor()
         heartbeatExecutor?.scheduleAtFixedRate({
@@ -408,12 +409,27 @@ class MainActivity : Activity() {
                     val currentPosition = player.currentPosition
                     val now = System.currentTimeMillis()
                     val realElapsedMs = now - lastHeartbeatRealTime
+                    val isPlayerReady = player.playWhenReady &&
+                        player.playbackState == com.google.android.exoplayer2.Player.STATE_READY
+
+                    // 如果上次心跳时播放器未就绪（缓冲/加载），重置基准，避免把缓冲等待时间算进去
+                    if (!lastTickPlayerReady) {
+                        lastHeartbeatPosition = currentPosition
+                        lastHeartbeatRealTime = now
+                        lastTickPlayerReady = isPlayerReady
+                        android.util.Log.d("OneList", "Heartbeat skip (player not ready last tick): state=${player.playbackState} playWhenReady=${player.playWhenReady}")
+                        return@runOnUiThread
+                    }
+                    lastTickPlayerReady = isPlayerReady
+
                     // 位置差值（可能被快进放大）与真实经过时间取较小值，防止快进虚报时长
                     val positionDiffMs = (currentPosition - lastHeartbeatPosition).coerceAtLeast(0)
                     val effectiveMs = minOf(positionDiffMs, realElapsedMs + 2000) // +2s 容忍调度抖动
                     val durationSeconds = (effectiveMs / 1000).toInt()
                     val positionSeconds = (currentPosition / 1000).toInt()
                     val totalDurationSeconds = (player.duration / 1000).toInt()
+
+                    android.util.Log.d("OneList", "Heartbeat tick: posDiff=${positionDiffMs}ms realElapsed=${realElapsedMs}ms effective=${effectiveMs}ms duration=${durationSeconds}s pos=${positionSeconds}s total=${totalDurationSeconds}s ready=$isPlayerReady")
 
                     if (durationSeconds > 0) {
                         val request = HeartbeatRequest(
@@ -431,13 +447,13 @@ class MainActivity : Activity() {
                             override fun onResponse(call: Call<ApiResponse<PlayHistory>>, response: Response<ApiResponse<PlayHistory>>) {
                                 val body = response.body()
                                 if (body != null && body.code == 200) {
-                                    // heartbeat success — no log to reduce noise
+                                    android.util.Log.d("OneList", "Heartbeat OK: duration=${durationSeconds}s pos=${positionSeconds}s")
                                 } else {
-                                    android.util.Log.w("OneList", "Heartbeat rejected: HTTP ${response.code()} code=${body?.code} msg=${body?.msg}")
+                                    android.util.Log.w("OneList", "Heartbeat rejected: HTTP ${response.code()} code=${body?.code} msg=${body?.msg} duration=${durationSeconds}s")
                                 }
                             }
                             override fun onFailure(call: Call<ApiResponse<PlayHistory>>, t: Throwable) {
-                                android.util.Log.e("OneList", "Heartbeat network failed: ${t.message}", t)
+                                android.util.Log.e("OneList", "Heartbeat network failed: ${t.message} duration=${durationSeconds}s", t)
                             }
                         })
                     }
