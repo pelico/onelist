@@ -182,15 +182,22 @@ func (r *RepositoryPlayHistoryCRUD) GetHistoryList(userId string, page int, size
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		query := r.db.Model(&models.PlayHistory{})
-		if userId != "" {
-			query = query.Where("user_id = ?", userId)
+		// applyFilter 统一施加 userId 过滤条件
+		applyFilter := func(q *gorm.DB) *gorm.DB {
+			if userId != "" {
+				return q.Where("user_id = ?", userId)
+			}
+			return q
 		}
-		query.Count(&num)
+		// Count 和 Find 必须使用独立的 *gorm.DB，否则 Count 的 SELECT count(*)
+		// 会污染后续 Find 的查询，导致返回空结果（GORM v1.24 已知陷阱）
+		applyFilter(r.db.Model(&models.PlayHistory{})).Count(&num)
 		if config.DBDRIVER == "sqlite" {
-			retErr = query.Limit(size).Offset((page - 1) * size).Order("datetime(started_at) desc").Find(&list).Error
+			retErr = applyFilter(r.db.Model(&models.PlayHistory{})).
+				Limit(size).Offset((page - 1) * size).Order("datetime(started_at) desc").Find(&list).Error
 		} else {
-			retErr = query.Limit(size).Offset((page - 1) * size).Order("-started_at").Find(&list).Error
+			retErr = applyFilter(r.db.Model(&models.PlayHistory{})).
+				Limit(size).Offset((page - 1) * size).Order("-started_at").Find(&list).Error
 		}
 		ch <- retErr == nil
 	}(done)
