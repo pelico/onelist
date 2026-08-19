@@ -815,12 +815,18 @@ class MainActivity : Activity() {
             setTypeface(null, android.graphics.Typeface.BOLD)
             isClickable = true
             isFocusable = true
-            setPadding(tvDp(8), tvDp(4), tvDp(8), tvDp(4))
+            setPadding(tvDp(12), tvDp(6), tvDp(12), tvDp(6))
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
-                    (v as TextView).setTextColor(Color.parseColor("#6366f1"))
-                } else {
+                    v.animate().cancel()
+                    v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
                     (v as TextView).setTextColor(Color.WHITE)
+                    v.setBackgroundColor(Color.parseColor("#2a2a4e"))
+                } else {
+                    v.animate().cancel()
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
+                    (v as TextView).setTextColor(Color.WHITE)
+                    v.setBackgroundColor(Color.TRANSPARENT)
                 }
             }
             setOnClickListener {

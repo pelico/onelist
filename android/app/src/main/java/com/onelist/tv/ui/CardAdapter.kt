@@ -51,16 +51,24 @@ class CardAdapter(
         }
         card.addView(title)
 
+        // Focus border using GradientDrawable stroke for consistent 4-side wrapping
+        val normalBg = GradientDrawable().apply {
+            cornerRadius = dp(ctx, 8).toFloat()
+            setColor(Color.TRANSPARENT)
+        }
+        card.background = normalBg
+
         card.setOnFocusChangeListener { v, hasFocus ->
-            if (hasFocus) {
-                v.setBackgroundColor(Color.parseColor("#6366f1"))
-                v.scaleX = 1.05f
-                v.scaleY = 1.05f
-            } else {
-                v.setBackgroundColor(Color.TRANSPARENT)
-                v.scaleX = 1f
-                v.scaleY = 1f
+            val bg = GradientDrawable().apply {
+                cornerRadius = dp(ctx, 8).toFloat()
+                setColor(Color.TRANSPARENT)
+                if (hasFocus) {
+                    setStroke(dp(ctx, 3), Color.parseColor("#6366f1"))
+                }
             }
+            v.background = bg
+            v.scaleX = if (hasFocus) 1.05f else 1f
+            v.scaleY = if (hasFocus) 1.05f else 1f
         }
 
         return CardViewHolder(card)
