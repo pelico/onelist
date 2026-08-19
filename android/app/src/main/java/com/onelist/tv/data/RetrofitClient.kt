@@ -72,8 +72,8 @@ object RetrofitClient {
         val base = getBaseUrl()
         if (base.isEmpty()) return null
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
-        val stripped = if (path.startsWith("/")) path.substring(1) else path
-        return "$normalizedBase/t/p/$stripped"
+        // 与 Web 端 getPosterUrl 保持一致：拼接分辨率前缀，后端从 images/w220_and_h330_face/ 目录读取
+        return "$normalizedBase/t/p/w220_and_h330_face$path"
     }
 
     /**
