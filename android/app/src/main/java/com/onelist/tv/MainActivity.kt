@@ -1189,6 +1189,7 @@ class MainActivity : Activity() {
                         val recyclerView = RecyclerView(this@MainActivity).apply {
                             layoutManager = GridLayoutManager(this@MainActivity, columns)
                             this.adapter = adapter
+                            setPadding(tvDp(24), tvDp(16), tvDp(24), tvDp(16))
                             clipToPadding = false
                             clipChildren = false
                         }
