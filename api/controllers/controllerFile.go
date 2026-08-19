@@ -117,7 +117,7 @@ func GetPlaylist(c *gin.Context) {
 		files = getLocalPlaylist(parentDir)
 	}
 
-	logger.Info("play", "播放列表加载", "媒体库: "+galleryUid+", 文件数: "+fmt.Sprintf("%d", len(files)))
+	logger.Debug("play", "播放列表加载", "媒体库: "+galleryUid+", 文件数: "+fmt.Sprintf("%d", len(files)))
 	c.JSON(200, gin.H{"code": 200, "data": files})
 }
 

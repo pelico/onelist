@@ -35,7 +35,7 @@ func CleanupLibrary(c *gin.Context) {
 	for _, m := range danglingMovies {
 		deleteMovieAndRelations(db, m.ID)
 		orphanCount++
-		logger.Info("cleanup", "清理无归属失效电影", "标题: "+m.Title+", gallery_uid: "+m.GalleryUid)
+		logger.Debug("cleanup", "清理无归属失效电影", "标题: "+m.Title+", gallery_uid: "+m.GalleryUid)
 	}
 
 	var danglingTvs []models.TheTv
@@ -43,7 +43,7 @@ func CleanupLibrary(c *gin.Context) {
 	for _, tv := range danglingTvs {
 		deleteTvAndRelations(db, tv.ID)
 		orphanCount++
-		logger.Info("cleanup", "清理无归属失效剧集", "名称: "+tv.Name+", gallery_uid: "+tv.GalleryUid)
+		logger.Debug("cleanup", "清理无归属失效剧集", "名称: "+tv.Name+", gallery_uid: "+tv.GalleryUid)
 	}
 
 	// ---------- 第 1/2 步：针对现存媒体库内部的文件缺失 + 同库内重复 ----------
@@ -121,7 +121,7 @@ func cleanupOrphanMovies(db *gorm.DB, gallery models.Gallery, fileSet map[string
 			}
 			deleteMovieAndRelations(db, m.ID)
 			deleted++
-			logger.Info("cleanup", "清理失效电影记录", "标题: "+m.Title+", url: "+m.Url)
+			logger.Debug("cleanup", "清理失效电影记录", "标题: "+m.Title+", url: "+m.Url)
 		}
 	}
 	return deleted
@@ -160,7 +160,7 @@ func cleanupOrphanTvs(db *gorm.DB, gallery models.Gallery, fileSet map[string]bo
 		if epCount == 0 {
 			deleteTvAndRelations(db, tv.ID)
 			deleted++
-			logger.Info("cleanup", "清理失效剧集记录", "名称: "+tv.Name)
+			logger.Debug("cleanup", "清理失效剧集记录", "名称: "+tv.Name)
 		}
 	}
 	return deleted
@@ -181,7 +181,7 @@ func dedupMoviesGlobal(db *gorm.DB) int {
 		if seen[key] {
 			deleteMovieAndRelations(db, m.ID)
 			deleted++
-			logger.Info("cleanup", "去重电影记录", "标题: "+m.Title+", 删除id: "+fmt.Sprintf("%d", m.ID))
+			logger.Debug("cleanup", "去重电影记录", "标题: "+m.Title+", 删除id: "+fmt.Sprintf("%d", m.ID))
 		} else {
 			seen[key] = true
 		}
@@ -204,7 +204,7 @@ func dedupTvsGlobal(db *gorm.DB) int {
 		if seen[key] {
 			deleteTvAndRelations(db, tv.ID)
 			deleted++
-			logger.Info("cleanup", "去重剧集记录", "名称: "+tv.Name+", 删除id: "+fmt.Sprintf("%d", tv.ID))
+			logger.Debug("cleanup", "去重剧集记录", "名称: "+tv.Name+", 删除id: "+fmt.Sprintf("%d", tv.ID))
 		} else {
 			seen[key] = true
 		}

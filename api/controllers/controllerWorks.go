@@ -621,7 +621,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 				db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Delete(&models.TheSeason{})
 				db.Model(&models.Season{}).Where("the_tv_id = ?", tv.ID).Delete(&models.Season{})
 				db.Model(&models.TheTv{}).Where("id = ?", tv.ID).Delete(&models.TheTv{})
-				logger.Info("work", "清理无剧集的电视记录", "名称: "+tv.Name)
+				logger.Debug("work", "清理无剧集的电视记录", "名称: "+tv.Name)
 			}
 		}
 	} else {
@@ -655,7 +655,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 				db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
 				db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
 				db.Model(&models.TheMovie{}).Where("id = ?", movie.ID).Delete(&models.TheMovie{})
-				logger.Info("work", "去重电影记录", "url: "+movie.Url, "保留id: "+strconv.Itoa(keptId)+", 删除id: "+strconv.Itoa(movie.ID))
+				logger.Debug("work", "去重电影记录", "url: "+movie.Url, "保留id: "+strconv.Itoa(keptId)+", 删除id: "+strconv.Itoa(movie.ID))
 			} else {
 				urlSeen[movie.Url] = movie.ID
 			}

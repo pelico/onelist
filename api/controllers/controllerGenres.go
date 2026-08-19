@@ -161,7 +161,6 @@ func GetByIdFilte(c *gin.Context) {
 	if errSize != nil {
 		size = 8
 	}
-	log.Println(c.GetString("UserId"))
 	db := database.NewDb()
 	repo := crud.NewRepositoryGenresCRUD(db)
 	func(genreRepository repository.GenreRepository) {

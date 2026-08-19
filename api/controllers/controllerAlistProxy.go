@@ -42,7 +42,7 @@ func AlistProxy(c *gin.Context) {
 		filePath = "/" + filePath
 	}
 
-	logger.Info("play", "播放请求", "媒体库: "+galleryUid+", 路径: "+filePath)
+	logger.Debug("play", "播放请求", "媒体库: "+galleryUid+", 路径: "+filePath)
 
 	db := database.NewDb()
 	gallery := models.Gallery{}
@@ -63,7 +63,7 @@ func AlistProxy(c *gin.Context) {
 	if err != nil {
 		if isSubtitleFile(filePath) {
 			// 字幕文件不存在属正常情况（前端会主动探测多种字幕格式）
-			logger.Info("play", "字幕文件不存在，跳过", "路径: "+filePath)
+			logger.Debug("play", "字幕文件不存在，跳过", "路径: "+filePath)
 		} else {
 			logger.Warn("play", "获取文件信息失败", "路径: "+filePath+", 错误: "+err.Error())
 		}
@@ -85,7 +85,7 @@ func AlistProxy(c *gin.Context) {
 		return
 	}
 
-	logger.Info("play", "文件直链获取成功", "路径: "+filePath+", 文件名: "+fsData.Name)
+	logger.Debug("play", "文件直链获取成功", "路径: "+filePath+", 文件名: "+fsData.Name)
 
 	proxyReq, err := http.NewRequest("GET", rawUrl, nil)
 	if err != nil {
