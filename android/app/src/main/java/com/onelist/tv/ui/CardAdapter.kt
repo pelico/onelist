@@ -136,7 +136,8 @@ class CardAdapter(
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(poster)
         } else if (!customUrl.isNullOrEmpty()) {
-            // 自定义封面：OkHttp 取字节 + Glide 解码，绕过 Glide HTTP 层
+            // 自定义封面：OkHttp 取字节 + BitmapFactory 直接解码，完全绕过 Glide
+            Log.d("OneList", "Card custom image loading url=$customUrl")
             imageClient.newCall(okhttp3.Request.Builder().url(customUrl).get().build())
                 .enqueue(object : okhttp3.Callback {
                     override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
@@ -147,24 +148,26 @@ class CardAdapter(
                         }
                     }
                     override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                        val code = response.code
+                        val contentType = response.header("Content-Type") ?: "null"
+                        Log.d("OneList", "Card custom image response code=$code contentType=$contentType url=$customUrl")
                         val body = response.body?.bytes()
+                        Log.d("OneList", "Card custom image body size=${body?.size ?: 0} url=$customUrl")
                         if (body != null && body.isNotEmpty()) {
+                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(body, 0, body.size)
+                            Log.d("OneList", "Card custom image bitmap=${if (bitmap != null) "${bitmap.width}x${bitmap.height}" else "null"} url=$customUrl")
                             mainHandler.post {
-                                try {
-                                    Glide.with(poster)
-                                        .load(ByteArrayInputStream(body))
-                                        .placeholder(placeholder)
-                                        .error(placeholder)
-                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                        .into(poster)
-                                } catch (ex: Exception) {
-                                    Log.e("OneList", "Card Glide decode failed: ${ex.message}")
+                                if (bitmap != null) {
+                                    poster.setImageBitmap(bitmap)
+                                    poster.setBackgroundColor(Color.TRANSPARENT)
+                                } else {
+                                    Log.e("OneList", "Card custom image decode returned null url=$customUrl")
                                     poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                                     poster.setImageDrawable(null)
                                 }
                             }
                         } else {
-                            Log.w("OneList", "Card custom image empty body url=$customUrl code=${response.code}")
+                            Log.w("OneList", "Card custom image empty body url=$customUrl code=$code")
                             mainHandler.post {
                                 poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                                 poster.setImageDrawable(null)
