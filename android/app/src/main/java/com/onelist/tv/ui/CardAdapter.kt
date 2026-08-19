@@ -14,12 +14,19 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.onelist.tv.data.Movie
 import com.onelist.tv.data.RetrofitClient
 import com.onelist.tv.data.Tv
+import okhttp3.OkHttpClient
+import java.io.ByteArrayInputStream
 
 class CardAdapter(
     private val items: List<Any>,
     private val type: String,
     private val onClick: (Any) -> Unit
 ) : RecyclerView.Adapter<CardAdapter.CardViewHolder>() {
+
+    companion object {
+        // 共享 OkHttpClient，复用 Retrofit 的客户端（含拦截器）
+        private val okHttpClient: OkHttpClient by lazy { RetrofitClient.okHttpClient }
+    }
 
     class CardViewHolder(view: View) : RecyclerView.ViewHolder(view)
 
@@ -61,7 +68,7 @@ class CardAdapter(
         card.setOnFocusChangeListener { v, hasFocus ->
             val bg = GradientDrawable().apply {
                 cornerRadius = dp(ctx, 8).toFloat()
-                setColor(if (hasFocus) Color.parseColor("#2a2a4e") else Color.TRANSPARENT)
+                setColor(if (hasFocus) Color.parseColor("#6366f1") else Color.TRANSPARENT)
             }
             v.background = bg
             v.scaleX = if (hasFocus) 1.05f else 1f
@@ -113,32 +120,43 @@ class CardAdapter(
 
         if (!url.isNullOrEmpty()) {
             try {
-                Glide.with(poster.context)
-                    .load(url)
-                    .placeholder(placeholder)
-                    .error(placeholder)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .listener(object : com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
-                        override fun onLoadFailed(
-                            e: com.bumptech.glide.load.engine.GlideException?,
-                            model: Any?,
-                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
-                            isFirstResource: Boolean
-                        ): Boolean {
-                            android.util.Log.e("OneList", "Card Glide failed url=$url: ${e?.message}")
-                            return false
+                // 优先用 OkHttp 直接取字节，绕过 Glide HTTP 层对重定向/响应头的处理问题
+                okHttpClient.newCall(okhttp3.Request.Builder().url(url).get().build()).enqueue(object : okhttp3.Callback {
+                    override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                        android.util.Log.e("OneList", "Card OkHttp fetch failed url=$url: ${e.message}")
+                        poster.context.runOnUiThread {
+                            poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
+                            poster.setImageDrawable(null)
                         }
-                        override fun onResourceReady(
-                            resource: android.graphics.drawable.Drawable?,
-                            model: Any?,
-                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
-                            dataSource: com.bumptech.glide.load.DataSource?,
-                            isFirstResource: Boolean
-                        ): Boolean = false
-                    })
-                    .into(poster)
+                    }
+                    override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                        val body = response.body?.bytes()
+                        if (body != null && body.isNotEmpty()) {
+                            poster.context.runOnUiThread {
+                                try {
+                                    Glide.with(poster)
+                                        .load(ByteArrayInputStream(body))
+                                        .placeholder(placeholder)
+                                        .error(placeholder)
+                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                        .into(poster)
+                                } catch (ex: Exception) {
+                                    android.util.Log.e("OneList", "Card Glide decode failed: ${ex.message}")
+                                    poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
+                                    poster.setImageDrawable(null)
+                                }
+                            }
+                        } else {
+                            android.util.Log.w("OneList", "Card OkHttp empty body url=$url code=${response.code}")
+                            poster.context.runOnUiThread {
+                                poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
+                                poster.setImageDrawable(null)
+                            }
+                        }
+                    }
+                })
             } catch (e: Exception) {
-                android.util.Log.e("OneList", "Card Glide load failed: ${e.message}")
+                android.util.Log.e("OneList", "Card image load failed: ${e.message}")
                 poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                 poster.setImageDrawable(null)
             }
