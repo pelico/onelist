@@ -124,7 +124,7 @@ class CardAdapter(
                 okHttpClient.newCall(okhttp3.Request.Builder().url(url).get().build()).enqueue(object : okhttp3.Callback {
                     override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
                         android.util.Log.e("OneList", "Card OkHttp fetch failed url=$url: ${e.message}")
-                        poster.context.runOnUiThread {
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
                             poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                             poster.setImageDrawable(null)
                         }
@@ -132,7 +132,7 @@ class CardAdapter(
                     override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                         val body = response.body?.bytes()
                         if (body != null && body.isNotEmpty()) {
-                            poster.context.runOnUiThread {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 try {
                                     Glide.with(poster)
                                         .load(ByteArrayInputStream(body))
@@ -148,7 +148,7 @@ class CardAdapter(
                             }
                         } else {
                             android.util.Log.w("OneList", "Card OkHttp empty body url=$url code=${response.code}")
-                            poster.context.runOnUiThread {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                                 poster.setImageDrawable(null)
                             }
