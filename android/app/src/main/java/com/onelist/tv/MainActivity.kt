@@ -1155,9 +1155,9 @@ class MainActivity : Activity() {
                                 is Tv -> showTvDetail(item)
                             }
                         }
-                        val columns = if (isMo) 3 else 6
+                        val gridColumns = calculateGridColumns()
                         val recyclerView = RecyclerView(this@MainActivity).apply {
-                            layoutManager = GridLayoutManager(this@MainActivity, columns)
+                            layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
                             this.adapter = adapter
                             setPadding(tvDp(24), tvDp(16), tvDp(24), tvDp(16))
                             clipToPadding = false
