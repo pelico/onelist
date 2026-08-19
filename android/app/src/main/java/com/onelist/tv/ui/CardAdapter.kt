@@ -58,7 +58,9 @@ class CardAdapter(
 
         val poster = ImageView(ctx).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            layoutParams = LinearLayout.LayoutParams(cardWidth, cardHeight)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, cardHeight
+            )
             setBackgroundColor(Color.parseColor("#1a1a2e"))
         }
         card.addView(poster)
