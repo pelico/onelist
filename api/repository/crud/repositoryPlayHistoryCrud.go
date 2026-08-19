@@ -24,7 +24,7 @@ func NewRepositoryPlayHistoryCRUD(db *gorm.DB) *RepositoryPlayHistoryCRUD {
 	}
 }
 
-// Heartbeat 心跳上报：同一用户+同一影片+同一天，更新最后一条记录；不存在则新建
+// Heartbeat 心跳上报：同一用户+同一影片+最近5分钟内有活跃心跳，更新最后一条记录；否则新建
 func (r *RepositoryPlayHistoryCRUD) Heartbeat(ph models.PlayHistory) (models.PlayHistory, error) {
 	var result models.PlayHistory
 	var retErr error
@@ -52,18 +52,12 @@ func (r *RepositoryPlayHistoryCRUD) Heartbeat(ph models.PlayHistory) (models.Pla
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		today := time.Now().Format("2006-01-02")
 		var existing models.PlayHistory
-		var startDate, endDate time.Time
-		if config.DBDRIVER == "sqlite" {
-			startDate, _ = time.Parse("2006-01-02", today)
-			endDate = startDate.AddDate(0, 0, 1)
-		} else {
-			startDate, _ = time.Parse("2006-01-02", today)
-			endDate = startDate.AddDate(0, 0, 1)
-		}
-		err := r.db.Where("user_id = ? AND data_id = ? AND data_type = ? AND started_at >= ? AND started_at < ?",
-			ph.UserId, ph.DataId, ph.DataType, startDate, endDate).
+		// 查找最近5分钟内有活跃心跳的同一影片记录（连续观看会话）
+		// 超过5分钟未更新则视为新的观看会话，创建独立记录
+		fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+		err := r.db.Where("user_id = ? AND data_id = ? AND data_type = ? AND updated_at >= ?",
+			ph.UserId, ph.DataId, ph.DataType, fiveMinutesAgo).
 			Order("id desc").First(&existing).Error
 		if err == nil && existing.Id != 0 {
 			// 更新已有记录：用位置增量计算实际观看时长（排除快进/跳过/暂停时间）
