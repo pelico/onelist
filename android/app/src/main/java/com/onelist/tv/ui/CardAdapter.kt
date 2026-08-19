@@ -51,7 +51,7 @@ class CardAdapter(
         }
         card.addView(title)
 
-        // Focus border using GradientDrawable stroke for consistent 4-side wrapping
+        // Focus background color block (matching search button style)
         val normalBg = GradientDrawable().apply {
             cornerRadius = dp(ctx, 8).toFloat()
             setColor(Color.TRANSPARENT)
@@ -61,10 +61,7 @@ class CardAdapter(
         card.setOnFocusChangeListener { v, hasFocus ->
             val bg = GradientDrawable().apply {
                 cornerRadius = dp(ctx, 8).toFloat()
-                setColor(Color.TRANSPARENT)
-                if (hasFocus) {
-                    setStroke(dp(ctx, 3), Color.parseColor("#6366f1"))
-                }
+                setColor(if (hasFocus) Color.parseColor("#2a2a4e") else Color.TRANSPARENT)
             }
             v.background = bg
             v.scaleX = if (hasFocus) 1.05f else 1f
@@ -121,9 +118,27 @@ class CardAdapter(
                     .placeholder(placeholder)
                     .error(placeholder)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .listener(object : com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable> {
+                        override fun onLoadFailed(
+                            e: com.bumptech.glide.load.engine.GlideException?,
+                            model: Any?,
+                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
+                            isFirstResource: Boolean
+                        ): Boolean {
+                            android.util.Log.e("OneList", "Card Glide failed url=$url: ${e?.message}")
+                            return false
+                        }
+                        override fun onResourceReady(
+                            resource: android.graphics.drawable.Drawable?,
+                            model: Any?,
+                            target: com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable>?,
+                            dataSource: com.bumptech.glide.load.DataSource?,
+                            isFirstResource: Boolean
+                        ): Boolean = false
+                    })
                     .into(poster)
             } catch (e: Exception) {
-                android.util.Log.e("OneList", "Card[$position] Glide load failed: ${e.message}")
+                android.util.Log.e("OneList", "Card Glide load failed: ${e.message}")
                 poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
                 poster.setImageDrawable(null)
             }
