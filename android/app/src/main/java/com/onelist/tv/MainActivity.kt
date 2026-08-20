@@ -544,6 +544,7 @@ class MainActivity : Activity() {
             isSingleLine = true
             val saved = App.serverUrl
             if (saved != null) setText(saved)
+            showSoftInputOnFocus = false
             applyEditTextFocus()
         }
         layout.addView(serverInput, lp().apply { bottomMargin = dp(20) })
@@ -559,6 +560,7 @@ class MainActivity : Activity() {
             isSingleLine = true
             val saved = App.username
             if (saved != null) setText(saved)
+            showSoftInputOnFocus = false
             applyEditTextFocus()
         }
         layout.addView(userInput, lp().apply { bottomMargin = dp(20) })
@@ -573,6 +575,7 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            showSoftInputOnFocus = false
             applyEditTextFocus()
         }
         layout.addView(passInput, lp().apply { bottomMargin = dp(30) })
@@ -603,6 +606,45 @@ class MainActivity : Activity() {
             width = dp(240)
             gravity = Gravity.CENTER_HORIZONTAL
         })
+
+        // D-pad 导航：方向键切换焦点，OK/Enter 弹出键盘
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        serverInput.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { userInput.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_UP -> { loginBtn.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        imm.showSoftInput(serverInput, InputMethodManager.SHOW_IMPLICIT); true
+                    }
+                    else -> false
+                }
+            } else false
+        }
+        userInput.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { passInput.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_UP -> { serverInput.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        imm.showSoftInput(userInput, InputMethodManager.SHOW_IMPLICIT); true
+                    }
+                    else -> false
+                }
+            } else false
+        }
+        passInput.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { loginBtn.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_UP -> { userInput.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        imm.showSoftInput(passInput, InputMethodManager.SHOW_IMPLICIT); true
+                    }
+                    else -> false
+                }
+            } else false
+        }
 
         // Status text
         val statusText = TextView(this).apply {
