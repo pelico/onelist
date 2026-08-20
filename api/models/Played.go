@@ -11,7 +11,7 @@ type Played struct {
 	Id        uint      `json:"id" gorm:"primaryKey"`
 	UserId    string    `json:"user_id"`
 	DataType  string    `json:"data_type"`
-	DataId    int       `json:"data_id"`
+	DataId    uint      `json:"data_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

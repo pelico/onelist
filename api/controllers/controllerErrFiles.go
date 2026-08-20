@@ -325,7 +325,7 @@ func RefErrTheMovieById(c *gin.Context) {
 	}
 
 	// 只有当实际记录是新建的（ID 和 oldId 不同）时才迁移关联数据并删除旧记录
-	if actualMovie.ID != 0 && actualMovie.ID != oldId {
+	if actualMovie.ID != 0 && actualMovie.ID != uint(oldId) {
 		db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", actualMovie.ID)
 		db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", actualMovie.ID)
 		db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", oldId).Update("data_id", actualMovie.ID)

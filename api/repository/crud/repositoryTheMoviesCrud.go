@@ -50,7 +50,7 @@ func (r *RepositoryTheMoviesCRUD) Sort(galleryUid string, mode string, order str
 
 	// 直接用 SQL 的 LIMIT/OFFSET 做分页，而不是每次把全量 ID 拉到内存里再切片，
 	// 库大了以后也不会每翻一页就全表扫一遍
-	var pageIds []int
+	var pageIds []uint
 	err := r.db.Model(&models.TheMovie{}).
 		Select("MIN(id)").
 		Where("gallery_uid = ?", galleryUid).

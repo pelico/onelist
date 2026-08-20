@@ -644,7 +644,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 
 		// 去重：同一 url 可能存在多条记录（基础记录 + 刮削后按 TMDB ID 更新了旧记录）
 		// 保留 id 最小的（最早创建的），删除其余重复记录
-		urlSeen := make(map[string]int) // url -> 保留的 id
+		urlSeen := make(map[string]uint) // url -> 保留的 id
 		for _, movie := range movies {
 			if !fileSet[movie.Url] {
 				continue // 已经被清理的不用管
@@ -655,7 +655,7 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 				db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Star{})
 				db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "movie", movie.ID).Delete(&models.Heart{})
 				db.Model(&models.TheMovie{}).Where("id = ?", movie.ID).Delete(&models.TheMovie{})
-				logger.Debug("work", "去重电影记录", "url: "+movie.Url, "保留id: "+strconv.Itoa(keptId)+", 删除id: "+strconv.Itoa(movie.ID))
+				logger.Debug("work", "去重电影记录", "url: "+movie.Url, "保留id: "+strconv.Itoa(int(keptId))+", 删除id: "+strconv.Itoa(int(movie.ID)))
 			} else {
 				urlSeen[movie.Url] = movie.ID
 			}

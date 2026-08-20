@@ -35,26 +35,26 @@ func TheTvsService(theTvs []models.TheTv, userId string) []models.TheTv {
 	}
 
 	db := database.NewDb()
-	ids := make([]int, 0, len(theTvs))
+	ids := make([]uint, 0, len(theTvs))
 	for _, tv := range theTvs {
-		ids = append(ids, tv.ID)
+		ids = append(ids, uint(tv.ID))
 	}
 
-	starMap := make(map[int]bool)
+	starMap := make(map[uint]bool)
 	var stars []models.Star
 	db.Model(&models.Star{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "tv", ids).Find(&stars)
 	for _, s := range stars {
 		starMap[s.DataId] = true
 	}
 
-	playedMap := make(map[int]bool)
+	playedMap := make(map[uint]bool)
 	var playeds []models.Played
 	db.Model(&models.Played{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "tv", ids).Find(&playeds)
 	for _, p := range playeds {
 		playedMap[p.DataId] = true
 	}
 
-	heartMap := make(map[int]bool)
+	heartMap := make(map[uint]bool)
 	var hearts []models.Heart
 	db.Model(&models.Heart{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "tv", ids).Find(&hearts)
 	for _, h := range hearts {
@@ -62,9 +62,9 @@ func TheTvsService(theTvs []models.TheTv, userId string) []models.TheTv {
 	}
 
 	for i := range theTvs {
-		theTvs[i].Star = starMap[theTvs[i].ID]
-		theTvs[i].Played = playedMap[theTvs[i].ID]
-		theTvs[i].Heart = heartMap[theTvs[i].ID]
+		theTvs[i].Star = starMap[uint(theTvs[i].ID)]
+		theTvs[i].Played = playedMap[uint(theTvs[i].ID)]
+		theTvs[i].Heart = heartMap[uint(theTvs[i].ID)]
 	}
 
 	return theTvs
@@ -96,26 +96,26 @@ func TheMoviesService(theMovies []models.TheMovie, userId string) []models.TheMo
 	}
 
 	db := database.NewDb()
-	ids := make([]int, 0, len(theMovies))
+	ids := make([]uint, 0, len(theMovies))
 	for _, movie := range theMovies {
 		ids = append(ids, movie.ID)
 	}
 
-	starMap := make(map[int]bool)
+	starMap := make(map[uint]bool)
 	var stars []models.Star
 	db.Model(&models.Star{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "movie", ids).Find(&stars)
 	for _, s := range stars {
 		starMap[s.DataId] = true
 	}
 
-	playedMap := make(map[int]bool)
+	playedMap := make(map[uint]bool)
 	var playeds []models.Played
 	db.Model(&models.Played{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "movie", ids).Find(&playeds)
 	for _, p := range playeds {
 		playedMap[p.DataId] = true
 	}
 
-	heartMap := make(map[int]bool)
+	heartMap := make(map[uint]bool)
 	var hearts []models.Heart
 	db.Model(&models.Heart{}).Where("user_id = ? AND data_type = ? AND data_id IN (?)", userId, "movie", ids).Find(&hearts)
 	for _, h := range hearts {

@@ -200,7 +200,7 @@ func GetPlayedDataList(c *gin.Context) {
 		return
 	}
 	
-	var movieIds []int
+	var movieIds []uint
 	db.Model(&models.TheMovie{}).Select("id").Scan(&movieIds)
 	
 	var playeds []models.Played

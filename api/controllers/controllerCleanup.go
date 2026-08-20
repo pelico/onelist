@@ -213,7 +213,7 @@ func dedupTvsGlobal(db *gorm.DB) int {
 }
 
 // deleteMovieAndRelations 删除电影记录及关联数据
-func deleteMovieAndRelations(db *gorm.DB, movieID int) {
+func deleteMovieAndRelations(db *gorm.DB, movieID uint) {
 	db.Where("data_type = ? AND data_id = ?", "movie", movieID).Delete(&models.Played{})
 	db.Where("data_type = ? AND data_id = ?", "movie", movieID).Delete(&models.Star{})
 	db.Where("data_type = ? AND data_id = ?", "movie", movieID).Delete(&models.Heart{})

@@ -11,7 +11,7 @@ type PlayHistory struct {
 	Id            uint      `json:"id" gorm:"primaryKey"`
 	UserId        string    `json:"user_id" gorm:"index"`
 	DataType      string    `json:"data_type"`      // movie / tv
-	DataId        int       `json:"data_id"`         // TMDB ID
+	DataId        uint      `json:"data_id"`         // 数据库自增 ID
 	Title         string    `json:"title"`           // 影片名称（冗余，方便统计）
 	GalleryUid    string    `json:"gallery_uid"`     // 所属媒体库 UID
 	GalleryTitle  string    `json:"gallery_title"`   // 媒体库名称（冗余）
