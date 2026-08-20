@@ -569,9 +569,6 @@ class MainActivity : Activity() {
         val passLabel = label("密码")
         layout.addView(passLabel)
 
-        // 提前声明 loginBtn 以便 passInput 的 actionListener 引用
-        lateinit var loginBtn: Button
-
         val passInput = EditText(this).apply {
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
@@ -581,17 +578,11 @@ class MainActivity : Activity() {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
             applyEditTextFocus()
-            setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                    if (::loginBtn.isInitialized) loginBtn.performClick()
-                    true
-                } else false
-            }
         }
         layout.addView(passInput, lp().apply { bottomMargin = dp(30) })
 
         // Login button
-        loginBtn = Button(this).apply {
+        val loginBtn = Button(this).apply {
             text = "登 录"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
@@ -616,6 +607,14 @@ class MainActivity : Activity() {
             width = dp(240)
             gravity = Gravity.CENTER_HORIZONTAL
         })
+
+        // 密码输入框按"完成"键触发登录（在 loginBtn 创建后设置，避免前向引用）
+        passInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                loginBtn.performClick()
+                true
+            } else false
+        }
 
         // Status text
         val statusText = TextView(this).apply {
