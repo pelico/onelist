@@ -542,8 +542,10 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#1a1a2e"))
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
             val saved = App.serverUrl
             if (saved != null) setText(saved)
+            applyEditTextFocus()
         }
         layout.addView(serverInput, lp().apply { bottomMargin = dp(20) })
 
@@ -556,14 +558,20 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#1a1a2e"))
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
             val saved = App.username
             if (saved != null) setText(saved)
+            applyEditTextFocus()
         }
         layout.addView(userInput, lp().apply { bottomMargin = dp(20) })
 
         // Password input
         val passLabel = label("密码")
         layout.addView(passLabel)
+
+        // 提前声明 loginBtn 以便 passInput 的 actionListener 引用
+        lateinit var loginBtn: Button
+
         val passInput = EditText(this).apply {
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
@@ -571,11 +579,19 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            applyEditTextFocus()
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    if (::loginBtn.isInitialized) loginBtn.performClick()
+                    true
+                } else false
+            }
         }
         layout.addView(passInput, lp().apply { bottomMargin = dp(30) })
 
         // Login button
-        val loginBtn = Button(this).apply {
+        loginBtn = Button(this).apply {
             text = "登 录"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
@@ -3079,6 +3095,28 @@ class MainActivity : Activity() {
                 val bg = (v.background as? GradientDrawable) ?: gd.also { v.background = it }
                 bg.setColor(if (hasFocus) focusedColor else defaultColor)
                 if (hasFocus) bg.setStroke(tvDp(4), strokeColor) else bg.setStroke(0, 0)
+            } catch (e: Exception) {}
+        }
+    }
+
+    /**
+     * 为 EditText 输入框设置焦点高亮（TV 遥控器模式）
+     * - 聚焦后：白色描边高亮，提示用户当前输入框位置
+     */
+    private fun EditText.applyEditTextFocus() {
+        val defaultBg = Color.parseColor("#1a1a2e")
+        this.setOnFocusChangeListener { v, hasFocus ->
+            try {
+                val gd = GradientDrawable().apply {
+                    setColor(defaultBg)
+                    cornerRadius = tvDp(4).toFloat()
+                    if (hasFocus) {
+                        setStroke(tvDp(3), Color.WHITE)
+                    } else {
+                        setStroke(0, 0)
+                    }
+                }
+                v.background = gd
             } catch (e: Exception) {}
         }
     }
