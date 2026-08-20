@@ -1337,22 +1337,7 @@ class MainActivity : Activity() {
             weight = 1f
         })
 
-        val loadMoreBtn = Button(this).apply {
-            text = "加载更多"
-            setTextColor(Color.WHITE)
-            visibility = View.GONE
-            isFocusable = false
-            isClickable = false
-        }
-        val loadMoreLayout = FrameLayout(this).apply {
-            addView(loadMoreBtn, FrameLayout.LayoutParams(dp(200), dp(48)).apply {
-                gravity = Gravity.CENTER
-            })
-            setPadding(0, dp(8), 0, dp(16))
-        }
-        layout.addView(loadMoreLayout)
-
-        // 滚动到底部附近时自动加载更多（替代可聚焦按钮，避免 D-pad 导航丢失）
+        // 滚动到底部附近时自动加载更多（无按钮，避免 D-pad 焦点问题）
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 if (dy <= 0) return
@@ -1362,7 +1347,7 @@ class MainActivity : Activity() {
                 if (total > 0 && lastVisible >= total - gridColumns * 2) {
                     if (!isLoadingMore && hasMorePages) {
                         currentPage++
-                        loadMoreItems(recyclerView, loadMoreBtn)
+                        loadMoreItems(recyclerView)
                     }
                 }
             }
@@ -1371,12 +1356,9 @@ class MainActivity : Activity() {
         rootLayout.addView(layout)
 
         if (!restoreFromCache) {
-            loadListData(recyclerView, loadMoreBtn)
+            loadListData(recyclerView)
         } else {
-            // 恢复时保持和之前一致的加载更多按钮状态
-            loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
             listAdapter?.notifyDataSetChanged()
-            // 显示列表，隐藏加载指示器
             recyclerView.visibility = View.VISIBLE
             recyclerView.post { recyclerView.requestFocus() }
             val parent = recyclerView.parent as? FrameLayout
@@ -1385,7 +1367,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun loadListData(recyclerView: RecyclerView, loadMoreBtn: Button) {
+    private fun loadListData(recyclerView: RecyclerView) {
         val type = currentGalleryType ?: "movie"
         val galleryId = currentGalleryId
 
@@ -1403,7 +1385,7 @@ class MainActivity : Activity() {
                         if (body.data != null) listItems.addAll(body.data!!)
                         hasMorePages = body.data != null && body.data!!.size >= 30
                         listAdapter?.notifyDataSetChanged()
-                        loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
+
                         // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
                         recyclerView.post { recyclerView.requestFocus() }
@@ -1435,7 +1417,7 @@ class MainActivity : Activity() {
                         currentMovieList = listItems.filterIsInstance<Movie>()
                         hasMorePages = body.data != null && body.data!!.size >= 30
                         listAdapter?.notifyDataSetChanged()
-                        loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
+
                         // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
                         recyclerView.post { recyclerView.requestFocus() }
@@ -1455,10 +1437,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun loadMoreItems(recyclerView: RecyclerView, loadMoreBtn: Button) {
+    private fun loadMoreItems(recyclerView: RecyclerView) {
         isLoadingMore = true
-        loadMoreBtn.text = "加载中..."
-        loadMoreBtn.isEnabled = false
 
         val type = currentGalleryType ?: "movie"
         val galleryId = currentGalleryId
@@ -1472,21 +1452,16 @@ class MainActivity : Activity() {
             call.enqueue(object : Callback<ApiListResponse<Tv>> {
                 override fun onResponse(call: Call<ApiListResponse<Tv>>, response: Response<ApiListResponse<Tv>>) {
                     isLoadingMore = false
-                    loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "加载更多"
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val start = listItems.size
                         listItems.addAll(body.data!!)
                         listAdapter?.notifyItemRangeInserted(start, body.data!!.size)
                         hasMorePages = body.data!!.size >= 30
-                        if (!hasMorePages) loadMoreBtn.visibility = View.GONE
                     }
                 }
                 override fun onFailure(call: Call<ApiListResponse<Tv>>, t: Throwable) {
                     isLoadingMore = false
-                    loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "加载更多"
                     toast("加载失败")
                 }
             })
@@ -1499,8 +1474,6 @@ class MainActivity : Activity() {
             call.enqueue(object : Callback<ApiListResponse<Movie>> {
                 override fun onResponse(call: Call<ApiListResponse<Movie>>, response: Response<ApiListResponse<Movie>>) {
                     isLoadingMore = false
-                    loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "加载更多"
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val start = listItems.size
@@ -1508,13 +1481,10 @@ class MainActivity : Activity() {
                         currentMovieList = listItems.filterIsInstance<Movie>()
                         listAdapter?.notifyItemRangeInserted(start, body.data!!.size)
                         hasMorePages = body.data!!.size >= 30
-                        if (!hasMorePages) loadMoreBtn.visibility = View.GONE
                     }
                 }
                 override fun onFailure(call: Call<ApiListResponse<Movie>>, t: Throwable) {
                     isLoadingMore = false
-                    loadMoreBtn.isEnabled = true
-                    loadMoreBtn.text = "加载更多"
                     toast("加载失败")
                 }
             })
