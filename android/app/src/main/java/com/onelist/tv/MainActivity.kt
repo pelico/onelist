@@ -147,6 +147,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // 禁止 IME 自动弹出，避免拦截方向键；需要输入时按 OK 键手动触发
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
 
         rootLayout = FrameLayout(this)
         rootLayout.setBackgroundColor(Color.parseColor("#0d0d1a"))
@@ -543,9 +545,20 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                showSoftInputOnFocus = false
+            }
             val saved = App.serverUrl
             if (saved != null) setText(saved)
             applyEditTextFocus()
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN &&
+                    (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(this, 0)
+                    true
+                } else false
+            }
         }
         layout.addView(serverInput, lp().apply { bottomMargin = dp(20) })
 
@@ -559,9 +572,20 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                showSoftInputOnFocus = false
+            }
             val saved = App.username
             if (saved != null) setText(saved)
             applyEditTextFocus()
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN &&
+                    (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(this, 0)
+                    true
+                } else false
+            }
         }
         layout.addView(userInput, lp().apply { bottomMargin = dp(20) })
 
@@ -577,7 +601,18 @@ class MainActivity : Activity() {
             isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                showSoftInputOnFocus = false
+            }
             applyEditTextFocus()
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN &&
+                    (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(this, 0)
+                    true
+                } else false
+            }
         }
         layout.addView(passInput, lp().apply { bottomMargin = dp(30) })
 
@@ -608,9 +643,25 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
-        // 密码输入框按"完成"键触发登录（在 loginBtn 创建后设置，避免前向引用）
-        passInput.setOnEditorActionListener { _, actionId, _ ->
+        // IME 动作监听：Next 移动到下一个字段并隐藏键盘，Done 触发登录
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        serverInput.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                imm.hideSoftInputFromWindow(v.windowToken, 0)
+                userInput.requestFocus()
+                true
+            } else false
+        }
+        userInput.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                imm.hideSoftInputFromWindow(v.windowToken, 0)
+                passInput.requestFocus()
+                true
+            } else false
+        }
+        passInput.setOnEditorActionListener { v, actionId, _ ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                imm.hideSoftInputFromWindow(v.windowToken, 0)
                 loginBtn.performClick()
                 true
             } else false
