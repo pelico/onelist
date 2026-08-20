@@ -1341,15 +1341,8 @@ class MainActivity : Activity() {
             text = "加载更多"
             setTextColor(Color.WHITE)
             visibility = View.GONE
-            isFocusable = true
-            isClickable = true
-            applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
-            setOnClickListener {
-                if (!isLoadingMore && hasMorePages) {
-                    currentPage++
-                    loadMoreItems(recyclerView, this as Button)
-                }
-            }
+            isFocusable = false
+            isClickable = false
         }
         val loadMoreLayout = FrameLayout(this).apply {
             addView(loadMoreBtn, FrameLayout.LayoutParams(dp(200), dp(48)).apply {
@@ -1358,6 +1351,22 @@ class MainActivity : Activity() {
             setPadding(0, dp(8), 0, dp(16))
         }
         layout.addView(loadMoreLayout)
+
+        // 滚动到底部附近时自动加载更多（替代可聚焦按钮，避免 D-pad 导航丢失）
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy <= 0) return
+                val lm = recyclerView.layoutManager as GridLayoutManager
+                val total = lm.itemCount
+                val lastVisible = lm.findLastVisibleItemPosition()
+                if (total > 0 && lastVisible >= total - gridColumns * 2) {
+                    if (!isLoadingMore && hasMorePages) {
+                        currentPage++
+                        loadMoreItems(recyclerView, loadMoreBtn)
+                    }
+                }
+            }
+        })
 
         rootLayout.addView(layout)
 
