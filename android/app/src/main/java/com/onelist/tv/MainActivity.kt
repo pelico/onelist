@@ -357,6 +357,17 @@ class MainActivity : Activity() {
 
         layout.addView(card)
         dialog.setContentView(layout)
+        // 拦截 BACK 键：防止 Activity 的 rootLayout key listener 触发 navigateBack()
+        dialog.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_DOWN) {
+                if (autoDismiss) {
+                    // 普通通知：BACK 可关闭
+                    try { dialog.dismiss() } catch (_: Exception) {}
+                }
+                // 强制通知：不处理 BACK，必须点确认
+                true
+            } else false
+        }
         dialog.show()
 
         // 普通通知自动关闭
@@ -1657,9 +1668,18 @@ class MainActivity : Activity() {
             }
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
-                    v.scaleX = 1.05f; v.scaleY = 1.05f
+                    v.scaleX = 1.08f; v.scaleY = 1.08f
+                    v.background = GradientDrawable().apply {
+                        cornerRadius = tvDp(8).toFloat()
+                        setColor(if (isHearted) activeColor else inactiveColor)
+                        setStroke(tvDp(3), Color.WHITE)
+                    }
                 } else {
                     v.scaleX = 1f; v.scaleY = 1f
+                    v.background = GradientDrawable().apply {
+                        cornerRadius = tvDp(8).toFloat()
+                        setColor(if (isHearted) activeColor else inactiveColor)
+                    }
                 }
             }
             setOnClickListener {
@@ -1843,9 +1863,18 @@ class MainActivity : Activity() {
             }
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
-                    v.scaleX = 1.05f; v.scaleY = 1.05f
+                    v.scaleX = 1.08f; v.scaleY = 1.08f
+                    v.background = GradientDrawable().apply {
+                        cornerRadius = tvDp(8).toFloat()
+                        setColor(if (isHearted) activeColor else inactiveColor)
+                        setStroke(tvDp(3), Color.WHITE)
+                    }
                 } else {
                     v.scaleX = 1f; v.scaleY = 1f
+                    v.background = GradientDrawable().apply {
+                        cornerRadius = tvDp(8).toFloat()
+                        setColor(if (isHearted) activeColor else inactiveColor)
+                    }
                 }
             }
             setOnClickListener {
@@ -1912,6 +1941,8 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
         rootLayout.addView(scroll)
+
+        heartBtn.post { heartBtn.requestFocus() }
 
         if (tv.id != null) {
             fetchTvDetail(tv.id.toString(), seasonsContainer)
@@ -2100,6 +2131,8 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#1a1a2e"))
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
+            showSoftInputOnFocus = false
+            applyEditTextFocus()
             val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             layoutParams = lp
         }
@@ -2121,6 +2154,20 @@ class MainActivity : Activity() {
         }
         searchRow.addView(searchBtn)
         layout.addView(searchRow)
+
+        // 搜索框 D-pad 导航
+        val immSearch = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        searchInput.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { searchBtn.requestFocus(); true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        immSearch.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT); true
+                    }
+                    else -> false
+                }
+            } else false
+        }
 
         // Results container
         val resultsScroll = ScrollView(this)
@@ -2311,7 +2358,7 @@ class MainActivity : Activity() {
 
         val playerView = PlayerView(this).apply {
             fillParent()
-            useController = true
+            useController = false
         }
         playerContainer.addView(playerView)
 
@@ -3268,8 +3315,9 @@ class MainActivity : Activity() {
             }
         }
         errorLayout.addView(retryBtn)
-        
+
         parent.addView(errorLayout)
+        retryBtn.post { retryBtn.requestFocus() }
     }
 
     /**
