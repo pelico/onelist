@@ -3290,14 +3290,7 @@ class MainActivity : Activity() {
                 isLoadingMore = false
                 hasMorePages = true
                 listItems.clear()
-                loadListData(recyclerView, parent.findViewById<Button>(android.R.id.button1) ?: run {
-                    // 如果找不到按钮，重新创建
-                    val btn = Button(parent.context).apply {
-                        visibility = View.GONE
-                    }
-                    parent.addView(btn)
-                    btn
-                })
+                loadListData(recyclerView)
             }
         }
         errorLayout.addView(retryBtn)
