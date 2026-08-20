@@ -748,6 +748,7 @@ class MainActivity : Activity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
+            isFocusable = false
         }
         loadingContainer.addView(progressBar)
         
@@ -1068,6 +1069,7 @@ class MainActivity : Activity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
+            isFocusable = false
         })
         contentContainer.addView(loadingContainer)
 
@@ -1226,6 +1228,7 @@ class MainActivity : Activity() {
                             LinearLayout.LayoutParams.MATCH_PARENT
                         ))
                         gridContainer.visibility = View.VISIBLE
+                        recyclerView.post { recyclerView.requestFocus() }
                     }
                 } else {
                     emptyView.visibility = View.VISIBLE
@@ -1290,6 +1293,7 @@ class MainActivity : Activity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
             visibility = View.VISIBLE
+            isFocusable = false
         }
         loadingContainer.addView(progressBar)
         
@@ -1365,6 +1369,7 @@ class MainActivity : Activity() {
             listAdapter?.notifyDataSetChanged()
             // 显示列表，隐藏加载指示器
             recyclerView.visibility = View.VISIBLE
+            recyclerView.post { recyclerView.requestFocus() }
             val parent = recyclerView.parent as? FrameLayout
             parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
             parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
@@ -1392,6 +1397,7 @@ class MainActivity : Activity() {
                         loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
                         // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
+                        recyclerView.post { recyclerView.requestFocus() }
                         val parent = recyclerView.parent as? FrameLayout
                         parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
                         parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
@@ -1423,6 +1429,7 @@ class MainActivity : Activity() {
                         loadMoreBtn.visibility = if (hasMorePages) View.VISIBLE else View.GONE
                         // 隐藏加载指示器，显示列表
                         recyclerView.visibility = View.VISIBLE
+                        recyclerView.post { recyclerView.requestFocus() }
                         val parent = recyclerView.parent as? FrameLayout
                         parent?.findViewById<View>(android.R.id.progress)?.visibility = View.GONE
                         parent?.findViewById<TextView>(android.R.id.text1)?.visibility = View.GONE
