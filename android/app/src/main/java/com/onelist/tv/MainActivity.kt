@@ -1158,8 +1158,9 @@ class MainActivity : Activity() {
                         val gridColumns = calculateGridColumns()
                         val recyclerView = RecyclerView(this@MainActivity).apply {
                             layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
+                            addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
                             this.adapter = adapter
-                            setPadding(tvDp(24), tvDp(16), tvDp(24), tvDp(16))
+                            setPadding(0, 0, 0, 0)
                             clipToPadding = false
                             clipChildren = false
                         }
@@ -1259,8 +1260,9 @@ class MainActivity : Activity() {
         val gridColumns = calculateGridColumns()
         val recyclerView = RecyclerView(this).apply {
             layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
+            addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
             this.adapter = listAdapter
-            setPadding(tvDp(16), tvDp(8), tvDp(16), tvDp(16))
+            setPadding(0, 0, 0, 0)
             clipToPadding = false
             visibility = View.GONE // 初始隐藏，加载完成后显示
             layoutParams = FrameLayout.LayoutParams(
@@ -2193,6 +2195,7 @@ class MainActivity : Activity() {
             val gridColumns = calculateGridColumns()
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
+                addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
                 adapter = CardAdapter(movies.map { it as Any }, "movie") { item ->
                     if (item is Movie) showMovieDetail(item, fromSearch = true)
                 }
@@ -2215,6 +2218,7 @@ class MainActivity : Activity() {
             val gridColumns = calculateGridColumns()
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
+                addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
                 adapter = CardAdapter(tvs.map { it as Any }, "tv") { item ->
                     if (item is Tv) showTvDetail(item, fromSearch = true)
                 }

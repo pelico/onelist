@@ -38,19 +38,50 @@ class CardAdapter(
         private val mainHandler = Handler(Looper.getMainLooper())
     }
 
+    /**
+     * GridLayoutManager 均匀间距装饰器
+     * 替代 RecyclerView.LayoutParams.setMargins()（在 GridLayoutManager 下不可靠）
+     * @param spanCount 列数
+     * @param spacingPx 间距像素值（item 之间 + 边缘）
+     * @param includeEdge 是否在 RecyclerView 边缘也加间距
+     */
+    class GridSpacingItemDecoration(
+        private val spanCount: Int,
+        private val spacingPx: Int,
+        private val includeEdge: Boolean
+    ) : RecyclerView.ItemDecoration() {
+        override fun getItemOffsets(
+            outRect: android.graphics.Rect,
+            view: View,
+            parent: RecyclerView,
+            state: RecyclerView.State
+        ) {
+            val position = parent.getChildAdapterPosition(view)
+            if (position == RecyclerView.NO_POSITION) return
+            val column = position % spanCount
+            if (includeEdge) {
+                outRect.left = spacingPx - column * spacingPx / spanCount
+                outRect.right = (column + 1) * spacingPx / spanCount
+                if (position < spanCount) outRect.top = spacingPx
+                outRect.bottom = spacingPx
+            } else {
+                outRect.left = column * spacingPx / spanCount
+                outRect.right = spacingPx - (column + 1) * spacingPx / spanCount
+                if (position >= spanCount) outRect.top = spacingPx
+            }
+        }
+    }
+
     class CardViewHolder(view: View) : RecyclerView.ViewHolder(view)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CardViewHolder {
         val ctx = parent.context
         val cardWidth = dp(ctx, 140)
         val cardHeight = dp(ctx, 210)
-        val margin = dp(ctx, 8)
 
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = RecyclerView.LayoutParams(cardWidth, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(margin, margin, margin, margin)
-            }
+            layoutParams = RecyclerView.LayoutParams(cardWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
             setPadding(dp(ctx, 4), dp(ctx, 4), dp(ctx, 4), dp(ctx, 4))
             isClickable = true
             isFocusable = true
