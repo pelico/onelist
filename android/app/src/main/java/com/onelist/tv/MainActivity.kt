@@ -82,6 +82,7 @@ class MainActivity : Activity() {
     private var currentVideoTitle: String? = null
     private var currentVideoGalleryUid: String? = null
     private var currentVideoGalleryTitle: String? = null
+    private var lastPlayedToggleId: Int? = null // 防止重复调用 togglePlayed
 
     // ==================== 返回栈管理 ====================
     /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
@@ -440,6 +441,30 @@ class MainActivity : Activity() {
 
         android.util.Log.d("OneList", "Heartbeat starting: type=${currentVideoDataType} id=${currentVideoDataId} title='${currentVideoTitle}' gallery='${currentVideoGalleryUid}' galleryTitle='${currentVideoGalleryTitle}'")
 
+        // 开始播放时标记为已播放（与网页端行为一致：打开即标记）
+        val dataId = currentVideoDataId
+        val dataType = currentVideoDataType
+        if (dataId != null && dataType != null && lastPlayedToggleId != dataId) {
+            lastPlayedToggleId = dataId
+            try {
+                RetrofitClient.getService().togglePlayed(HeartToggleRequest(dataType, dataId)).enqueue(object : Callback<ApiResponse<Any>> {
+                    override fun onResponse(call: Call<ApiResponse<Any>>, response: Response<ApiResponse<Any>>) {
+                        val body = response.body()
+                        if (body != null && body.code == 200) {
+                            android.util.Log.d("OneList", "Played toggle OK: type=$dataType id=$dataId")
+                        } else {
+                            android.util.Log.w("OneList", "Played toggle failed: code=${body?.code} msg=${body?.msg}")
+                        }
+                    }
+                    override fun onFailure(call: Call<ApiResponse<Any>>, t: Throwable) {
+                        android.util.Log.e("OneList", "Played toggle error: ${t.message}", t)
+                    }
+                })
+            } catch (e: Exception) {
+                android.util.Log.e("OneList", "Played toggle exception: ${e.message}", e)
+            }
+        }
+
         lastHeartbeatPosition = player.currentPosition
         lastHeartbeatRealTime = System.currentTimeMillis()
         var lastTickPlayerReady = false // 上一次心跳时播放器是否处于可播放状态
@@ -518,6 +543,7 @@ class MainActivity : Activity() {
     private fun stopHeartbeat() {
         heartbeatExecutor?.shutdownNow()
         heartbeatExecutor = null
+        lastPlayedToggleId = null // 离开播放器时重置，下次播放可重新标记
         android.util.Log.d("OneList", "Heartbeat stopped")
     }
 
