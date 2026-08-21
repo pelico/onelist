@@ -54,8 +54,6 @@ class MainActivity : Activity() {
     private var searchView: View? = null
     private var playerView: View? = null
     private var player: ExoPlayer? = null
-    private var playerHintsOverlay: TextView? = null // 遥控器操作提示浮层
-    private var hintsHideHandler: Handler? = null
 
     // 播放列表：用于遥控器上下键切换集/电影
     private data class PlayItem(val url: String, val galleryUid: String?, val title: String? = null)
@@ -548,29 +546,6 @@ class MainActivity : Activity() {
         lastPlayedToggleId = null // 离开播放器时重置，下次播放可重新标记
         android.util.Log.d("OneList", "Heartbeat stopped")
     }
-
-    // ==================== 播放器操作提示 ====================
-
-    /**
-     * 显示遥控器操作提示浮层，指定毫秒后自动隐藏
-     */
-    private fun showPlayerHints(text: String, durationMs: Long = 3000) {
-        val overlay = playerHintsOverlay ?: return
-        val handler = hintsHideHandler ?: return
-
-        // 取消之前的隐藏任务
-        handler.removeCallbacksAndMessages(null)
-
-        overlay.text = text
-        overlay.visibility = View.VISIBLE
-
-        handler.postDelayed({
-            if (!isDestroying) {
-                overlay.visibility = View.GONE
-            }
-        }, durationMs)
-    }
-
 
     // ==================== SCREEN MANAGEMENT ====================
 
@@ -2441,6 +2416,9 @@ class MainActivity : Activity() {
         val playerView = PlayerView(this).apply {
             fillParent()
             useController = false
+            // 使用 TextureView 替代默认 SurfaceView，解决部分TV设备硬件解码输出
+            // 颜色格式不兼容导致的绿屏问题（TextureView 通过 GPU 做颜色转换）
+            surfaceType = com.google.android.exoplayer2.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW
         }
         playerContainer.addView(playerView)
 
@@ -2467,24 +2445,6 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(16); rightMargin = dp(16) }
         playerContainer.addView(nextHint, nextHintLP)
-
-        // 遥控器操作提示浮层（底部居中，半透明背景）
-        val hintsOverlay = TextView(this).apply {
-            setTextColor(Color.parseColor("#e0e0e0"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            gravity = Gravity.CENTER
-            setPadding(dp(20), dp(12), dp(20), dp(12))
-            setBackgroundColor(Color.parseColor("#90000000"))
-            visibility = View.GONE
-            isFocusable = false
-            isClickable = false
-        }
-        val hintsLP = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; bottomMargin = dp(40) }
-        playerContainer.addView(hintsOverlay, hintsLP)
-        playerHintsOverlay = hintsOverlay
-        hintsHideHandler = Handler(Looper.getMainLooper())
 
         rootLayout.addView(playerContainer)
 
@@ -2801,10 +2761,10 @@ class MainActivity : Activity() {
         // 释放旧播放器（自动连播时旧 player 仍存在）
         player?.release()
 
-        // 配置渲染工厂：优先使用扩展渲染器（软件解码），硬件解码失败时自动回退
-        // 解决部分安卓TV设备硬件解码器不兼容导致的绿屏问题
+        // 配置渲染工厂：启用解码器回退，硬件解码器出错时自动尝试其他解码器
+        // 配合 PlayerView 使用 TextureView（颜色通过 GPU 转换），共同解决绿屏问题
         val renderersFactory = com.google.android.exoplayer2.DefaultRenderersFactory(this)
-            .setExtensionRendererMode(com.google.android.exoplayer2.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
 
         player = ExoPlayer.Builder(this)
             .setRenderersFactory(renderersFactory)
@@ -2835,10 +2795,6 @@ class MainActivity : Activity() {
                             else -> "UNKNOWN($state)"
                         }
                         android.util.Log.d("OneList", "Player state: $stateName")
-                        // 播放就绪时显示操作提示
-                        if (state == com.google.android.exoplayer2.Player.STATE_READY) {
-                            showPlayerHints("OK 暂停/播放 | ←→ 快退/快进 | ↑↓ 上/下一集 | 返回 退出")
-                        }
                         // 播放结束自动播放下一个（列表连续播放）
                         if (state == com.google.android.exoplayer2.Player.STATE_ENDED) {
                             // Stop heartbeat
