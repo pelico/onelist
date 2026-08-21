@@ -688,6 +688,8 @@ class MainActivity : Activity() {
                         App.userId = body.user?.id
                         App.username = username
                         toast("登录成功")
+                        // 登录成功后初始化 SSE 消息连接（首次安装时 onCreate 中 initSSE 因 token 为空会跳过）
+                        initSSE()
                         showHome()
                     } else {
                         btn.isEnabled = true
