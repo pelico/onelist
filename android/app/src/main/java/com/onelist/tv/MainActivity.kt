@@ -3766,19 +3766,20 @@ class MainActivity : Activity() {
                 "image" -> {
                     val imageView = ImageView(this).apply {
                         scaleType = ImageView.ScaleType.FIT_CENTER
+                        fillParent()
                     }
                     val imgUrl = buildWallpaperUrl(wallpaper.url)
                     com.bumptech.glide.Glide.with(this@MainActivity)
                         .load(imgUrl)
                         .into(imageView)
-                    overlay.addView(imageView).fillParent()
+                    overlay.addView(imageView)
                 }
                 "video" -> {
                     val pView = PlayerView(this@MainActivity).apply {
                         fillParent()
                         useController = false
                     }
-                    overlay.addView(pView).fillParent()
+                    overlay.addView(pView)
                     wallpaperPlayerView = pView
                     // 创建壁纸播放器
                     val wp = ExoPlayer.Builder(this@MainActivity).build().also { exo ->
@@ -3851,7 +3852,8 @@ class MainActivity : Activity() {
         }
         defaultView.addView(icon)
         defaultView.addView(msg)
-        container.addView(defaultView).fillParent()
+        defaultView.fillParent()
+        container.addView(defaultView)
     }
 
     /** 屏保结束：休息模式恢复播放，锁定模式检查解锁 */
