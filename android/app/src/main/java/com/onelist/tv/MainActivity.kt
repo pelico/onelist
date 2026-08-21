@@ -1355,17 +1355,13 @@ class MainActivity : Activity() {
             }
         })
 
-        // 焦点守卫：如果焦点从 RecyclerView 内逃到外部（如顶部栏），立刻拉回最后一张卡片
-        recyclerView.viewTreeObserver.addOnGlobalFocusChangeListener { oldFocus, newFocus ->
-            if (recyclerView.visibility == View.VISIBLE
-                && recyclerView.isAttachedToWindow
-                && oldFocus != null && recyclerView.findContainingItemView(oldFocus) != null
-                && newFocus != null && recyclerView.findContainingItemView(newFocus) == null) {
-                recyclerView.post {
-                    val lm = recyclerView.layoutManager as GridLayoutManager
-                    val lastPos = lm.findLastCompletelyVisibleItemPosition()
-                    val lastView = if (lastPos >= 0) lm.findViewByPosition(lastPos) else null
-                    (lastView ?: recyclerView).requestFocus()
+        // 当 RecyclerView 自身获得焦点时（说明没有子卡片持有焦点），自动将焦点交给第一个可见卡片
+        recyclerView.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+            if (hasFocus && v is RecyclerView) {
+                val lm = v.layoutManager as? GridLayoutManager ?: return@OnFocusChangeListener
+                val firstPos = lm.findFirstVisibleItemPosition()
+                if (firstPos >= 0) {
+                    lm.findViewByPosition(firstPos)?.requestFocus()
                 }
             }
         }
