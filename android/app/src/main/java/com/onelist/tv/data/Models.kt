@@ -176,5 +176,9 @@ data class Episode(
 
 data class Config(
     @SerializedName("title") val title: String?,
-    @SerializedName("img_url") val imgUrl: String?
+    @SerializedName("img_url") val imgUrl: String?,
+    @SerializedName("screensaver_enabled") val screensaverEnabled: String?,
+    @SerializedName("screensaver_play_duration") val screensaverPlayDuration: String?,
+    @SerializedName("screensaver_duration") val screensaverDuration: String?,
+    @SerializedName("screensaver_daily_limit") val screensaverDailyLimit: String?
 )

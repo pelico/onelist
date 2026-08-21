@@ -164,6 +164,12 @@ interface ApiService {
     fun togglePlayed(
         @Body body: HeartToggleRequest
     ): Call<ApiResponse<Any>>
+
+    // ==================== 护眼屏保 API ====================
+
+    // 获取屏保素材列表
+    @GET("v1/api/wallpaper/list")
+    fun getWallpaperList(): Call<ApiResponse<List<WallpaperFile>>>
 }
 
 // ==================== 消息中心数据模型 ====================
@@ -257,4 +263,12 @@ data class GameFile(
 data class HeartToggleRequest(
     @SerializedName("data_type") val dataType: String,
     @SerializedName("data_id") val dataId: Int
+)
+
+// ==================== 护眼屏保数据模型 ====================
+
+data class WallpaperFile(
+    @SerializedName("name") val name: String,
+    @SerializedName("type") val type: String,  // video / image / html
+    @SerializedName("url") val url: String
 )

@@ -87,6 +87,28 @@ class MainActivity : Activity() {
     private var currentVideoGalleryTitle: String? = null
     private var lastPlayedToggleId: Int? = null // 防止重复调用 togglePlayed
 
+    // ==================== 护眼屏保状态 ====================
+    private var screensaverEnabled = true
+    private var screensaverPlayDuration = 3600   // 连续播放多少秒后触发休息屏保
+    private var screensaverDuration = 180        // 休息屏保持续多少秒
+    private var screensaverDailyLimit = 7200     // 每日最大播放秒数
+    private var cumulativePlaySeconds = 0        // 本次连续播放累计秒数
+    private var todayTotalSeconds = 0            // 今日已播放总秒数（服务端初始值 + 本地累计）
+    private var screensaverActive = false        // 屏保是否正在显示
+    private var screensaverMode = "rest"         // "rest" = 休息倒计时, "locked" = 每日锁定
+    private var screensaverCountdown = 0         // 休息模式剩余秒数
+    private var wallpaperFiles: List<WallpaperFile> = emptyList()
+    private val screensaverHandler = Handler(Looper.getMainLooper())
+    // 屏保 UI 组件
+    private var screensaverOverlay: FrameLayout? = null
+    private var countdownText: TextView? = null
+    private var warningBanner: TextView? = null
+    private var dailyLimitWarningBanner: TextView? = null
+    private var dailyLimitDimOverlay: View? = null
+    // 壁纸播放器（视频素材时使用）
+    private var wallpaperPlayer: ExoPlayer? = null
+    private var wallpaperPlayerView: PlayerView? = null
+
     // ==================== 返回栈管理 ====================
     /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
     private sealed class ScreenState {
@@ -556,6 +578,8 @@ class MainActivity : Activity() {
         currentScreen = screen
         rootLayout.removeAllViews()
         stopHeartbeat()
+        stopScreensaverTracker()
+        cleanupScreensaver()
         player?.release()
         player = null
 
@@ -747,6 +771,10 @@ class MainActivity : Activity() {
                         toast("登录成功")
                         // 登录成功后初始化 SSE 消息连接（首次安装时 onCreate 中 initSSE 因 token 为空会跳过）
                         initSSE()
+                        // 拉取护眼屏保配置、壁纸列表、今日播放时长
+                        fetchScreensaverConfig()
+                        fetchWallpaperFiles()
+                        fetchTodayPlayDuration()
                         showHome()
                     } else {
                         btn.isEnabled = true
@@ -2799,6 +2827,8 @@ class MainActivity : Activity() {
                 
                 // Start heartbeat on play
                 startHeartbeat(exo)
+                // 启动护眼屏保计时器
+                if (screensaverEnabled) startScreensaverTracker()
                 android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
@@ -2814,10 +2844,16 @@ class MainActivity : Activity() {
                         if (state == com.google.android.exoplayer2.Player.STATE_ENDED) {
                             // Stop heartbeat
                             stopHeartbeat()
-                            
-                            val played = playNextInPlaylist(playerView, loadingText, nextHint, galleryUid)
-                            if (!played) {
-                                toast("播放完毕")
+                            stopScreensaverTracker()
+
+                            // 护眼屏保：达到每日限额时触发锁定屏保，不自动播放下一个
+                            if (screensaverEnabled && todayTotalSeconds >= screensaverDailyLimit && screensaverDailyLimit > 0) {
+                                triggerScreensaver("locked")
+                            } else {
+                                val played = playNextInPlaylist(playerView, loadingText, nextHint, galleryUid)
+                                if (!played) {
+                                    toast("播放完毕")
+                                }
                             }
                         }
                     }
@@ -3136,6 +3172,10 @@ class MainActivity : Activity() {
     // ==================== KEY EVENTS ====================
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // 护眼屏保激活时，拦截所有按键（锁定模式下无法退出）
+        if (screensaverActive) {
+            return true
+        }
         if (event.action == KeyEvent.ACTION_DOWN) {
             // ESC 或 BACK 键：返回上一页
             if (event.keyCode == KeyEvent.KEYCODE_ESCAPE || event.keyCode == KeyEvent.KEYCODE_BACK) {
@@ -3207,6 +3247,7 @@ class MainActivity : Activity() {
         // 只做最最小化：暂停播放。不 release 播放器、不动 view 树、不停心跳、不断 SSE。
         // 心跳/SSE 清理交给 onDestroy()；恢复播放由 onStart() 对称处理。
         player?.pause()
+        stopScreensaverTracker()
     }
 
     override fun onStart() {
@@ -3232,6 +3273,8 @@ class MainActivity : Activity() {
         sseClient = null
         // 清理心跳资源
         stopHeartbeat()
+        // 清理护眼屏保资源
+        cleanupScreensaver()
         // 释放播放器
         player?.release()
         player = null
@@ -3439,6 +3482,436 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
+    }
+
+    // ==================== 护眼屏保逻辑 ====================
+
+    /** 从服务端获取屏保配置 */
+    private fun fetchScreensaverConfig() {
+        RetrofitClient.getService().getConfigs().enqueue(object : Callback<ApiResponse<Config>> {
+            override fun onResponse(call: Call<ApiResponse<Config>>, response: Response<ApiResponse<Config>>) {
+                val d = response.body()?.data ?: return
+                screensaverEnabled = d.screensaverEnabled != "否"
+                screensaverPlayDuration = (d.screensaverPlayDuration?.toIntOrNull()) ?: 3600
+                screensaverDuration = (d.screensaverDuration?.toIntOrNull()) ?: 180
+                screensaverDailyLimit = (d.screensaverDailyLimit?.toIntOrNull()) ?: 7200
+                android.util.Log.d("OneList", "Screensaver config: enabled=$screensaverEnabled play=${screensaverPlayDuration}s dur=${screensaverDuration}s daily=${screensaverDailyLimit}s")
+            }
+            override fun onFailure(call: Call<ApiResponse<Config>>, t: Throwable) { /* 使用默认值 */ }
+        })
+    }
+
+    /** 获取壁纸素材列表 */
+    private fun fetchWallpaperFiles() {
+        RetrofitClient.getService().getWallpaperList().enqueue(object : Callback<ApiResponse<List<WallpaperFile>>> {
+            override fun onResponse(call: Call<ApiResponse<List<WallpaperFile>>>, response: Response<ApiResponse<List<WallpaperFile>>>) {
+                val files = response.body()?.data
+                if (files != null) {
+                    wallpaperFiles = files
+                    android.util.Log.d("OneList", "Wallpaper files: ${files.size}")
+                }
+            }
+            override fun onFailure(call: Call<ApiResponse<List<WallpaperFile>>>, t: Throwable) { /* 无素材时使用默认界面 */ }
+        })
+    }
+
+    /** 获取今日已播放总秒数 */
+    private fun fetchTodayPlayDuration() {
+        RetrofitClient.getService().getTodayDuration().enqueue(object : Callback<ApiResponse<Int>> {
+            override fun onResponse(call: Call<ApiResponse<Int>>, response: Response<ApiResponse<Int>>) {
+                if (response.body()?.code == 200) {
+                    todayTotalSeconds = response.body()?.data ?: 0
+                    android.util.Log.d("OneList", "Today play duration: ${todayTotalSeconds}s")
+                }
+            }
+            override fun onFailure(call: Call<ApiResponse<Int>>, t: Throwable) { /* 使用本地累计值 */ }
+        })
+    }
+
+    /** 启动播放时长追踪器（每秒 +1，仅在视频播放时累计） */
+    private fun startScreensaverTracker() {
+        stopScreensaverTracker()
+        screensaverHandler.post(screensaverTrackerRunnable)
+    }
+
+    private val screensaverTrackerRunnable = object : Runnable {
+        override fun run() {
+            if (screensaverActive) {
+                screensaverHandler.postDelayed(this, 1000)
+                return
+            }
+            // 仅在视频正在播放时累计
+            val p = player
+            if (p != null && p.playWhenReady && p.playbackState == com.google.android.exoplayer2.Player.STATE_READY) {
+                cumulativePlaySeconds++
+                todayTotalSeconds++
+
+                val remaining = screensaverDailyLimit - todayTotalSeconds
+
+                // 达到每日上限：画面变暗，等当前集播完再锁
+                if (remaining <= 0) {
+                    showDailyLimitDimmed(true)
+                    showDailyLimitWarning(false)
+                    screensaverHandler.postDelayed(this, 1000)
+                    return
+                }
+
+                // 接近每日上限（剩余 ≤ 10 分钟）：友好提示
+                if (remaining <= 600) {
+                    showDailyLimitWarning(true)
+                } else {
+                    showDailyLimitWarning(false)
+                }
+
+                // 检查连续播放阈值
+                if (cumulativePlaySeconds >= screensaverPlayDuration) {
+                    startScreensaverWarning()
+                }
+            }
+            screensaverHandler.postDelayed(this, 1000)
+        }
+    }
+
+    private fun stopScreensaverTracker() {
+        screensaverHandler.removeCallbacks(screensaverTrackerRunnable)
+    }
+
+    /** 创建预警横幅（首次调用时） */
+    private fun ensureWarningBanner() {
+        if (warningBanner != null) return
+        warningBanner = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(14), dp(20), dp(14))
+            setBackgroundColor(Color.parseColor("#EA9600"))
+            visibility = View.GONE
+        }
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.TOP }
+        rootLayout.addView(warningBanner, lp)
+    }
+
+    /** 创建每日上限预警横幅 */
+    private fun ensureDailyLimitWarningBanner() {
+        if (dailyLimitWarningBanner != null) return
+        dailyLimitWarningBanner = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(14), dp(20), dp(14))
+            setBackgroundColor(Color.parseColor("#FF5722"))
+            visibility = View.GONE
+        }
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.TOP }
+        rootLayout.addView(dailyLimitWarningBanner, lp)
+    }
+
+    /** 创建每日上限半透明遮罩 */
+    private fun ensureDailyLimitDimOverlay() {
+        if (dailyLimitDimOverlay != null) return
+        dailyLimitDimOverlay = View(this).apply {
+            setBackgroundColor(Color.parseColor("#8C000000"))
+            visibility = View.GONE
+        }
+        val lp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
+        rootLayout.addView(dailyLimitDimOverlay, lp)
+    }
+
+    private fun showDailyLimitDimmed(show: Boolean) {
+        ensureDailyLimitDimOverlay()
+        dailyLimitDimOverlay?.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    private fun showDailyLimitWarning(show: Boolean) {
+        ensureDailyLimitWarningBanner()
+        val banner = dailyLimitWarningBanner ?: return
+        if (show) {
+            val remainingMin = ((screensaverDailyLimit - todayTotalSeconds) / 60f).toInt().coerceAtLeast(1)
+            banner.text = "今天的时间快用完啦，还剩约 $remainingMin 分钟"
+            banner.visibility = View.VISIBLE
+        } else {
+            banner.visibility = View.GONE
+        }
+    }
+
+    /** 10 秒预警 → 然后触发休息屏保 */
+    private fun startScreensaverWarning() {
+        if (screensaverActive) return
+        ensureWarningBanner()
+        val banner = warningBanner ?: return
+        var countdown = 10
+        banner.text = "护眼屏保将在 ${countdown} 秒后启动，请准备休息"
+        banner.visibility = View.VISIBLE
+        val warningRunnable = object : Runnable {
+            override fun run() {
+                countdown--
+                if (countdown <= 0) {
+                    banner.visibility = View.GONE
+                    triggerScreensaver("rest")
+                    return
+                }
+                banner.text = "护眼屏保将在 ${countdown} 秒后启动，请准备休息"
+                screensaverHandler.postDelayed(this, 1000)
+            }
+        }
+        screensaverHandler.post(warningRunnable)
+        // 保存引用以便取消
+        warningRunnableRef = warningRunnable
+    }
+
+    private var warningRunnableRef: Runnable? = null
+
+    private fun stopScreensaverWarning() {
+        warningRunnableRef?.let { screensaverHandler.removeCallbacks(it) }
+        warningRunnableRef = null
+        warningBanner?.visibility = View.GONE
+    }
+
+    /** 触发屏保（rest 或 locked） */
+    private fun triggerScreensaver(mode: String) {
+        stopScreensaverWarning()
+        showDailyLimitWarning(false)
+        showDailyLimitDimmed(false)
+        screensaverMode = mode
+        screensaverActive = true
+
+        // 暂停视频
+        player?.pause()
+
+        // 创建屏保 UI
+        showScreensaverOverlay()
+
+        if (mode == "rest") {
+            screensaverCountdown = screensaverDuration
+            updateCountdownDisplay()
+            // 开始倒计时
+            screensaverHandler.post(screensaverCountdownRunnable)
+        }
+        // locked 模式不设倒计时，由定期检查解锁
+        android.util.Log.d("OneList", "Screensaver triggered: mode=$mode")
+    }
+
+    private val screensaverCountdownRunnable = object : Runnable {
+        override fun run() {
+            if (!screensaverActive) return
+            screensaverCountdown--
+            if (screensaverCountdown <= 0) {
+                dismissScreensaver()
+                return
+            }
+            updateCountdownDisplay()
+            screensaverHandler.postDelayed(this, 1000)
+        }
+    }
+
+    private fun updateCountdownDisplay() {
+        val tv = countdownText ?: return
+        val todayMin = todayTotalSeconds / 60
+        if (screensaverMode == "rest") {
+            val m = screensaverCountdown / 60
+            val s = screensaverCountdown % 60
+            val timeStr = if (m > 0) "${m}分${s.toString().padStart(2, '0')}秒" else "${s}秒"
+            tv.text = "休息中 ${timeStr}\n今天已看 ${todayMin} 分钟"
+        } else {
+            tv.text = "今日播放时间已到\n明天再继续吧\n今天已看 ${todayMin} 分钟"
+        }
+    }
+
+    /** 创建并显示屏保覆盖层 */
+    private fun showScreensaverOverlay() {
+        // 清理旧的
+        dismissScreensaverOverlay()
+
+        val overlay = FrameLayout(this).apply {
+            fillParent()
+            setBackgroundColor(Color.BLACK)
+            // 拦截所有按键
+            isFocusable = true
+            isFocusableInTouchMode = true
+            requestFocus()
+        }
+
+        // 倒计时角标（右上角）
+        val countdown = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(Color.parseColor("#BF000000"))
+            }
+            gravity = Gravity.CENTER
+            lineSpacingExtra = dp(4).toFloat()
+        }
+        val countdownLp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(24); rightMargin = dp(24) }
+        overlay.addView(countdown, countdownLp)
+        countdownText = countdown
+
+        // 壁纸内容区域
+        val wallpaper = pickRandomWallpaper()
+        if (wallpaper != null) {
+            when (wallpaper.type) {
+                "image" -> {
+                    val imageView = ImageView(this).apply {
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                    }
+                    val imgUrl = buildWallpaperUrl(wallpaper.url)
+                    com.bumptech.glide.Glide.with(this@MainActivity)
+                        .load(imgUrl)
+                        .into(imageView)
+                    overlay.addView(imageView).fillParent()
+                }
+                "video" -> {
+                    val pView = PlayerView(this@MainActivity).apply {
+                        fillParent()
+                        useController = false
+                    }
+                    overlay.addView(pView).fillParent()
+                    wallpaperPlayerView = pView
+                    // 创建壁纸播放器
+                    val wp = ExoPlayer.Builder(this@MainActivity).build().also { exo ->
+                        pView.player = exo
+                        val imgUrl = buildWallpaperUrl(wallpaper.url)
+                        exo.setMediaItem(MediaItem.fromUri(imgUrl))
+                        exo.repeatMode = com.google.android.exoplayer2.Player.REPEAT_MODE_ALL
+                        exo.volume = 0f
+                        exo.playWhenReady = true
+                        exo.prepare()
+                    }
+                    wallpaperPlayer = wp
+                }
+                else -> {
+                    // html 类型或其他：显示默认界面
+                    addDefaultScreensaverContent(overlay)
+                }
+            }
+        } else {
+            addDefaultScreensaverContent(overlay)
+        }
+
+        rootLayout.addView(overlay)
+        screensaverOverlay = overlay
+    }
+
+    /** 构建壁纸完整 URL（含 token） */
+    private fun buildWallpaperUrl(relativeUrl: String): String {
+        val base = App.serverUrl.trimEnd('/')
+        val token = App.token
+        return if (token != null) {
+            "$base$relativeUrl?token=$token"
+        } else {
+            "$base$relativeUrl"
+        }
+    }
+
+    /** 随机选取一个壁纸素材 */
+    private fun pickRandomWallpaper(): WallpaperFile? {
+        if (wallpaperFiles.isEmpty()) return null
+        // Android TV 不支持 html 类型，只取 video 和 image
+        val supported = wallpaperFiles.filter { it.type == "video" || it.type == "image" }
+        if (supported.isEmpty()) return null
+        return supported.random()
+    }
+
+    /** 添加默认屏保内容（绿色渐变 + 文字） */
+    private fun addDefaultScreensaverContent(container: FrameLayout) {
+        val defaultView = LinearLayout(this).apply {
+            fillParent()
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.parseColor("#A8E6CF"), Color.parseColor("#DCEDC1"), Color.parseColor("#C5E1A5"))
+            )
+        }
+        val icon = TextView(this).apply {
+            text = "\uD83C\uDF33"  // 🌳 tree emoji
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f)
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#2E7D32"))
+        }
+        val msg = TextView(this).apply {
+            text = "爱护眼睛，先休息一会吧"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#2E7D32"))
+            setPadding(0, dp(16), 0, 0)
+        }
+        defaultView.addView(icon)
+        defaultView.addView(msg)
+        container.addView(defaultView).fillParent()
+    }
+
+    /** 屏保结束：休息模式恢复播放，锁定模式检查解锁 */
+    private fun onScreensaverEnd() {
+        if (screensaverMode == "rest") {
+            cumulativePlaySeconds = 0
+            dismissScreensaver()
+            player?.play()
+            // 重新开始屏保计时
+            if (screensaverEnabled) startScreensaverTracker()
+        } else if (screensaverMode == "locked") {
+            // 重新查询今日时长，确认是否已跨天
+            fetchTodayPlayDuration()
+            screensaverHandler.postDelayed({
+                if (todayTotalSeconds < screensaverDailyLimit) {
+                    // 已跨天解锁
+                    cumulativePlaySeconds = 0
+                    dismissScreensaver()
+                    player?.play()
+                    // 重新开始屏保计时
+                    if (screensaverEnabled) startScreensaverTracker()
+                } else {
+                    // 仍然锁定，1 分钟后再检查
+                    onScreensaverEnd()
+                }
+            }, 60000)
+        }
+    }
+
+    /** 关闭屏保（清理 UI + 状态） */
+    private fun dismissScreensaver() {
+        screensaverActive = false
+        screensaverHandler.removeCallbacks(screensaverCountdownRunnable)
+        dismissScreensaverOverlay()
+        showDailyLimitDimmed(false)
+        showDailyLimitWarning(false)
+    }
+
+    /** 清理屏保覆盖层和壁纸播放器 */
+    private fun dismissScreensaverOverlay() {
+        // 释放壁纸播放器
+        wallpaperPlayer?.release()
+        wallpaperPlayer = null
+        wallpaperPlayerView = null
+        // 移除覆盖层
+        screensaverOverlay?.let { rootLayout.removeView(it) }
+        screensaverOverlay = null
+        countdownText = null
+    }
+
+    /** 清理所有屏保相关资源（离开播放器页面或销毁时调用） */
+    private fun cleanupScreensaver() {
+        stopScreensaverTracker()
+        stopScreensaverWarning()
+        dismissScreensaver()
+        showDailyLimitDimmed(false)
+        showDailyLimitWarning(false)
+        dailyLimitDimOverlay?.let { rootLayout.removeView(it); dailyLimitDimOverlay = null }
+        warningBanner?.let { rootLayout.removeView(it); warningBanner = null }
+        dailyLimitWarningBanner?.let { rootLayout.removeView(it); dailyLimitWarningBanner = null }
     }
 
     private fun dp(value: Int): Int {
