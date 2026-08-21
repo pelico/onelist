@@ -1325,6 +1325,8 @@ class MainActivity : Activity() {
             this.adapter = listAdapter
             setPadding(0, 0, 0, 0)
             clipToPadding = false
+            isFocusable = true
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             visibility = View.GONE // 初始隐藏，加载完成后显示
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -1344,7 +1346,7 @@ class MainActivity : Activity() {
                 val lm = recyclerView.layoutManager as GridLayoutManager
                 val total = lm.itemCount
                 val lastVisible = lm.findLastVisibleItemPosition()
-                if (total > 0 && lastVisible >= total - gridColumns * 2) {
+                if (total > 0 && lastVisible >= total - gridColumns * 3) {
                     if (!isLoadingMore && hasMorePages) {
                         currentPage++
                         loadMoreItems(recyclerView)
@@ -1352,6 +1354,21 @@ class MainActivity : Activity() {
                 }
             }
         })
+
+        // 焦点守卫：如果焦点从 RecyclerView 内逃到外部（如顶部栏），立刻拉回最后一张卡片
+        recyclerView.viewTreeObserver.addOnGlobalFocusChangeListener { oldFocus, newFocus ->
+            if (recyclerView.visibility == View.VISIBLE
+                && recyclerView.isAttachedToWindow
+                && oldFocus != null && recyclerView.contains(oldFocus)
+                && newFocus != null && !recyclerView.contains(newFocus)) {
+                recyclerView.post {
+                    val lm = recyclerView.layoutManager as GridLayoutManager
+                    val lastPos = lm.findLastCompletelyVisibleItemPosition()
+                    val lastView = if (lastPos >= 0) lm.findViewByPosition(lastPos) else null
+                    (lastView ?: recyclerView).requestFocus()
+                }
+            }
+        }
 
         rootLayout.addView(layout)
 
