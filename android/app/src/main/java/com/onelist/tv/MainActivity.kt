@@ -1359,8 +1359,8 @@ class MainActivity : Activity() {
         recyclerView.viewTreeObserver.addOnGlobalFocusChangeListener { oldFocus, newFocus ->
             if (recyclerView.visibility == View.VISIBLE
                 && recyclerView.isAttachedToWindow
-                && oldFocus != null && recyclerView.contains(oldFocus)
-                && newFocus != null && !recyclerView.contains(newFocus)) {
+                && oldFocus != null && recyclerView.findContainingItemView(oldFocus) != null
+                && newFocus != null && recyclerView.findContainingItemView(newFocus) == null) {
                 recyclerView.post {
                     val lm = recyclerView.layoutManager as GridLayoutManager
                     val lastPos = lm.findLastCompletelyVisibleItemPosition()
