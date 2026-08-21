@@ -54,6 +54,9 @@ class MainActivity : Activity() {
     private var searchView: View? = null
     private var playerView: View? = null
     private var player: ExoPlayer? = null
+    // 遥控器操作提示：每次按键时在屏幕中央短暂显示操作反馈（如"快进5s"、"暂停"）
+    private var operationHintView: TextView? = null
+    private val operationHintHandler = Handler(Looper.getMainLooper())
 
     // 播放列表：用于遥控器上下键切换集/电影
     private data class PlayItem(val url: String, val galleryUid: String?, val title: String? = null)
@@ -2440,6 +2443,24 @@ class MainActivity : Activity() {
         ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(16); rightMargin = dp(16) }
         playerContainer.addView(nextHint, nextHintLP)
 
+        // 遥控器操作提示（屏幕中央半透明浮层，按键时短暂显示操作反馈）
+        val opHint = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(12), dp(24), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(Color.parseColor("#B0000000"))
+            }
+            visibility = View.GONE
+        }
+        val opHintLP = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.CENTER }
+        playerContainer.addView(opHint, opHintLP)
+        operationHintView = opHint
+
         rootLayout.addView(playerContainer)
 
         // 加载播放列表（同目录视频列表），然后播放当前视频
@@ -3132,9 +3153,11 @@ class MainActivity : Activity() {
                     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                         if (player!!.isPlaying) {
                             player!!.pause()
+                            showOperationHint("⏸ 暂停")
                             android.util.Log.d("OneList", "Pause by remote key")
                         } else {
                             player!!.play()
+                            showOperationHint("▶ 播放")
                             android.util.Log.d("OneList", "Play by remote key")
                         }
                         return true
@@ -3143,6 +3166,7 @@ class MainActivity : Activity() {
                     KeyEvent.KEYCODE_DPAD_LEFT -> {
                         val newPos = (player!!.currentPosition - 5000).coerceAtLeast(0)
                         player!!.seekTo(newPos)
+                        showOperationHint("◀ 快退 5s")
                         android.util.Log.d("OneList", "Seek backward 5s to ${newPos}ms")
                         return true
                     }
@@ -3151,6 +3175,7 @@ class MainActivity : Activity() {
                         val duration = player!!.duration
                         val newPos = if (duration > 0) (player!!.currentPosition + 5000).coerceAtMost(duration) else player!!.currentPosition + 5000
                         player!!.seekTo(newPos)
+                        showOperationHint("快进 5s ▶")
                         android.util.Log.d("OneList", "Seek forward 5s to ${newPos}ms")
                         return true
                     }
@@ -3426,5 +3451,14 @@ class MainActivity : Activity() {
 
     private fun toast(msg: String) {
         android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    /** 在播放器屏幕中央短暂显示操作提示（1.2 秒后自动隐藏） */
+    private fun showOperationHint(text: String) {
+        val hint = operationHintView ?: return
+        hint.text = text
+        hint.visibility = View.VISIBLE
+        operationHintHandler.removeCallbacksAndMessages(null)
+        operationHintHandler.postDelayed({ hint.visibility = View.GONE }, 1200)
     }
 }
