@@ -671,6 +671,7 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
         rootLayout.addView(scroll)
+        serverInput.post { serverInput.requestFocus() }
     }
 
     private fun doLogin(username: String, password: String, btn: Button) {
