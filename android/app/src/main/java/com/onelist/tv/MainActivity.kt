@@ -285,7 +285,7 @@ class MainActivity : Activity() {
 
         if (autoDismiss) {
             // 普通通知：半透明小卡片，无按钮，不遮挡播放画面
-            layout.setBackgroundColor(Color.parseColor("#00000000")) // 完全透明背景，可看到视频
+            layout.setBackgroundColor(Color.TRANSPARENT)
             card.layoutParams = FrameLayout.LayoutParams(
                 (resources.displayMetrics.widthPixels * 0.45).toInt(),
                 FrameLayout.LayoutParams.WRAP_CONTENT
@@ -303,6 +303,16 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER
             }
             card.addView(title)
+
+            val sender = TextView(this).apply {
+                text = msg.senderName?.takeIf { it.isNotBlank() } ?: ""
+                setTextColor(Color.parseColor("#a6adc8"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(13f))
+                gravity = Gravity.CENTER
+                setPadding(0, tvDp(4), 0, 0)
+                visibility = if (text.isNotBlank()) android.view.View.VISIBLE else android.view.View.GONE
+            }
+            card.addView(sender)
 
             val content = TextView(this).apply {
                 text = msg.content
@@ -333,6 +343,16 @@ class MainActivity : Activity() {
             }
             card.addView(title)
 
+            val sender = TextView(this).apply {
+                text = msg.senderName?.takeIf { it.isNotBlank() } ?: ""
+                setTextColor(Color.parseColor("#a6adc8"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, tvDp(8))
+                visibility = if (text.isNotBlank()) android.view.View.VISIBLE else android.view.View.GONE
+            }
+            card.addView(sender)
+
             val content = TextView(this).apply {
                 text = msg.content
                 setTextColor(Color.parseColor("#cdd6f4"))
@@ -352,11 +372,20 @@ class MainActivity : Activity() {
                 applyFocusGlow()
                 setOnClickListener { dialog.dismiss() }
             }
+            val btnParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = tvDp(20) }
+            confirmBtn.layoutParams = btnParams
             card.addView(confirmBtn)
         }
 
         layout.addView(card)
         dialog.setContentView(layout)
+        // 普通通知：去除 dialog 窗口背景，避免灰色遮罩挡住背后内容
+        if (autoDismiss) {
+            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        }
         // 拦截 BACK 键：防止 Activity 的 rootLayout key listener 触发 navigateBack()
         dialog.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_DOWN) {
