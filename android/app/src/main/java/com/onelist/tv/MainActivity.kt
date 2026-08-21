@@ -2413,13 +2413,7 @@ class MainActivity : Activity() {
         // 渲染播放器框架 + loading 提示
         val playerContainer = FrameLayout(this).apply { fillParent() }
 
-        val playerView = PlayerView(this).apply {
-            fillParent()
-            useController = false
-            // 使用 TextureView 替代默认 SurfaceView，解决部分TV设备硬件解码输出
-            // 颜色格式不兼容导致的绿屏问题（TextureView 通过 GPU 做颜色转换）
-            surfaceType = com.google.android.exoplayer2.ui.PlayerView.SURFACE_TYPE_TEXTURE_VIEW
-        }
+        val playerView = LayoutInflater.from(this).inflate(R.layout.player_view, playerContainer, false) as PlayerView
         playerContainer.addView(playerView)
 
         val loadingText = TextView(this).apply {
