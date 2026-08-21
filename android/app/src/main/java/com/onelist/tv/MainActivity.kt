@@ -1265,7 +1265,8 @@ class MainActivity : Activity() {
             // 首次进入：重置列表状态
             currentPage = 1
             isLoadingMore = false
-            hasMorePages = true
+            // 最新电影/最新电视（galleryId=null）只显示最新30部，不自动加载更多
+            hasMorePages = currentGalleryId != null
             listItems.clear()
         }
 
@@ -3314,11 +3315,11 @@ class MainActivity : Activity() {
 
     /**
      * 根据屏幕宽度动态计算网格列数（TV适配）
-     * 每列最小宽度200dp，确保卡片在不同分辨率下都有合适大小
+     * 每列最小宽度150dp，确保卡片在不同分辨率下都有合适大小且足够紧凑
      */
     private fun calculateGridColumns(): Int {
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
-        val minColumnWidthDp = 200f
+        val minColumnWidthDp = 150f
         val minColumnWidthPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
             minColumnWidthDp,
