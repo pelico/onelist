@@ -49,7 +49,7 @@ func DeleteStarById(c *gin.Context) {
 			c.JSON(200, gin.H{"code": 201, "msg": "无权删除他人资源!", "data": star})
 			return
 		}
-		star, err = starRepository.DeleteByID(id)
+		_, err = starRepository.DeleteByID(id)
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": "删除失败!", "data": star})
 			return
