@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.*
 import android.view.inputmethod.InputMethodManager
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.*
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -108,6 +110,7 @@ class MainActivity : Activity() {
     // 壁纸播放器（视频素材时使用）
     private var wallpaperPlayer: ExoPlayer? = null
     private var wallpaperPlayerView: PlayerView? = null
+    private var wallpaperWebView: WebView? = null
 
     // ==================== 返回栈管理 ====================
     /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
@@ -3798,8 +3801,23 @@ class MainActivity : Activity() {
                     }
                     wallpaperPlayer = wp
                 }
+                "html" -> {
+                    val webView = WebView(this@MainActivity).apply {
+                        fillParent()
+                        webViewClient = WebViewClient()
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = false
+                        settings.allowFileAccess = false
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        setBackgroundColor(Color.BLACK)
+                    }
+                    overlay.addView(webView)
+                    wallpaperWebView = webView
+                    val htmlUrl = buildWallpaperUrl(wallpaper.url)
+                    webView.loadUrl(htmlUrl)
+                }
                 else -> {
-                    // html 类型或其他：显示默认界面
+                    // 其他未知类型：显示默认界面
                     addDefaultScreensaverContent(overlay)
                 }
             }
@@ -3844,8 +3862,8 @@ class MainActivity : Activity() {
     /** 随机选取一个壁纸素材 */
     private fun pickRandomWallpaper(): WallpaperFile? {
         if (wallpaperFiles.isEmpty()) return null
-        // Android TV 不支持 html 类型，只取 video 和 image
-        val supported = wallpaperFiles.filter { it.type == "video" || it.type == "image" }
+        // 支持 video、image、html 三种类型
+        val supported = wallpaperFiles.filter { it.type == "video" || it.type == "image" || it.type == "html" }
         if (supported.isEmpty()) return null
         return supported.random()
     }
@@ -3922,6 +3940,12 @@ class MainActivity : Activity() {
         wallpaperPlayer?.release()
         wallpaperPlayer = null
         wallpaperPlayerView = null
+        // 清理 WebView
+        wallpaperWebView?.let {
+            it.stopLoading()
+            it.destroy()
+        }
+        wallpaperWebView = null
         // 移除覆盖层
         screensaverOverlay?.let { rootLayout.removeView(it) }
         screensaverOverlay = null
