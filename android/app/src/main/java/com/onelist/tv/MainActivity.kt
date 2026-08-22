@@ -3750,7 +3750,7 @@ class MainActivity : Activity() {
                 setColor(Color.parseColor("#BF000000"))
             }
             gravity = Gravity.CENTER
-            lineSpacingExtra = dp(4).toFloat()
+            setLineSpacing(dp(4).toFloat(), 1f)
         }
         val countdownLp = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -3808,7 +3808,7 @@ class MainActivity : Activity() {
 
     /** 构建壁纸完整 URL（含 token） */
     private fun buildWallpaperUrl(relativeUrl: String): String {
-        val base = App.serverUrl.trimEnd('/')
+        val base = (App.serverUrl ?: "").trimEnd('/')
         val token = App.token
         return if (token != null) {
             "$base$relativeUrl?token=$token"
