@@ -36,12 +36,22 @@ func CreateHeart(c *gin.Context) {
 
 func DeleteHeartById(c *gin.Context) {
 	id := c.Query("id")
+	userId := c.GetString("UserId")
 	db := database.NewDb()
 	repo := crud.NewRepositoryHeartsCRUD(db)
 	func(heartRepository repository.HeartRepository) {
-		heart, err := heartRepository.DeleteByID(id)
+		heart, err := heartRepository.FindByID(id)
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": heart})
+			return
+		}
+		if heart.UserId != userId {
+			c.JSON(200, gin.H{"code": 201, "msg": "无权删除他人资源!", "data": heart})
+			return
+		}
+		heart, err = heartRepository.DeleteByID(id)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "删除失败!", "data": heart})
 			return
 		}
 		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": heart})

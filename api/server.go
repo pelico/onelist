@@ -408,7 +408,7 @@ func Run() {
 	r.GET("/file/*path", controllers.FileServer)
 	r.GET("/alist/proxy/:gallery_uid/*path", controllers.AlistProxy)
 	r.GET("/v1/api/playlist", controllers.GetPlaylist)
-	r.POST("/file/gallery/upload", controllers.FileUpload, auth.JWTAuthAdmin())
+	r.POST("/file/gallery/upload", auth.JWTAuthAdmin(), controllers.FileUpload)
 
 	// 日志
 	logApi := r.Group("/v1/api/log", auth.JWTAuth())

@@ -22,10 +22,24 @@ import (
 	"github.com/msterzhang/onelist/plugins/alist"
 )
 
+// isPathSafe 检查清理后的路径是否仍在允许的基础目录内，防止路径遍历攻击
+func isPathSafe(cleanPath, baseDir string) bool {
+	absBase, err1 := filepath.Abs(baseDir)
+	absPath, err2 := filepath.Abs(cleanPath)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return strings.HasPrefix(absPath, absBase)
+}
+
 // 图片文件服务
 func ImgServer(c *gin.Context) {
-	path := c.Param("path")
-	filePath := "images" + path
+	rawPath := c.Param("path")
+	filePath := filepath.Clean("images" + rawPath)
+	if !isPathSafe(filePath, "images") {
+		c.String(http.StatusForbidden, "非法路径")
+		return
+	}
 	if !dir.FileExists(filePath) {
 		c.Writer.WriteHeader(http.StatusNotFound)
 		c.Writer.Flush()
@@ -49,6 +63,12 @@ func FileServer(c *gin.Context) {
 		file = c.Param("path")
 	}
 	file = file[1:]
+	file = filepath.Clean(file)
+	// 禁止路径遍历：清理后仍含 ".." 说明是恶意路径
+	if strings.Contains(file, "..") {
+		c.String(http.StatusForbidden, "非法路径")
+		return
+	}
 	if !dir.FileExists(file) {
 		logger.Warn("play", "本地文件不存在", "路径: "+file)
 		c.String(http.StatusBadRequest, "文件不存在!")
@@ -61,8 +81,12 @@ func FileServer(c *gin.Context) {
 }
 
 func GalleryImgServer(c *gin.Context) {
-	path := c.Param("path")
-	filePath := "./images" + path
+	rawPath := c.Param("path")
+	filePath := filepath.Clean("./images" + rawPath)
+	if !isPathSafe(filePath, "images") {
+		c.String(http.StatusForbidden, "非法路径")
+		return
+	}
 	if !dir.FileExists(filePath) {
 		c.Writer.WriteHeader(http.StatusNotFound)
 		c.Writer.Flush()
@@ -78,9 +102,16 @@ func FileUpload(c *gin.Context) {
 		c.String(http.StatusBadRequest, "没有获得文件!")
 		return
 	}
+	// 仅允许图片扩展名，防止上传恶意文件类型
+	ext := strings.ToLower(path.Ext(file.Filename))
+	allowedExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true, ".bmp": true}
+	if !allowedExts[ext] {
+		c.String(http.StatusBadRequest, "仅支持图片文件 (jpg/jpeg/png/webp/gif/bmp)")
+		return
+	}
 	id := tools.RandStringRunes(16)
-	dst := "./images/w355_and_h200_multi_faces/" + id + path.Ext(file.Filename)
-	data := "/gallery/w355_and_h200_multi_faces/" + id + path.Ext(file.Filename)
+	dst := "./images/w355_and_h200_multi_faces/" + id + ext
+	data := "/gallery/w355_and_h200_multi_faces/" + id + ext
 	c.SaveUploadedFile(file, dst)
 	c.JSON(200, gin.H{"code": 200, "msg": "上传成功!", "data": data})
 }
@@ -113,6 +144,12 @@ func GetPlaylist(c *gin.Context) {
 	} else {
 		// 本地文件路径：去掉开头的 /
 		filePath := strings.TrimPrefix(fileUrl, "/")
+		filePath = filepath.Clean(filePath)
+		// 禁止路径遍历
+		if strings.Contains(filePath, "..") {
+			c.JSON(200, gin.H{"code": 201, "msg": "非法路径", "data": []string{}})
+			return
+		}
 		parentDir := filepath.Dir(filePath)
 		files = getLocalPlaylist(parentDir)
 	}

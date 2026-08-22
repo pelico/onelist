@@ -4,6 +4,13 @@ plugins {
     id 'org.jetbrains.kotlin.kapt'
 }
 
+// 从 local.properties 读取签名配置（敏感信息不提交到仓库）
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localProps.load(new FileInputStream(localPropsFile))
+}
+
 android {
     namespace 'com.onelist.tv'
     compileSdk 33
@@ -23,10 +30,10 @@ android {
             v2SigningEnabled true
         }
         release {
-            storeFile file('release-keystore.jks')
-            storePassword 'onelist123'
-            keyAlias 'onelist'
-            keyPassword 'onelist123'
+            storeFile file(localProps.getProperty('RELEASE_STORE_FILE', 'release-keystore.jks'))
+            storePassword localProps.getProperty('RELEASE_STORE_PASSWORD', 'onelist123')
+            keyAlias localProps.getProperty('RELEASE_KEY_ALIAS', 'onelist')
+            keyPassword localProps.getProperty('RELEASE_KEY_PASSWORD', 'onelist123')
             v1SigningEnabled true
             v2SigningEnabled true
         }

@@ -147,7 +147,7 @@
                                 <div class="show-card-item" v-for="(item, index) in data.the_persons" :key="index">
                                     <router-link :to="{ path: '/person', query: { id: item.id, } }">
                                         <div class="show-img">
-                                            <img v-if="item.profile_path.length > 0" loading="lazy"
+                                            <img v-if="item.profile_path && item.profile_path.length > 0" loading="lazy"
                                                 :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + item.profile_path'
                                                 alt="">
                                             <img v-else loading="lazy" src="/images/not_person.jpg" alt="">

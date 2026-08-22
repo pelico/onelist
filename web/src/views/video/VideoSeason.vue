@@ -87,9 +87,9 @@
                                 <div class="episode-star">
                                     <span class="icon-star">
                                         <i class='bx bxs-star'></i>
-                                    </span>{{ isNaN(Math.floor(item.vote_averag * 100) / 100) ?
+                                    </span>{{ isNaN(Math.floor(item.vote_average * 100) / 100) ?
                                         "" :
-                                        Math.floor(item.vote_averag * 100) / 100
+                                        Math.floor(item.vote_average * 100) / 100
                                     }}
                                 </div>
                                 <div class="episode-overview">

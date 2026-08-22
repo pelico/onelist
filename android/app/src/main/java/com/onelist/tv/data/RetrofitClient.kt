@@ -30,7 +30,7 @@ object RetrofitClient {
 
         // 检测后端返回 code=203（JWT 过期并附带新 token），自动刷新后重试请求
         try {
-            val peekBody = response.peekBody(Long.MAX_VALUE)
+            val peekBody = response.peekBody(4096)
             val json = org.json.JSONObject(peekBody.string())
             if (json.optInt("code") == 203 && json.has("token")) {
                 val newToken = json.getString("token")
@@ -51,7 +51,7 @@ object RetrofitClient {
     }
 
     private val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (com.onelist.tv.BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
     }
 
     internal val okHttpClient: OkHttpClient by lazy {

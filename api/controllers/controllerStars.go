@@ -36,12 +36,22 @@ func CreateStar(c *gin.Context) {
 
 func DeleteStarById(c *gin.Context) {
 	id := c.Query("id")
+	userId := c.GetString("UserId")
 	db := database.NewDb()
 	repo := crud.NewRepositoryStarsCRUD(db)
 	func(starRepository repository.StarRepository) {
-		star, err := starRepository.DeleteByID(id)
+		star, err := starRepository.FindByID(id)
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": star})
+			return
+		}
+		if star.UserId != userId {
+			c.JSON(200, gin.H{"code": 201, "msg": "无权删除他人资源!", "data": star})
+			return
+		}
+		star, err = starRepository.DeleteByID(id)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "删除失败!", "data": star})
 			return
 		}
 		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": star})

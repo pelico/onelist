@@ -40,12 +40,22 @@ func CreatePlayed(c *gin.Context) {
 
 func DeletePlayedById(c *gin.Context) {
 	id := c.Query("id")
+	userId := c.GetString("UserId")
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayedsCRUD(db)
 	func(playedRepository repository.PlayedRepository) {
-		played, err := playedRepository.DeleteByID(id)
+		played, err := playedRepository.FindByID(id)
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": "没有查询到资源!", "data": played})
+			return
+		}
+		if played.UserId != userId {
+			c.JSON(200, gin.H{"code": 201, "msg": "无权删除他人资源!", "data": played})
+			return
+		}
+		played, err = playedRepository.DeleteByID(id)
+		if err != nil {
+			c.JSON(200, gin.H{"code": 201, "msg": "删除失败!", "data": played})
 			return
 		}
 		c.JSON(200, gin.H{"code": 200, "msg": "删除资源成功!", "data": played})

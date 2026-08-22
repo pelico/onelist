@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/msterzhang/onelist/api/database"
@@ -103,9 +104,14 @@ func AlistProxy(c *gin.Context) {
 	// 否则上游返回 304 时代理会透传给浏览器，但浏览器并无实际缓存内容，导致播放失败。
 
 	client := &http.Client{
-		Timeout: 0,
+		// 不设整体 Timeout：媒体流式传输可能持续数小时
 		Transport: &http.Transport{
-			DisableCompression: true,
+			DisableCompression:      true,
+			TLSHandshakeTimeout:     10 * time.Second,
+			ResponseHeaderTimeout:   30 * time.Second,
+			IdleConnTimeout:         120 * time.Second,
+			MaxIdleConns:            20,
+			MaxIdleConnsPerHost:     10,
 		},
 	}
 

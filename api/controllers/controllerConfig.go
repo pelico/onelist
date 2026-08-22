@@ -16,6 +16,9 @@ func GetWebConfig(c *gin.Context) {
 
 func GetConfig(c *gin.Context) {
 	configData := config.GetConfig()
+	// 脱敏：普通用户不应看到 API 密钥和 Webhook Token
+	configData.KeyDb = ""
+	configData.WebhookToken = ""
 	c.JSON(200, gin.H{"code": 200, "msg": "获取成功!", "data": configData})
 }
 

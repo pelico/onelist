@@ -27,10 +27,20 @@ func NewRepositoryTheTvsCRUD(db *gorm.DB) *RepositoryTheTvsCRUD {
 	}
 }
 
+// allowedTvSortModes 白名单：仅允许这些列作为排序字段，防止 SQL 注入
+var allowedTvSortModes = map[string]bool{
+	"vote_average": true, "last_air_date": true, "updated_at": true,
+	"created_at": true, "name": true, "id": true, "popularity": true,
+}
+
 // Stor theTv from the DB
 func (r *RepositoryTheTvsCRUD) Sort(galleryUid string, mode string, order string, page int, size int) ([]models.TheTv, int, error) {
 	if mode == "release_date" {
 		mode = "last_air_date"
+	}
+	// 校验排序参数，防止 SQL 注入（复用 movies 的 order 白名单）
+	if !allowedTvSortModes[mode] || !allowedSortOrders[order] {
+		return []models.TheTv{}, 0, fmt.Errorf("invalid sort parameter")
 	}
 	orderSql := fmt.Sprintf("%s %s", mode, order)
 	if config.DBDRIVER == "sqlite" && strings.Contains(mode, "_at") {
@@ -147,9 +157,9 @@ func (r *RepositoryTheTvsCRUD) Search(q string, page int, size int) ([]models.Th
 		Select("MIN(id)").
 		Where("name LIKE ?", "%"+q+"%").
 		Group("name")
-	result := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery)
-	result.Count(&num)
-	err := result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
+	// 使用独立的查询实例，避免 Count 污染 Scan 的 Statement
+	r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery).Count(&num)
+	err := r.db.Model(&models.TheTv{}).Where("id IN (?)", subQuery).Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
 	if err != nil {
 		return []models.TheTv{}, 0, err
 	}

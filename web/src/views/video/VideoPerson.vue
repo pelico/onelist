@@ -7,7 +7,8 @@
             <div class="mainColumn">
                 <div class="view-scroller">
                     <div class="view-card-image">
-                        <img :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + data.profile_path' alt="">
+                        <img v-if="data.profile_path" :src='COMMON.imgUrl + "/t/p/w220_and_h330_face/" + data.profile_path' alt="">
+                        <img v-else src="/images/not_person.jpg" alt="">
                     </div>
                     <div class="view-card-detail detailTextContainer">
                         <div class="lex-direction-column">

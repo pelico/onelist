@@ -1736,7 +1736,7 @@ class MainActivity : Activity() {
                     currentVideoGalleryUid = movie.galleryUid
                     currentVideoGalleryTitle = currentGalleryTitle
                     android.util.Log.d("OneList", "Movie play: id=${movie.id} title='${movie.title}' galleryUid='${movie.galleryUid}' galleryTitle='$currentGalleryTitle' url='${movie.url}'")
-                    val pl = currentMovieList?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
+                    val pl = currentMovieList?.filter { it.url != null }?.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                     val idx = pl?.indexOfFirst { it.url == movie.url } ?: 0
                     showPlayer(movie.url!!, movie.galleryUid, pl, if (idx >= 0) idx else 0)
                 } else {
@@ -2146,7 +2146,7 @@ class MainActivity : Activity() {
                         currentVideoGalleryUid = ep.galleryUid
                         currentVideoGalleryTitle = currentGalleryTitle
                         android.util.Log.d("OneList", "TV play: tvId=${currentTv?.id} title='${currentVideoTitle}' galleryUid='${ep.galleryUid}' galleryTitle='$currentGalleryTitle' url='${ep.url}'")
-                        val pl = episodes.map { PlayItem(it.url!!, it.galleryUid, it.title) }
+                        val pl = episodes.filter { it.url != null }.map { PlayItem(it.url!!, it.galleryUid, it.title) }
                         val idx = episodes.indexOf(ep)
                         showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
                     } else {
@@ -3275,6 +3275,10 @@ class MainActivity : Activity() {
             if (p.playbackState != com.google.android.exoplayer2.Player.STATE_ENDED &&
                 p.playbackState != com.google.android.exoplayer2.Player.STATE_IDLE) {
                 p.play()
+            }
+            // 对称 onStop() 的 stopScreensaverTracker()：恢复护眼计时器
+            if (screensaverEnabled) {
+                startScreensaverTracker()
             }
         }
     }

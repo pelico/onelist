@@ -14,7 +14,7 @@ type User struct {
 	UserName            string    `json:"user_name"`
 	UserId              string    `json:"user_id"`
 	UserEmail           string    `json:"user_email" gorm:"not null;unique"`
-	UserPassword        string    `json:"user_password"`
+	UserPassword        string    `json:"-" gorm:"type:text"`
 	IsAdmin             bool      `json:"is_admin"`
 	IsLock              bool      `json:"is_lock"`
 	FailedAttempts      int       `json:"failed_attempts" gorm:"default:0"`

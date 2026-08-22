@@ -27,8 +27,19 @@ func NewRepositoryTheMoviesCRUD(db *gorm.DB) *RepositoryTheMoviesCRUD {
 	}
 }
 
+// allowedSortModes 白名单：仅允许这些列作为排序字段，防止 SQL 注入
+var allowedMovieSortModes = map[string]bool{
+	"vote_average": true, "release_date": true, "updated_at": true,
+	"created_at": true, "title": true, "id": true, "popularity": true,
+}
+var allowedSortOrders = map[string]bool{"asc": true, "desc": true, "ASC": true, "DESC": true}
+
 // Stor themovie from the DB
 func (r *RepositoryTheMoviesCRUD) Sort(galleryUid string, mode string, order string, page int, size int) ([]models.TheMovie, int, error) {
+	// 校验排序参数，防止 SQL 注入
+	if !allowedMovieSortModes[mode] || !allowedSortOrders[order] {
+		return []models.TheMovie{}, 0, fmt.Errorf("invalid sort parameter")
+	}
 	orderSql := fmt.Sprintf("%s %s", mode, order)
 	if config.DBDRIVER == "sqlite" && strings.Contains(mode, "_at") {
 		orderSql = fmt.Sprintf("datetime(%s) %s", mode, order)
@@ -146,9 +157,9 @@ func (r *RepositoryTheMoviesCRUD) Search(q string, page int, size int) ([]models
 		Select("MIN(id)").
 		Where("title LIKE ? OR original_title LIKE ?", "%"+q+"%", "%"+q+"%").
 		Group("url")
-	result := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery)
-	result.Count(&num)
-	err := result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
+	// 使用独立的查询实例，避免 Count 污染 Scan 的 Statement
+	r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery).Count(&num)
+	err := r.db.Model(&models.TheMovie{}).Where("id IN (?)", subQuery).Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&list).Error
 	if err != nil {
 		return []models.TheMovie{}, 0, err
 	}

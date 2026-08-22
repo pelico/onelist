@@ -311,12 +311,14 @@ export default defineComponent({
 
         function initUrlActive() {
             let sider_items = document.querySelectorAll(".sider-item a");
-            sider_items.forEach(event => {
-                sider_items.forEach(event => {
-                    event.classList.remove('active')
-                });
-                event.addEventListener('click', () => {
-                    event.classList.add('active');
+            sider_items.forEach(el => {
+                if (el.dataset.navBound) return;
+                el.dataset.navBound = "1";
+                el.addEventListener('click', () => {
+                    sider_items.forEach(item => {
+                        item.classList.remove('active')
+                    });
+                    el.classList.add('active');
                 })
             })
         }

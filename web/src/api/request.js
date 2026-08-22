@@ -23,8 +23,24 @@ instance.interceptors.request.use(config => {
 
 // 响应拦截器：统一处理错误
 instance.interceptors.response.use(
-  response => response.data,
+  response => {
+    // 后端 JWT 过期返回 code=203，清除过期 cookie 并跳转登录
+    if (response.data && response.data.code === 203) {
+      document.cookie = 'Authorization=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+      document.cookie = 'UserId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+      window.location.href = '/login'
+      return Promise.reject(new Error('登录已过期'))
+    }
+    return response.data
+  },
   error => {
+    // HTTP 401 未授权：清除 cookie 并跳转登录
+    if (error.response && error.response.status === 401) {
+      document.cookie = 'Authorization=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+      document.cookie = 'UserId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+      window.location.href = '/login'
+      return Promise.reject(new Error('未授权，请重新登录'))
+    }
     console.error('请求错误:', error)
     return Promise.reject(error)
   }
