@@ -3668,6 +3668,8 @@ class MainActivity : Activity() {
     /** 10 秒预警 → 然后触发休息屏保 */
     private fun startScreensaverWarning() {
         if (screensaverActive) return
+        // 防止重复调用：如果预警已在运行，直接返回
+        if (warningRunnableRef != null) return
         ensureWarningBanner()
         val banner = warningBanner ?: return
         var countdown = 10
@@ -3727,7 +3729,7 @@ class MainActivity : Activity() {
             if (!screensaverActive) return
             screensaverCountdown--
             if (screensaverCountdown <= 0) {
-                dismissScreensaver()
+                onScreensaverEnd()
                 return
             }
             updateCountdownDisplay()
@@ -3762,26 +3764,7 @@ class MainActivity : Activity() {
             requestFocus()
         }
 
-        // 倒计时角标（右上角）
-        val countdown = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            setPadding(dp(20), dp(12), dp(20), dp(12))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
-                setColor(Color.parseColor("#BF000000"))
-            }
-            gravity = Gravity.CENTER
-            setLineSpacing(dp(4).toFloat(), 1f)
-        }
-        val countdownLp = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(24); rightMargin = dp(24) }
-        overlay.addView(countdown, countdownLp)
-        countdownText = countdown
-
-        // 壁纸内容区域
+        // 壁纸内容区域（先添加，确保倒计时角标在最上层）
         val wallpaper = pickRandomWallpaper()
         if (wallpaper != null) {
             when (wallpaper.type) {
@@ -3823,6 +3806,25 @@ class MainActivity : Activity() {
         } else {
             addDefaultScreensaverContent(overlay)
         }
+
+        // 倒计时角标（右上角，最后添加以确保在最上层）
+        val countdown = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(Color.parseColor("#BF000000"))
+            }
+            gravity = Gravity.CENTER
+            setLineSpacing(dp(4).toFloat(), 1f)
+        }
+        val countdownLp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(24); rightMargin = dp(24) }
+        overlay.addView(countdown, countdownLp)
+        countdownText = countdown
 
         rootLayout.addView(overlay)
         screensaverOverlay = overlay
