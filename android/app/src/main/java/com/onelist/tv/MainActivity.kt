@@ -3728,8 +3728,10 @@ class MainActivity : Activity() {
             updateCountdownDisplay()
             // 开始倒计时
             screensaverHandler.post(screensaverCountdownRunnable)
+        } else if (mode == "locked") {
+            // locked 模式：每 60 秒检查一次是否已跨天解锁
+            screensaverHandler.postDelayed({ onScreensaverEnd() }, 60000)
         }
-        // locked 模式不设倒计时，由定期检查解锁
         android.util.Log.d("OneList", "Screensaver triggered: mode=$mode")
     }
 
