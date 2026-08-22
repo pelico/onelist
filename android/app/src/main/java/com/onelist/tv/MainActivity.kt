@@ -194,6 +194,10 @@ class MainActivity : Activity() {
         initSSE()
 
         if (App.isLoggedIn()) {
+            // 自动登录时也需要拉取护眼屏保配置
+            fetchScreensaverConfig()
+            fetchWallpaperFiles()
+            fetchTodayPlayDuration()
             showHome()
         } else {
             showLogin()
