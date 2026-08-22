@@ -3488,16 +3488,23 @@ class MainActivity : Activity() {
 
     /** 从服务端获取屏保配置 */
     private fun fetchScreensaverConfig() {
+        android.util.Log.d("OneList", "Fetching screensaver config...")
         RetrofitClient.getService().getConfigs().enqueue(object : Callback<ApiResponse<Config>> {
             override fun onResponse(call: Call<ApiResponse<Config>>, response: Response<ApiResponse<Config>>) {
-                val d = response.body()?.data ?: return
+                val d = response.body()?.data
+                if (d == null) {
+                    android.util.Log.w("OneList", "Screensaver config response data is null, using defaults")
+                    return
+                }
                 screensaverEnabled = d.screensaverEnabled != "否"
                 screensaverPlayDuration = (d.screensaverPlayDuration?.toIntOrNull()) ?: 3600
                 screensaverDuration = (d.screensaverDuration?.toIntOrNull()) ?: 180
                 screensaverDailyLimit = (d.screensaverDailyLimit?.toIntOrNull()) ?: 7200
-                android.util.Log.d("OneList", "Screensaver config: enabled=$screensaverEnabled play=${screensaverPlayDuration}s dur=${screensaverDuration}s daily=${screensaverDailyLimit}s")
+                android.util.Log.d("OneList", "Screensaver config loaded: enabled=$screensaverEnabled play=${screensaverPlayDuration}s dur=${screensaverDuration}s daily=${screensaverDailyLimit}s")
             }
-            override fun onFailure(call: Call<ApiResponse<Config>>, t: Throwable) { /* 使用默认值 */ }
+            override fun onFailure(call: Call<ApiResponse<Config>>, t: Throwable) {
+                android.util.Log.e("OneList", "Screensaver config fetch failed: ${t.message}, using defaults")
+            }
         })
     }
 
@@ -3511,7 +3518,9 @@ class MainActivity : Activity() {
                     android.util.Log.d("OneList", "Wallpaper files: ${files.size}")
                 }
             }
-            override fun onFailure(call: Call<ApiResponse<List<WallpaperFile>>>, t: Throwable) { /* 无素材时使用默认界面 */ }
+            override fun onFailure(call: Call<ApiResponse<List<WallpaperFile>>>, t: Throwable) {
+                android.util.Log.e("OneList", "Wallpaper fetch failed: ${t.message}")
+            }
         })
     }
 
@@ -3524,13 +3533,16 @@ class MainActivity : Activity() {
                     android.util.Log.d("OneList", "Today play duration: ${todayTotalSeconds}s")
                 }
             }
-            override fun onFailure(call: Call<ApiResponse<Int>>, t: Throwable) { /* 使用本地累计值 */ }
+            override fun onFailure(call: Call<ApiResponse<Int>>, t: Throwable) {
+                android.util.Log.e("OneList", "Today play duration fetch failed: ${t.message}")
+            }
         })
     }
 
     /** 启动播放时长追踪器（每秒 +1，仅在视频播放时累计） */
     private fun startScreensaverTracker() {
         stopScreensaverTracker()
+        android.util.Log.d("OneList", "Screensaver tracker started: enabled=$screensaverEnabled playDur=${screensaverPlayDuration}s dailyLimit=${screensaverDailyLimit}s cumulative=${cumulativePlaySeconds}s todayTotal=${todayTotalSeconds}s")
         screensaverHandler.post(screensaverTrackerRunnable)
     }
 
@@ -3545,6 +3557,11 @@ class MainActivity : Activity() {
             if (p != null && p.playWhenReady && p.playbackState == com.google.android.exoplayer2.Player.STATE_READY) {
                 cumulativePlaySeconds++
                 todayTotalSeconds++
+
+                // 每30秒输出一次日志帮助诊断
+                if (cumulativePlaySeconds % 30 == 0) {
+                    android.util.Log.d("OneList", "Screensaver tracker: cumulative=${cumulativePlaySeconds}s today=${todayTotalSeconds}s threshold=${screensaverPlayDuration}s")
+                }
 
                 val remaining = screensaverDailyLimit - todayTotalSeconds
 
@@ -3565,6 +3582,7 @@ class MainActivity : Activity() {
 
                 // 检查连续播放阈值
                 if (cumulativePlaySeconds >= screensaverPlayDuration) {
+                    android.util.Log.d("OneList", "Screensaver: cumulative play reached threshold, starting warning")
                     startScreensaverWarning()
                 }
             }
