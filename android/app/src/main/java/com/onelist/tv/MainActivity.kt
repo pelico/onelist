@@ -2835,7 +2835,13 @@ class MainActivity : Activity() {
                 // Start heartbeat on play
                 startHeartbeat(exo)
                 // 启动护眼屏保计时器
-                if (screensaverEnabled) startScreensaverTracker()
+                if (screensaverEnabled) {
+                    startScreensaverTracker()
+                    // 防止绕过：如果今日已播放超标，立即触发锁定屏保
+                    if (todayTotalSeconds >= screensaverDailyLimit && screensaverDailyLimit > 0) {
+                        triggerScreensaver("locked")
+                    }
+                }
                 android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
                 exo.addListener(object : com.google.android.exoplayer2.Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
