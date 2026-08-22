@@ -2834,7 +2834,10 @@ class MainActivity : Activity() {
                 
                 // Start heartbeat on play
                 startHeartbeat(exo)
-                // 启动护眼屏保计时器
+                // 每次播放前刷新屏保配置和今日时长，确保服务端修改能及时同步
+                fetchScreensaverConfig()
+                fetchTodayPlayDuration()
+                // 启动护眼屏保计时器（配置拉取是异步的，先用当前值启动，下次播放会用新值）
                 if (screensaverEnabled) {
                     startScreensaverTracker()
                     // 防止绕过：如果今日已播放超标，立即触发锁定屏保
