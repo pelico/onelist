@@ -121,10 +121,10 @@
                         <n-radio-button value="count">播放次数</n-radio-button>
                     </n-radio-group>
                 </div>
-                <div v-if="galleryStats.length === 0" class="empty-chart">暂无数据</div>
+                <div v-if="displayedGalleryStats.length === 0" class="empty-chart">暂无数据</div>
                 <div v-else class="gallery-combined">
                     <div class="gallery-list">
-                        <div v-for="(item, index) in galleryStats" :key="index" class="gallery-item">
+                        <div v-for="(item, index) in displayedGalleryStats" :key="index" class="gallery-item">
                             <div class="gallery-info">
                                 <span class="gallery-dot" :style="{ background: pieColors[index % pieColors.length] }"></span>
                                 <span class="gallery-name">{{ item.gallery_title || item.gallery_uid || '未知' }}</span>
@@ -281,7 +281,7 @@ export default defineComponent({
 
         // 饼图渐变
         const pieGradient = computed(() => {
-            const stats = galleryStats.value
+            const stats = displayedGalleryStats.value
             if (!stats || stats.length === 0) return 'transparent'
             const total = stats.reduce((sum, d) => {
                 return sum + (galleryPieMode.value === 'count' ? d.play_count : d.total_seconds)
@@ -299,10 +299,27 @@ export default defineComponent({
             return `conic-gradient(${stops.join(', ')})`
         })
 
-        // Top 影片：默认显示前5，展开显示全部
+        // 媒体库观看比例：按模式排序
+        const displayedGalleryStats = computed(() => {
+            const sorted = [...galleryStats.value].sort((a, b) => {
+                if (galleryPieMode.value === 'count') {
+                    return (b.play_count || 0) - (a.play_count || 0)
+                }
+                return (b.total_seconds || 0) - (a.total_seconds || 0)
+            })
+            return sorted
+        })
+
+        // Top 影片：按模式排序后显示，默认显示前5，展开显示全部
         const displayedMovies = computed(() => {
-            if (showAllMovies.value) return topMovies.value
-            return topMovies.value.slice(0, 5)
+            const sorted = [...topMovies.value].sort((a, b) => {
+                if (topMoviesMode.value === 'count') {
+                    return (b.play_count || 0) - (a.play_count || 0)
+                }
+                return (b.total_seconds || 0) - (a.total_seconds || 0)
+            })
+            if (showAllMovies.value) return sorted
+            return sorted.slice(0, 5)
         })
 
         // 表格列定义
@@ -570,6 +587,7 @@ export default defineComponent({
             weekTotal,
             todayCount,
             totalCount,
+            displayedGalleryStats,
             galleryStats,
             galleryPieMode,
             topMovies,
