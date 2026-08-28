@@ -11,6 +11,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/msterzhang/onelist/api/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -193,37 +194,36 @@ func SetConfig(config models.Config) {
 }
 
 // 保存配置
+// 优化：批量构造后用 clause.OnConflict 一次性 Upsert，避免原先 16 项设置产生 32 次 DB 查询（16 次 First + 16 次 Create/Save）
 func SaveConfig(config models.Config) (models.Config, error) {
 	if db != nil {
-		settings := map[string]string{
-			"Title":                  config.Title,
-			"DownLoadImage":          config.DownLoadImage,
-			"DownLoadImageToMedia":   config.DownLoadImageToMedia,
-			"ImgUrl":                 config.ImgUrl,
-			"TheMovieDbApiUrl":       config.TheMovieDbApiUrl,
-			"FaviconicoUrl":          config.FaviconicoUrl,
-			"KeyDb":                  config.KeyDb,
-			"VideoTypes":             config.VideoTypes,
-			"LogRetentionDays":       config.LogRetentionDays,
-			"CustomDefaultImage":     config.CustomDefaultImage,
-			"ScreensaverEnabled":     config.ScreensaverEnabled,
-			"ScreensaverPlayDuration": config.ScreensaverPlayDuration,
-			"ScreensaverDuration":    config.ScreensaverDuration,
-			"ScreensaverDailyLimit":  config.ScreensaverDailyLimit,
-			"WebhookEnabled":       config.WebhookEnabled,
-			"WebhookToken":         config.WebhookToken,
-			"SenderName":           config.SenderName,
+		settings := []models.Setting{
+			{Key: "Title", Value: config.Title},
+			{Key: "DownLoadImage", Value: config.DownLoadImage},
+			{Key: "DownLoadImageToMedia", Value: config.DownLoadImageToMedia},
+			{Key: "ImgUrl", Value: config.ImgUrl},
+			{Key: "TheMovieDbApiUrl", Value: config.TheMovieDbApiUrl},
+			{Key: "FaviconicoUrl", Value: config.FaviconicoUrl},
+			{Key: "KeyDb", Value: config.KeyDb},
+			{Key: "VideoTypes", Value: config.VideoTypes},
+			{Key: "LogRetentionDays", Value: config.LogRetentionDays},
+			{Key: "CustomDefaultImage", Value: config.CustomDefaultImage},
+			{Key: "ScreensaverEnabled", Value: config.ScreensaverEnabled},
+			{Key: "ScreensaverPlayDuration", Value: config.ScreensaverPlayDuration},
+			{Key: "ScreensaverDuration", Value: config.ScreensaverDuration},
+			{Key: "ScreensaverDailyLimit", Value: config.ScreensaverDailyLimit},
+			{Key: "WebhookEnabled", Value: config.WebhookEnabled},
+			{Key: "WebhookToken", Value: config.WebhookToken},
+			{Key: "SenderName", Value: config.SenderName},
 		}
-		for key, value := range settings {
-			setting := models.Setting{}
-			err := db.Where("`key` = ?", key).First(&setting).Error
+		for i := range settings {
+			s := settings[i]
+			err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "key"}},
+				DoUpdates: clause.AssignmentColumns([]string{"value"}),
+			}).Create(&s).Error
 			if err != nil {
-				setting.Key = key
-				setting.Value = value
-				db.Create(&setting)
-			} else {
-				setting.Value = value
-				db.Save(&setting)
+				log.Printf("[config] 保存配置项失败 key=%s: %v", s.Key, err)
 			}
 		}
 	}

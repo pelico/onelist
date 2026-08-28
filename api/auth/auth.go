@@ -6,15 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/msterzhang/onelist/api/database"
+	"github.com/msterzhang/onelist/api/models"
 	"github.com/msterzhang/onelist/api/security"
 	"github.com/msterzhang/onelist/api/utils/captcha"
-	"github.com/msterzhang/onelist/api/utils/channels"
-
-	"github.com/msterzhang/onelist/api/models"
-
-	"github.com/msterzhang/onelist/api/database"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -109,79 +104,64 @@ func resetIPAttempts(ip string) {
 func Login(email, password string, captcha string, requireCaptcha bool, clientIP string) (models.User, string, bool, error) {
 	user := models.User{}
 	var err error
-	var db *gorm.DB
-	done := make(chan bool)
-	go func(ch chan<- bool) {
-		defer close(ch)
-		db = database.NewDb()
-		if err != nil {
-			ch <- false
-			return
-		}
+	db := database.NewDb()
 
-		// ---------- IP 硬性预校验（无论账号是否存在） ----------
-		// 1) 硬锁定：直接拒绝
-		if isIPHardLocked(clientIP) {
-			err = errors.New("请求过于频繁，请稍后再试")
-			ch <- false
-			return
-		}
+	// ---------- IP 硬性预校验（无论账号是否存在） ----------
+	// 1) 硬锁定：直接拒绝
+	if isIPHardLocked(clientIP) {
+		err = errors.New("请求过于频繁，请稍后再试")
+	} else {
 		// 2) IP 失败计数达到阈值：必须带正确验证码
 		ipCount := getIPAttempts(clientIP)
 		if ipCount >= MaxFailedAttempts-1 {
 			if !requireCaptcha || !verifyCaptcha(captcha) {
 				err = errors.New("验证码错误")
-				ch <- false
-				return
 			}
 		}
+	}
 
-		// ---------- 账号级校验 ----------
+	// ---------- 账号级校验 ----------
+	if err == nil {
 		err = db.Model(&models.User{}).Where("user_email = ?", email).Take(&user).Error
-		if err != nil {
-			ch <- false
-			return
-		}
+	}
+	if err == nil {
 		if user.IsLock && time.Now().Before(user.LastFailedAttempt.Add(LockDuration)) {
 			err = errors.New("账号已锁定，请稍后再试")
-			ch <- false
-			return
 		}
-		if user.IsLock && time.Now().After(user.LastFailedAttempt.Add(LockDuration)) {
-			db.Model(&models.User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{
-				"is_lock":         false,
-				"failed_attempts": 0,
-			})
-			user.IsLock = false
-		}
+	}
+	if err == nil && user.IsLock && time.Now().After(user.LastFailedAttempt.Add(LockDuration)) {
+		db.Model(&models.User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{
+			"is_lock":         false,
+			"failed_attempts": 0,
+		})
+		user.IsLock = false
+	}
+	if err == nil {
 		failedCount := user.FailedAttempts
 		if failedCount == 0 {
 			failedCount = getIPAttempts(clientIP)
 		}
 		if failedCount >= MaxFailedAttempts && requireCaptcha && !verifyCaptcha(captcha) {
 			err = errors.New("验证码错误")
-			ch <- false
-			return
 		}
+	}
+	if err == nil {
 		err = security.VerifyPassword(user.UserPassword, password)
-		if err != nil {
-			ch <- false
-			return
-		}
-		ch <- true
-	}(done)
+	}
 
-	if channels.OK(done) {
+	// 登录成功路径
+	if err == nil {
 		db.Model(&models.User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{
 			"failed_attempts":     0,
 			"last_failed_attempt": time.Time{},
 		})
 		resetIPAttempts(clientIP)
 		user.UserPassword = ""
-		err, token := GenerateJWT(user)
-		return user, err, false, token
+		token, jwtErr := GenerateJWT(user)
+		return user, token, false, jwtErr
 	}
 
+	// 失败路径：累计失败次数 / 返回新验证码需求
 	var newAttempts int
 	if user.Id != 0 {
 		newAttempts = user.FailedAttempts + 1
@@ -211,43 +191,20 @@ func verifyCaptcha(code string) bool {
 // LoginAdmin 管理员登录
 func LoginAdmin(email, password string) (string, error) {
 	user := models.User{}
-	var err error
-	var db *gorm.DB
-	done := make(chan bool)
-	go func(ch chan<- bool) {
-		defer close(ch)
-		db = database.NewDb()
-		if err != nil {
-			ch <- false
-			return
-		}
-		err = db.Debug().Model(&models.User{}).Where("user_email = ?", email).Take(&user).Error
-		if err != nil {
-			err = errors.New("用户不存在")
-			ch <- false
-			return
-		}
-		if user.IsLock {
-			err = errors.New("账号已锁定，请联系管理员解封")
-			ch <- false
-			return
-		}
-		if !user.IsAdmin {
-			err = errors.New("非管理员，禁止登录")
-			ch <- false
-			return
-		}
-		err = security.VerifyPassword(user.UserPassword, password)
-		if err != nil {
-			ch <- false
-			return
-		}
-		ch <- true
-	}(done)
-
-	if channels.OK(done) {
-		user.UserPassword = ""
-		return GenerateJWT(user)
+	db := database.NewDb()
+	err := db.Model(&models.User{}).Where("user_email = ?", email).Take(&user).Error
+	if err != nil {
+		return "", errors.New("用户不存在")
 	}
-	return "", err
+	if user.IsLock {
+		return "", errors.New("账号已锁定，请联系管理员解封")
+	}
+	if !user.IsAdmin {
+		return "", errors.New("非管理员，禁止登录")
+	}
+	if err := security.VerifyPassword(user.UserPassword, password); err != nil {
+		return "", err
+	}
+	user.UserPassword = ""
+	return GenerateJWT(user)
 }

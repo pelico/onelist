@@ -484,29 +484,49 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 	}
 	data.TheCredit = credit
 	casts := credit.Cast
-	// persons := []models.ThePerson{}
-	for _, cast := range casts {
-		porson, err := GetThePersonData(cast.ID)
-		if err != nil {
-			continue
-		}
-		porson.TheTvs = append(porson.TheTvs, data)
-		err = ChunkPerson(porson)
-		if err != nil {
-			continue
-		}
-	}
 	crews := credit.Crew
+
+	// 收集所有演职人员 ID（与电影刮削保持一致：先批量查已存在，只对缺失的发 HTTP）
+	allPersonIds := make([]int, 0, len(casts)+len(crews))
+	for _, cast := range casts {
+		allPersonIds = append(allPersonIds, cast.ID)
+	}
 	for _, crew := range crews {
-		porson, err := GetThePersonData(crew.ID)
+		allPersonIds = append(allPersonIds, crew.ID)
+	}
+
+	// 批量查询已存在的人员，避免重复 HTTP 请求和重复入库
+	db := database.NewDb()
+	var existingPersons []models.ThePerson
+	db.Model(&models.ThePerson{}).Where("id IN (?)", allPersonIds).Find(&existingPersons)
+	existingIds := make(map[int]bool)
+	for _, p := range existingPersons {
+		existingIds[p.ID] = true
+	}
+
+	// 仅对库中不存在的演员拉取 TMDB 详情 + 入库
+	for _, cast := range casts {
+		if existingIds[cast.ID] {
+			continue
+		}
+		person, err := GetThePersonData(cast.ID)
 		if err != nil {
 			continue
 		}
-		porson.TheTvs = append(porson.TheTvs, data)
-		err = ChunkPerson(porson)
+		person.TheTvs = append(person.TheTvs, data)
+		_ = ChunkPerson(person)
+	}
+
+	for _, crew := range crews {
+		if existingIds[crew.ID] {
+			continue
+		}
+		person, err := GetThePersonData(crew.ID)
 		if err != nil {
 			continue
 		}
+		person.TheTvs = append(person.TheTvs, data)
+		_ = ChunkPerson(person)
 	}
 	SeasonNumber, EpisodeNumber, err := extract.ExtractNumberWithFile(file)
 	if err != nil {

@@ -22,7 +22,8 @@ type CaptchaData struct {
 
 // GenerateCaptcha 生成4位验证码图片
 func GenerateCaptcha() (string, image.Image) {
-	rand.Seed(time.Now().UnixNano())
+	// 注意：Go 1.20+ math/rand 全局源已自动 seed，
+	// 不调用 rand.Seed 可避免全局锁竞争与同一纳秒重复 seed 生成相同验证码的问题。
 	code := make([]byte, 4)
 	for i := range code {
 		code[i] = letters[rand.Intn(len(letters))]

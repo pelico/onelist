@@ -54,8 +54,10 @@ func InitDb() error {
 		db.Exec("PRAGMA cache_size=8192;")
 		db.Exec("PRAGMA mmap_size=268435456;")
 		db.Exec("PRAGMA temp_store=MEMORY;")
-		sqlDB.SetMaxOpenConns(1)
-		sqlDB.SetMaxIdleConns(1)
+		// SQLite WAL 模式下允许多读单写：读连接可并发（一般 2~8），写仍串行化
+		// 相比原先 MaxOpenConns=1 把所有读写串行，提升至 4 可显著降低前端并发查询时的连接排队
+		sqlDB.SetMaxOpenConns(4)
+		sqlDB.SetMaxIdleConns(4)
 
 		// 为用户交互频繁的表创建复合索引
 		for _, idx := range []string{

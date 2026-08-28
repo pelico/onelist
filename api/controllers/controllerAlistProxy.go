@@ -14,6 +14,20 @@ import (
 	"github.com/msterzhang/onelist/plugins/alist"
 )
 
+// 共享 HTTP client 用于播放代理：复用 TCP 连接池，避免每次播放请求（尤其是 Range 请求）
+// 都重新做 DNS + TCP + TLS 握手，显著降低拖进度条的延迟与卡顿时长。
+// 不设整体 Timeout：媒体流式传输可能持续数小时。
+var sharedProxyClient = &http.Client{
+	Transport: &http.Transport{
+		DisableCompression:    true,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		IdleConnTimeout:       300 * time.Second,
+		MaxIdleConns:          50,
+		MaxIdleConnsPerHost:   30,
+	},
+}
+
 // isSubtitleFile 判断是否为字幕文件（前端播放时会主动探测字幕，不存在属正常情况）
 func isSubtitleFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -103,17 +117,7 @@ func AlistProxy(c *gin.Context) {
 	// 这些是浏览器缓存验证头，代理应始终从上游获取最新内容，
 	// 否则上游返回 304 时代理会透传给浏览器，但浏览器并无实际缓存内容，导致播放失败。
 
-	client := &http.Client{
-		// 不设整体 Timeout：媒体流式传输可能持续数小时
-		Transport: &http.Transport{
-			DisableCompression:      true,
-			TLSHandshakeTimeout:     10 * time.Second,
-			ResponseHeaderTimeout:   30 * time.Second,
-			IdleConnTimeout:         120 * time.Second,
-			MaxIdleConns:            20,
-			MaxIdleConnsPerHost:     10,
-		},
-	}
+	client := sharedProxyClient
 
 	resp, err := client.Do(proxyReq)
 	if err != nil {

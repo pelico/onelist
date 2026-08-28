@@ -14,6 +14,7 @@ import (
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
+	"github.com/msterzhang/onelist/api/utils/cache"
 	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/config"
 )
@@ -28,8 +29,17 @@ var sharedHTTPClient = &http.Client{
 	},
 }
 
-// 登录alist获取token
+// 登录alist获取token（按 gallery_uid 缓存，避免每次调用 Alist* 函数都重新登录）
+// 缓存有效期 47 小时（Alist 默认 token 48h 过期，留 1h 缓冲）
 func AlistLogin(gallery models.Gallery) (string, error) {
+	cacheKey := fmt.Sprintf("alist_token:%s", gallery.GalleryUid)
+	if c := cache.NewCache(); c != nil {
+		if v, ok := c.Get(cacheKey); ok {
+			if token, yep := v.(string); yep && token != "" {
+				return token, nil
+			}
+		}
+	}
 	api := fmt.Sprintf("%s/api/auth/login", gallery.AlistHost)
 	form := fmt.Sprintf(`{"username":"%s","password":"%s","otp_code":""}`, gallery.AlistUser, gallery.AlistPwd)
 	req, err := http.NewRequest("POST", api, bytes.NewBufferString(form))
@@ -53,6 +63,10 @@ func AlistLogin(gallery models.Gallery) (string, error) {
 		return "", err
 	}
 	if data.Code == 200 {
+		// 写入缓存（47h - 比 Alist 默认 48h 少 1h，避免临近过期时用无效 token 调用）
+		if c := cache.NewCache(); c != nil {
+			c.Set(cacheKey, data.Data.Token, 47*time.Hour)
+		}
 		return data.Data.Token, nil
 	}
 	return "", errors.New(data.Message)

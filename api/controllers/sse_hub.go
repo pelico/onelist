@@ -27,15 +27,25 @@ func (h *SSEHub) Subscribe(userId string) chan string {
 	return ch
 }
 
-// Unsubscribe 移除一个 SSE 客户端
+// Unsubscribe 移除一个 SSE 客户端并关闭通道（安全：仅对首次调用的通道执行 close，防止 panic）
 func (h *SSEHub) Unsubscribe(userId string, ch chan string) {
+	if ch == nil {
+		return
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if subs, ok := h.clients[userId]; ok {
+		if _, present := subs[ch]; !present {
+			// 此通道已被 Unsubscribe 过，避免重复 close 引发 panic
+			return
+		}
 		delete(subs, ch)
 		if len(subs) == 0 {
 			delete(h.clients, userId)
 		}
+	} else {
+		// 用户不存在，也说明通道已经从 hub 中移除过，不应再 close
+		return
 	}
 	close(ch)
 }

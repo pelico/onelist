@@ -157,6 +157,10 @@ func ParseToken(tokenString string) (*models.Claim, error) {
 /*
  * 刷新token数据
  */
+// refreshTokenGracePeriod token 过期后仍可用于刷新的宽限期（避免无限制循环刷新）
+// 超过此时长（相对 ExpiresAt 时间点）的旧 token 无法再刷出新 token，需重新登录。
+const refreshTokenGracePeriod = 7 * 24 * time.Hour
+
 func RefreshToken(tokenString string) (string, error) {
 	// 验证签名但跳过过期时间检查（允许刷新已过期的 token）
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
@@ -167,6 +171,11 @@ func RefreshToken(tokenString string) (string, error) {
 		return "", err
 	}
 	if claims, ok := token.Claims.(*models.Claim); ok {
+		// 宽限期保护：token 过期超过 refreshTokenGracePeriod 后禁止再刷新
+		// 防止泄露的旧 token 被无限期循环刷新获取新 token
+		if claims.ExpiresAt != nil && time.Since(claims.ExpiresAt.Time) > refreshTokenGracePeriod {
+			return "", ErrTokenInvalid
+		}
 		return GenerateJWT(claims.User)
 	}
 	return "", ErrTokenInvalid
