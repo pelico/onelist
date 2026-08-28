@@ -123,7 +123,7 @@ func GenerateJWT(user models.User) (string, error) {
 		User: user,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Alfredo Mendoza",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 7)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24 * 90)),
 		},
 	}
 
