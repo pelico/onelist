@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 class App : Application() {
 
     companion object {
+        lateinit var context: android.content.Context
         private lateinit var instance: App
         private lateinit var prefs: SharedPreferences
 
@@ -45,6 +46,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        context = this
         instance = this
         prefs = getSharedPreferences("onelist_tv", Context.MODE_PRIVATE)
     }

@@ -47,6 +47,15 @@ object RetrofitClient {
             android.util.Log.w("OneList", "Token refresh check failed: ${e.message}")
         }
 
+
+        // 检测 401 状态码：token 失效（过期无法刷新/无效/服务器密钥变更），
+        // 清除本地 token 并发送广播通知 UI 跳转登录页
+        if (response.code == 401) {
+            android.util.Log.w("OneList", "Token invalid (HTTP 401), clearing local token")
+            App.token = null
+            val intent = android.content.Intent("ACTION_TOKEN_INVALID")
+            App.context.sendBroadcast(intent)
+        }
         response
     }
 

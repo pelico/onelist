@@ -76,6 +76,21 @@ class MainActivity : Activity() {
     private val gson = Gson()
     private var isDestroying = false
 
+    // Token 失效广播接收器：当后端返回 401 时自动跳转登录页
+    private val tokenInvalidReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (intent?.action == "ACTION_TOKEN_INVALID") {
+                runOnUiThread {
+                    if (currentScreen != Screen.LOGIN) {
+                        toast("登录已失效，请重新登录")
+                        App.logout()
+                        showLogin()
+                    }
+                }
+            }
+        }
+    }
+
     // Play statistics heartbeat
     private var heartbeatExecutor: ScheduledExecutorService? = null
     private var lastHeartbeatPosition: Long = 0
@@ -192,6 +207,9 @@ class MainActivity : Activity() {
         rootLayout.isFocusable = true
         rootLayout.isFocusableInTouchMode = true
         setContentView(rootLayout)
+
+        // 注册 token 失效广播接收器
+        registerReceiver(tokenInvalidReceiver, android.content.IntentFilter("ACTION_TOKEN_INVALID"))
 
         // Init SSE message center
         initSSE()
@@ -884,20 +902,14 @@ class MainActivity : Activity() {
                         val data = body.data!!
                         renderHomeData(layout, data)
                     } else {
-                        val currentToken = App.token
-                        val errorMsg = buildString {
-                            append("加载失败\n")
-                            append("HTTP: ${response.code()}\n")
-                            append("Token: ${if (currentToken == null) "null" else if (currentToken.isEmpty()) "empty" else currentToken.take(20) + "..."}\n")
-                            if (body != null) {
-                                append("Code: ${body.code}\n")
-                                append("Msg: ${body.msg ?: "null"}\n")
-                                append("Data: ${if (body.data == null) "null" else "not null"}")
-                            } else {
-                                append("Body: null")
-                            }
+                        val httpCode = response.code()
+                        android.util.Log.e("OneList", "Home API failed: HTTP $httpCode, body=$body")
+                        val errorMsg = when {
+                            httpCode == 401 || body?.code == 403 -> "登录已失效，请重新登录"
+                            body?.code == 201 -> "请先登录"
+                            httpCode == 500 -> "服务器错误，请稍后重试"
+                            else -> "加载失败 (HTTP $httpCode)"
                         }
-                        android.util.Log.e("OneList", errorMsg)
                         loadingText.text = errorMsg
                     }
                 }
@@ -3285,6 +3297,8 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         isDestroying = true
+        // 注销 token 失效广播接收器
+        try { unregisterReceiver(tokenInvalidReceiver) } catch (_: Exception) {}
         // 清理 SSE 资源
         try { sseEventSource?.cancel() } catch (_: Exception) {}
         sseEventSource = null
