@@ -40,17 +40,17 @@ func JWTAuthAdmin() gin.HandlerFunc {
 				if token, err = RefreshToken(token); err == nil {
 					c.Header("Authorization", token)
 					c.JSON(http.StatusOK, gin.H{"code": 201, "msg": "refresh token", "token": token})
-					c.AbortWithStatus(http.StatusBadRequest)
+					c.Abort()
 					return
 				}
 			}
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 403, "msg": err.Error()})
-			c.AbortWithStatus(http.StatusBadRequest)
+			c.Abort()
 			return
 		}
 		if !claims.User.IsAdmin {
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 403, "msg": "非系统管理员，禁止访问!"})
-			c.AbortWithStatus(http.StatusBadRequest)
+			c.Abort()
 			return
 		}
 		c.Set("claims", claims)
@@ -81,12 +81,12 @@ func JWTAuth() gin.HandlerFunc {
 				if token, err = RefreshToken(token); err == nil {
 					c.Header("Authorization", token)
 					c.JSON(http.StatusOK, gin.H{"code": 203, "msg": "refresh token", "token": token})
-					c.AbortWithStatus(http.StatusBadRequest)
+					c.Abort()
 					return
 				}
 			}
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 403, "msg": err.Error()})
-			c.AbortWithStatus(http.StatusBadRequest)
+			c.Abort()
 			return
 		}
 		db := database.NewDb()
@@ -94,12 +94,12 @@ func JWTAuth() gin.HandlerFunc {
 		err = db.Model(&models.User{}).Where("user_email = ?", claims.User.UserEmail).Take(&user).Error
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 403, "msg": "error token!"})
-			c.AbortWithStatus(http.StatusBadRequest)
+			c.Abort()
 			return
 		}
 		if user.IsLock {
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 403, "msg": "账号被锁定"})
-			c.AbortWithStatus(http.StatusBadRequest)
+			c.Abort()
 			return
 		}
 		c.Set("claims", claims)
