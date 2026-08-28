@@ -21,14 +21,14 @@
                     <span class="form-hint">封面即海报图片，留空时会读取本地缓存目录 images/ 下的文件</span>
                 </n-form-item>
                 <n-form-item label="是否下载封面到本地" path="download_image">
-                    <n-switch :value="downloadImageBool" @update:value="onDownloadImageChange" size="large">
+                    <n-switch :value="downloadImageBool" @update:value="onDownloadImageChange" size="large" width="64">
                         <template #checked>是</template>
                         <template #unchecked>否</template>
                     </n-switch>
                     <span class="form-hint">开启后将封面下载到本地缓存目录</span>
                 </n-form-item>
                 <n-form-item label="是否将封面保存到媒体目录" path="download_image_to_media">
-                    <n-switch :value="downloadImageToMediaBool" @update:value="onDownloadImageToMediaChange" size="large">
+                    <n-switch :value="downloadImageToMediaBool" @update:value="onDownloadImageToMediaChange" size="large" width="64">
                         <template #checked>是</template>
                         <template #unchecked>否</template>
                     </n-switch>
@@ -49,14 +49,14 @@
                     <span class="form-hint">超过该天数的日志将被自动清理（重启服务后生效）</span>
                 </n-form-item>
                 <n-form-item label="强制启用遥控器模式" path="force_tv_mode">
-                    <n-switch :value="forceTvMode" @update:value="onForceTvModeChange" size="large">
+                    <n-switch :value="forceTvMode" @update:value="onForceTvModeChange" size="large" width="64">
                         <template #checked>是</template>
                         <template #unchecked>否</template>
                     </n-switch>
                     <span class="form-hint">开启后强制启用电视遥控器导航模式，适合 Android TV / 电视盒子等无触摸设备。也可在访问地址后加 ?tv=1 临时启用。</span>
                 </n-form-item>
                 <n-form-item label="自定义默认封面" path="custom_default_image">
-                    <n-switch :value="customDefaultImageBool" @update:value="onCustomDefaultImageChange" size="large">
+                    <n-switch :value="customDefaultImageBool" @update:value="onCustomDefaultImageChange" size="large" width="64">
                         <template #checked>是</template>
                         <template #unchecked>否</template>
                     </n-switch>
@@ -64,7 +64,7 @@
                 </n-form-item>
                 <n-divider>护眼屏保</n-divider>
                 <n-form-item label="启用护眼屏保" path="screensaver_enabled">
-                    <n-switch :value="screensaverEnabledBool" @update:value="onScreensaverEnabledChange" size="large">
+                    <n-switch :value="screensaverEnabledBool" @update:value="onScreensaverEnabledChange" size="large" width="64">
                         <template #checked>是</template>
                         <template #unchecked>否</template>
                     </n-switch>

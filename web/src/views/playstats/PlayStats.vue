@@ -175,7 +175,7 @@
         <div class="history-section">
             <div class="chart-title">观看记录</div>
             <n-data-table :columns="columns" :data="historyList" :bordered="false" :loading="historyLoading"
-                size="small" :scroll-x="900" />
+                size="small" :scroll-x="1000" />
             <div class="data-footer">
                 <n-space justify="end">
                     <n-pagination v-model:page="historyPage" :page-count="historyPageCount" :page-slot="5"
@@ -324,7 +324,7 @@ export default defineComponent({
 
         // 表格列定义
         const columns = [
-            { title: '用户', key: 'user_id', width: 100 },
+            { title: '用户', key: 'user_id', width: 160, ellipsis: { tooltip: true } },
             { title: '影片', key: 'title', ellipsis: { tooltip: true } },
             { title: '媒体库', key: 'gallery_title', width: 120, ellipsis: { tooltip: true } },
             {
