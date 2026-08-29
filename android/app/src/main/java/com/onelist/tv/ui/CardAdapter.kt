@@ -99,9 +99,6 @@ class CardAdapter(
             isFocusable = true
             // StateListDrawable：系统按 state_focused 自动切换，不再每次 new GradientDrawable
             background = makeCardBg(ctx)
-            // 默认不裁剪子 View 外的缩放区域
-            clipChildren = false
-            clipToPadding = false
         }
 
         val poster = ImageView(ctx).apply {

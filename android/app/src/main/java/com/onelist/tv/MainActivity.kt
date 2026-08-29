@@ -3355,7 +3355,6 @@ class MainActivity : Activity() {
                     v.animate().cancel()
                     v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                 }
-                if (hasFocus) v.bringToFront()
             } catch (_: Exception) {}
         }
     }
@@ -3388,7 +3387,6 @@ class MainActivity : Activity() {
                     v.animate().cancel()
                     v.animate().scaleX(target).scaleY(target).setDuration(durationMs).start()
                 }
-                if (hasFocus) v.bringToFront()
             } catch (_: Exception) {}
         }
     }
@@ -4032,8 +4030,6 @@ class MainActivity : Activity() {
                 background = cardBgCache.constantState?.newDrawable()?.mutate() ?: GradientDrawable().apply {
                     cornerRadius = tvDp(4).toFloat(); setColor(Color.parseColor("#1a1a2e"))
                 }
-                clipChildren = false
-                clipToPadding = false
                 setOnFocusChangeListener { v, hasFocus ->
                     try {
                         val target = if (hasFocus) 1.12f else 1f
@@ -4041,7 +4037,6 @@ class MainActivity : Activity() {
                             v.animate().cancel()
                             v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                         }
-                        if (hasFocus) v.bringToFront()
                     } catch (_: Exception) {}
                 }
             }
