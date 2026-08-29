@@ -172,18 +172,24 @@ class CardAdapter(
         val targetH = poster.layoutParams?.height ?: dp(poster.context, 210)
 
         if (url != null) {
-            // 全部统一走 Glide：
-            //   - override(width,height) → 解码前按目标尺寸下采样，省内存/省时间
-            //   - DiskCacheStrategy.ALL → 源文件+下采样都缓存，滚动更流畅
-            //   - custom-image 走 GlideModule 的 imageOkHttpClient，带 Authorization
-            Glide.with(poster)
+            // custom-image：用户在后台改 picture/ 目录时，URL 不变但字节变化
+            // → 必须跳过内存+磁盘缓存，否则 app 会一直显示旧封面
+            // TMDB 刮削封面（/t/p/w220_...）：文件名即内容哈希，正常 DiskCacheStrategy.ALL
+            val isCustom = url.contains("/custom-image/", ignoreCase = true)
+            val reqBuilder = Glide.with(poster)
                 .load(url)
                 .override(targetW, targetH)
                 .centerCrop()
                 .placeholder(placeholder)
                 .error(placeholder)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .into(poster)
+            if (isCustom) {
+                reqBuilder
+                    .skipMemoryCache(true)
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+            } else {
+                reqBuilder.diskCacheStrategy(DiskCacheStrategy.ALL)
+            }
+            reqBuilder.into(poster)
         } else {
             Glide.with(poster).clear(poster)
             poster.setBackgroundColor(Color.parseColor("#2a2a4e"))

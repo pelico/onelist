@@ -1688,13 +1688,19 @@ class MainActivity : Activity() {
                     setColor(Color.parseColor("#1a1a2e"))
                     cornerRadius = tvDp(4).toFloat()
                 }
-                Glide.with(this@MainActivity)
+                val detailReq = Glide.with(this@MainActivity)
                     .load(posterUrl)
                     .override(tvDp(180), tvDp(270))
                     .placeholder(placeholder)
                     .error(placeholder)
-                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
-                    .into(this)
+                // custom-image 用户可能改 picture/ 目录内容：跳过缓存避免显示旧图
+                if (posterUrl.contains("/custom-image/", ignoreCase = true)) {
+                    detailReq.skipMemoryCache(true)
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                } else {
+                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                }
+                detailReq.into(this)
             }
         }
         contentLayout.addView(posterView)
@@ -1926,13 +1932,19 @@ class MainActivity : Activity() {
                     setColor(Color.parseColor("#1a1a2e"))
                     cornerRadius = tvDp(4).toFloat()
                 }
-                Glide.with(this@MainActivity)
+                val detailReq = Glide.with(this@MainActivity)
                     .load(posterUrl)
                     .override(tvDp(180), tvDp(270))
                     .placeholder(placeholder)
                     .error(placeholder)
-                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
-                    .into(this)
+                // custom-image 用户可能改 picture/ 目录内容：跳过缓存避免显示旧图
+                if (posterUrl.contains("/custom-image/", ignoreCase = true)) {
+                    detailReq.skipMemoryCache(true)
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                } else {
+                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                }
+                detailReq.into(this)
             }
         }
         contentLayout.addView(posterView)
