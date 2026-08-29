@@ -984,6 +984,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(tvDp(24), tvDp(16), tvDp(24), tvDp(8))
+            clipChildren = true  // 标题行按钮不允许越界绘制，避免色块残留
         }
 
         val titleView = TextView(this).apply {
@@ -1001,7 +1002,8 @@ class MainActivity : Activity() {
                 addState(intArrayOf(android.R.attr.state_focused), focused)
                 addState(intArrayOf(), normal)
             }
-            setOnFocusScale(1.05f, 120)
+            // 不做 scale，避免 5.1 越界裁剪残留色块
+            setOnFocusChangeListener(null)
             setOnClickListener {
                 currentGalleryId = galleryId
                 currentGalleryTitle = title
@@ -1032,27 +1034,39 @@ class MainActivity : Activity() {
                 is Tv -> showTvDetail(item)
             }
         }
-        
-        // 创建水平卡片列表容器
+        val cardGap = tvDp(12)          // 卡片之间 12dp 水平间距（放大 1.08 倍不会再相互遮挡）
+        val containerExtraH = tvDp(20)   // 多给 20dp 垂直方向余量（标题 + 放大不会被上下边缘裁剪）
+
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                tvDp(280)
+                tvDp(280) + containerExtraH
             )
             clipChildren = false
             clipToPadding = false
         }
-        
+
         val recyclerView = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
             this.adapter = adapter
-            setPadding(tvDp(16), 0, tvDp(16), 0)
+            setPadding(tvDp(20), tvDp(10), tvDp(20), tvDp(10))
             clipToPadding = false
             clipChildren = false
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            // 水平卡片：item 之间均匀间距
+            addItemDecoration(object : RecyclerView.ItemDecoration() {
+                override fun getItemOffsets(
+                    outRect: android.graphics.Rect, view: View, parent: RecyclerView, state: RecyclerView.State
+                ) {
+                    val pos = parent.getChildAdapterPosition(view)
+                    if (pos == RecyclerView.NO_POSITION) return
+                    outRect.left = if (pos == 0) 0 else cardGap / 2
+                    outRect.right = cardGap / 2
+                }
+            })
         }
         container.addView(recyclerView)
 
@@ -2893,6 +2907,8 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(tvDp(24), tvDp(12), tvDp(24), tvDp(12))
             setBackgroundColor(Color.parseColor("#0d0d1a"))
+            // 顶栏明确裁剪子 View（避免按钮 scale 越界造成色块残留）
+            clipChildren = true
         }
 
         // Back button (if not on home)
@@ -3361,10 +3377,11 @@ class MainActivity : Activity() {
 
     /**
      * TextView 焦点样式（顶部栏文本按钮）：StateListDrawable 自动处理背景色；
-     * ColorStateList 自动处理文字颜色；onFocusChange 只做 scale
+     * ColorStateList 自动处理文字颜色；
+     * 每个按钮通过 constantState.newDrawable().mutate() 复制独立副本，避免多按钮共享 state 导致色块残留。
      */
     private fun TextView.applyTextFocus(focusedTextColor: Int = Color.WHITE, defaultTextColor: Int = Color.parseColor("#6366f1")) {
-        background = textBtnBgCache
+        background = textBtnBgCache.constantState?.newDrawable()?.mutate() ?: textBtnBgCache
         val csl = textBtnTextColorCache.getOrPut(focusedTextColor to defaultTextColor) {
             android.content.res.ColorStateList(
                 arrayOf(
@@ -3375,7 +3392,7 @@ class MainActivity : Activity() {
             )
         }
         setTextColor(csl)
-        setOnFocusScale(1.08f, 120)
+        // 顶栏按钮不做 scale 动画（5.1 上越界裁剪会导致色块残留在 bar 区域外）
     }
 
     /** 统一的 scale 动画：只有目标值变化才启动，避免重复 cancel+start 的调度抖动 */
