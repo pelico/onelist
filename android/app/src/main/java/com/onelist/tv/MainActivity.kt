@@ -3812,7 +3812,7 @@ class MainActivity : Activity() {
                         // 屏保壁纸按屏幕真实尺寸下采样，避免 4K 原图直接解码
                         .override(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
                         .centerCrop()
-                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.RESULT)
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                         .into(imageView)
                     overlay.addView(imageView)
                 }

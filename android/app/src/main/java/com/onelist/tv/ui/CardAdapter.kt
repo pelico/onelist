@@ -27,7 +27,9 @@ class CardAdapter(
     companion object {
         /** 构造卡片背景：focused=主题色填充，normal=透明；统一圆角 8dp，构造一次复用 */
         private fun makeCardBg(ctx: android.content.Context): StateListDrawable {
-            val r = dp(ctx, 8).toFloat()
+            val r = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 8f, ctx.resources.displayMetrics
+            )
             val focused = GradientDrawable().apply {
                 cornerRadius = r
                 setColor(Color.parseColor("#6366f1"))
