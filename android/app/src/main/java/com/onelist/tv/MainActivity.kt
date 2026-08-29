@@ -1749,7 +1749,8 @@ class MainActivity : Activity() {
                 // custom-image 的 URL 现在带 ?t=SESSION_NONCE：
                 //   同启动 → SOURCE 缓存命中；下次启动 → URL 变了，自动拉 picture/ 新内容
                 if (posterUrl.contains("/custom-image/", ignoreCase = true)) {
-                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.SOURCE)
+                    // Glide 4.x：SOURCE 更名为 DATA（源字节级缓存）
+                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.DATA)
                 } else {
                     detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                 }
@@ -1993,7 +1994,8 @@ class MainActivity : Activity() {
                 // custom-image 的 URL 现在带 ?t=SESSION_NONCE：
                 //   同启动 → SOURCE 缓存命中；下次启动 → URL 变了，自动拉 picture/ 新内容
                 if (posterUrl.contains("/custom-image/", ignoreCase = true)) {
-                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.SOURCE)
+                    // Glide 4.x：SOURCE 更名为 DATA（源字节级缓存）
+                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.DATA)
                 } else {
                     detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                 }

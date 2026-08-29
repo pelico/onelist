@@ -183,7 +183,8 @@ class CardAdapter(
                 .centerCrop()
                 .placeholder(placeholder)
                 .error(placeholder)
-            if (isCustom) reqBuilder.diskCacheStrategy(DiskCacheStrategy.SOURCE)
+            // Glide 4.x: SOURCE 在 4.x 更名为 DATA（按源文件字节缓存，不做 transform 的磁盘缓存）
+            if (isCustom) reqBuilder.diskCacheStrategy(DiskCacheStrategy.DATA)
             else reqBuilder.diskCacheStrategy(DiskCacheStrategy.ALL)
             reqBuilder.into(poster)
         } else {
