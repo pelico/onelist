@@ -1677,7 +1677,6 @@ class MainActivity : Activity() {
                 Glide.with(this@MainActivity)
                     .load(posterUrl)
                     .override(tvDp(180), tvDp(270))
-                    .centerCrop()
                     .placeholder(placeholder)
                     .error(placeholder)
                     .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
@@ -1916,7 +1915,6 @@ class MainActivity : Activity() {
                 Glide.with(this@MainActivity)
                     .load(posterUrl)
                     .override(tvDp(180), tvDp(270))
-                    .centerCrop()
                     .placeholder(placeholder)
                     .error(placeholder)
                     .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
@@ -2352,17 +2350,10 @@ class MainActivity : Activity() {
                 // 预取：一次取 3 行，减少翻页时的 bind 抖动
                 (layoutManager as GridLayoutManager).setInitialPrefetchItemCount(gridColumns * 3)
                 setItemViewCacheSize(gridColumns * 3)
-                // 固定高度（≈3 行卡片）让 GridLayoutManager 真正做 ViewHolder 回收，
-                // 而不是全部展开（原写法 tvDp(280 * rows) 会导致 0 回收）
-                isNestedScrollingEnabled = false
             }
-            // 电影列表最高占屏幕剩余的一半，多出的内部滚动
-            val rowHeight = tvDp(280)
-            val maxRows = 3
-            val fixedHeight = rowHeight * Math.min(maxRows, (movies.size + gridColumns - 1) / gridColumns)
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                fixedHeight
+                tvDp(280 * ((movies.size + gridColumns - 1) / gridColumns))
             ))
         }
 
@@ -2384,14 +2375,10 @@ class MainActivity : Activity() {
                 }
                 (layoutManager as GridLayoutManager).setInitialPrefetchItemCount(gridColumns * 3)
                 setItemViewCacheSize(gridColumns * 3)
-                isNestedScrollingEnabled = false
             }
-            val rowHeight = tvDp(280)
-            val maxRows = 3
-            val fixedHeight = rowHeight * Math.min(maxRows, (tvs.size + gridColumns - 1) / gridColumns)
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                fixedHeight
+                tvDp(280 * ((tvs.size + gridColumns - 1) / gridColumns))
             ))
         }
     }
@@ -3287,10 +3274,10 @@ class MainActivity : Activity() {
     private val focusGlowCache = hashMapOf<Long, android.graphics.drawable.StateListDrawable>()
     private val editTextBgCache = hashMapOf<Int, android.graphics.drawable.StateListDrawable>()
     private val cardBgCache: android.graphics.drawable.StateListDrawable by lazy {
-        // 剧集按钮等「卡片」：focused=#6366f1+3dp白边，normal=#1a1a2e
+        // 剧集按钮等「卡片」：focused=#6366f1+4dp白边，normal=#1a1a2e
         val r = tvDp(4).toFloat()
         val focused = GradientDrawable().apply {
-            cornerRadius = r; setColor(Color.parseColor("#6366f1")); setStroke(tvDp(3), Color.WHITE)
+            cornerRadius = r; setColor(Color.parseColor("#6366f1")); setStroke(tvDp(4), Color.WHITE)
         }
         val normal = GradientDrawable().apply { cornerRadius = r; setColor(Color.parseColor("#1a1a2e")) }
         android.graphics.drawable.StateListDrawable().apply {
@@ -3363,7 +3350,7 @@ class MainActivity : Activity() {
         background = cardBgCache
         setOnFocusChangeListener { v, hasFocus ->
             try {
-                val target = if (hasFocus) 1.1f else 1f
+                val target = if (hasFocus) 1.12f else 1f
                 if (v.scaleX != target) {
                     v.animate().cancel()
                     v.animate().scaleX(target).scaleY(target).setDuration(120).start()
@@ -4037,7 +4024,6 @@ class MainActivity : Activity() {
                     RecyclerView.LayoutParams.WRAP_CONTENT
                 ).apply {
                     topMargin = tvDp(6)
-                    bottomMargin = tvDp(2)
                 }
                 setPadding(tvDp(16), tvDp(12), tvDp(16), tvDp(12))
                 isClickable = true
@@ -4050,10 +4036,10 @@ class MainActivity : Activity() {
                 clipToPadding = false
                 setOnFocusChangeListener { v, hasFocus ->
                     try {
-                        val target = if (hasFocus) 1.04f else 1f
+                        val target = if (hasFocus) 1.12f else 1f
                         if (v.scaleX != target) {
                             v.animate().cancel()
-                            v.animate().scaleX(target).scaleY(target).setDuration(110).start()
+                            v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                         }
                         if (hasFocus) v.bringToFront()
                     } catch (_: Exception) {}
