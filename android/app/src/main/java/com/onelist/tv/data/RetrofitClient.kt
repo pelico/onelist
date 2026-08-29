@@ -10,6 +10,11 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
+    // App 启动时间戳（秒级）。给 custom-image URL 当 query 参数，保证：
+    //   - 同一次启动内 Glide 的磁盘缓存会命中（SOURCES 缓存）
+    //   - 下次启动（或用户手动杀进程重开）后 URL 改变 → 自动用 picture/ 目录里的新内容
+    val SESSION_NONCE: Long = System.currentTimeMillis() / 1000L
+
 
     private var currentBaseUrl: String = ""
     private var retrofit: Retrofit? = null
@@ -143,7 +148,7 @@ object RetrofitClient {
         val base = getBaseUrl()
         if (base.isEmpty()) return null
         val normalizedBase = if (base.endsWith("/")) base.dropLast(1) else base
-        return "$normalizedBase/custom-image/$videoId"
+        return "$normalizedBase/custom-image/$videoId?t=$SESSION_NONCE"
     }
 
     fun videoUrl(url: String?, galleryUid: String?): String? {

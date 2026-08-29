@@ -172,9 +172,10 @@ class CardAdapter(
         val targetH = poster.layoutParams?.height ?: dp(poster.context, 210)
 
         if (url != null) {
-            // custom-image：用户在后台改 picture/ 目录时，URL 不变但字节变化
-            // → 必须跳过内存+磁盘缓存，否则 app 会一直显示旧封面
-            // TMDB 刮削封面（/t/p/w220_...）：文件名即内容哈希，正常 DiskCacheStrategy.ALL
+            // 自定义封面：URL 现在带 ?t=SESSION_NONCE（启动级时间戳）
+            //   - 同一次启动内命中 SOURCE 缓存（磁盘+内存），返回首页时瞬间回显
+            //   - 下次启动 URL 变了，自动走 picture/ 目录里的新文件 → 不会残留旧图
+            // TMDB 刮削封面（/t/p/w220_...）：文件名即内容哈希，继续用 DiskCacheStrategy.ALL
             val isCustom = url.contains("/custom-image/", ignoreCase = true)
             val reqBuilder = Glide.with(poster)
                 .load(url)
@@ -182,13 +183,8 @@ class CardAdapter(
                 .centerCrop()
                 .placeholder(placeholder)
                 .error(placeholder)
-            if (isCustom) {
-                reqBuilder
-                    .skipMemoryCache(true)
-                    .diskCacheStrategy(DiskCacheStrategy.NONE)
-            } else {
-                reqBuilder.diskCacheStrategy(DiskCacheStrategy.ALL)
-            }
+            if (isCustom) reqBuilder.diskCacheStrategy(DiskCacheStrategy.SOURCE)
+            else reqBuilder.diskCacheStrategy(DiskCacheStrategy.ALL)
             reqBuilder.into(poster)
         } else {
             Glide.with(poster).clear(poster)

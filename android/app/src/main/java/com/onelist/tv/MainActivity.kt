@@ -172,6 +172,9 @@ class MainActivity : Activity() {
     /** 返回栈：按遥控器返回键时 pop 栈顶并恢复 */
     private val screenBackStack = ArrayDeque<ScreenState>()
 
+    // Home 页内存缓存：返回首页时秒开渲染（并发刷新数据）
+    private var lastHomeCache: HomeData? = null
+
     // State
     private var currentGalleryId: String? = null
     private var currentGalleryTitle: String? = null
@@ -855,7 +858,7 @@ class MainActivity : Activity() {
                 0
             ).apply { weight = 1f }
         }
-        
+
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -864,7 +867,7 @@ class MainActivity : Activity() {
             isFocusable = false
         }
         loadingContainer.addView(progressBar)
-        
+
         val loadingText = TextView(this).apply {
             text = "加载中..."
             setTextColor(Color.GRAY)
@@ -872,19 +875,28 @@ class MainActivity : Activity() {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply { 
+            ).apply {
                 gravity = Gravity.CENTER
                 topMargin = tvDp(60)
             }
         }
         loadingContainer.addView(loadingText)
-        
+
         layout.addView(loadingContainer)
 
         scroll.addView(layout)
         rootLayout.addView(scroll)
 
-        // Fetch home data
+        // 优先走内存缓存：返回首页时「秒开」，同时并发刷新
+        val cache = lastHomeCache
+        if (cache != null) {
+            loadingContainer.visibility = View.GONE
+            renderHomeData(layout, cache, onlyPriorityRows = true)
+            // 下一帧再补画媒体库行（避免一次布局做太多 addView）
+            scroll.post { renderRemainingGalleries(layout, cache) }
+        }
+
+        // Fetch home data（无论是否命中缓存，都并发拉最新）
         try {
             val service = RetrofitClient.getService()
 
@@ -895,36 +907,66 @@ class MainActivity : Activity() {
                         val rawError = try { response.errorBody()?.string() } catch (e: Exception) { null }
                         android.util.Log.e("OneList", "Home API body null! HTTP ${response.code()}, errorBody: $rawError")
                     }
-                    
+
                     if (body != null && body.code == 200 && body.data != null) {
-                        // 隐藏加载指示器
-                        loadingContainer.visibility = View.GONE
                         val data = body.data!!
-                        renderHomeData(layout, data)
-                    } else {
-                        val httpCode = response.code()
-                        android.util.Log.e("OneList", "Home API failed: HTTP $httpCode, body=$body")
-                        val errorMsg = when {
-                            httpCode == 401 || body?.code == 403 -> "登录已失效，请重新登录"
-                            body?.code == 201 -> "请先登录"
-                            httpCode == 500 -> "服务器错误，请稍后重试"
-                            else -> "加载失败 (HTTP $httpCode)"
+                        val isFirstLoad = lastHomeCache == null
+                        lastHomeCache = data
+
+                        if (isFirstLoad) {
+                            loadingContainer.visibility = View.GONE
+                            // 首次加载：先画优先级高的两行（最新电影/电视）→ 首屏立即出卡片
+                            renderHomeData(layout, data, onlyPriorityRows = true)
+                            // 下一帧再补画各个媒体库行（分摊到两次 onDraw，避免卡顿）
+                            scroll.post { renderRemainingGalleries(layout, data) }
+                        } else {
+                            // 刷新：完整重渲染一次（与缓存不同的媒体库顺序/内容才会更新）
+                            // 先去掉 topBar 之后的所有行
+                            var childIdx = layout.childCount - 1
+                            while (childIdx >= 1) { // index 0 是 topBar
+                                val v = layout.getChildAt(childIdx)
+                                if (v !== loadingContainer) layout.removeViewAt(childIdx)
+                                childIdx--
+                            }
+                            loadingContainer.visibility = View.GONE
+                            renderHomeData(layout, data, onlyPriorityRows = true)
+                            scroll.post { renderRemainingGalleries(layout, data) }
                         }
-                        loadingText.text = errorMsg
+                    } else {
+                        // 失败但有缓存：不显示错误（静默沿用旧缓存渲染，用户无感）
+                        if (lastHomeCache == null) {
+                            val httpCode = response.code()
+                            android.util.Log.e("OneList", "Home API failed: HTTP $httpCode, body=$body")
+                            val errorMsg = when {
+                                httpCode == 401 || body?.code == 403 -> "登录已失效，请重新登录"
+                                body?.code == 201 -> "请先登录"
+                                httpCode == 500 -> "服务器错误，请稍后重试"
+                                else -> "加载失败 (HTTP $httpCode)"
+                            }
+                            loadingText.text = errorMsg
+                        }
                     }
                 }
                 override fun onFailure(call: Call<ApiResponse<HomeData>>, t: Throwable) {
-                    android.util.Log.e("OneList", "API failure: ${t.message}", t)
-                    loadingText.text = "连接失败: ${t.message}"
+                    if (lastHomeCache == null) {
+                        android.util.Log.e("OneList", "API failure: ${t.message}", t)
+                        loadingText.text = "连接失败: ${t.message}"
+                    }
                 }
             })
         } catch (e: Exception) {
-            android.util.Log.e("OneList", "Exception: ${e.message}", e)
-            loadingText.text = "错误: ${e.message}"
+            if (lastHomeCache == null) {
+                android.util.Log.e("OneList", "Exception: ${e.message}", e)
+                loadingText.text = "错误: ${e.message}"
+            }
         }
     }
 
-    private fun renderHomeData(parent: LinearLayout, data: HomeData) {
+    /**
+     * @param onlyPriorityRows true=只渲染「最新电影+最新电视」两行（返回首页/首次加载先让这两行出来，
+     *                         下一帧再渲染媒体库行）；false=全量渲染。
+     */
+    private fun renderHomeData(parent: LinearLayout, data: HomeData, onlyPriorityRows: Boolean) {
         val ctx = this
 
         // Latest movies row
@@ -943,37 +985,44 @@ class MainActivity : Activity() {
             parent.addView(recyclerView)
         }
 
-        // Gallery rows - manually parse JsonElement to avoid Gson nested generic type erasure
-        if (data.galleries != null) {
-            val gson = Gson()
-            for (gallery in data.galleries) {
-                val jsonElement = data.galleryItems?.get(gallery.galleryUid)
-                val items: List<GalleryItem> = if (jsonElement != null && jsonElement.isJsonArray) {
-                    jsonElement.asJsonArray.map { gson.fromJson(it, GalleryItem::class.java) }
-                } else emptyList()
+        if (onlyPriorityRows) return
 
-                // Determine gallery type for list view: prefer gallery_type, fallback to is_tv
-                val galleryType = when {
-                    gallery.galleryType == "tv" -> "tv"
-                    gallery.galleryType == "movie" -> "movie"
-                    gallery.isTv == true -> "tv"
-                    else -> "movie"
+        renderRemainingGalleries(parent, data)
+    }
+
+    /** 重载：保持兼容（旧调用点不传 onlyPriorityRows） */
+    private fun renderHomeData(parent: LinearLayout, data: HomeData) {
+        renderHomeData(parent, data, onlyPriorityRows = false)
+    }
+
+    /** 媒体库行的单独渲染函数，便于 post 到下一帧执行，分摊布局压力 */
+    private fun renderRemainingGalleries(parent: LinearLayout, data: HomeData) {
+        if (data.galleries == null) return
+        val gson = Gson()
+        for (gallery in data.galleries) {
+            val jsonElement = data.galleryItems?.get(gallery.galleryUid)
+            val items: List<GalleryItem> = if (jsonElement != null && jsonElement.isJsonArray) {
+                jsonElement.asJsonArray.map { gson.fromJson(it, GalleryItem::class.java) }
+            } else emptyList()
+
+            val galleryType = when {
+                gallery.galleryType == "tv" -> "tv"
+                gallery.galleryType == "movie" -> "movie"
+                gallery.isTv == true -> "tv"
+                else -> "movie"
+            }
+            if (items.isNotEmpty()) {
+                val row = buildContentRow(gallery.title ?: "媒体库", galleryType, gallery.galleryUid)
+                parent.addView(row)
+                val mappedItems = items.map { item ->
+                    if (item.title != null) {
+                        Movie(id = item.id, title = item.title, posterPath = item.posterPath)
+                    } else {
+                        Tv(id = item.id, name = item.name, posterPath = item.posterPath)
+                    } as Any
                 }
-                if (items.isNotEmpty()) {
-                    val row = buildContentRow(gallery.title ?: "媒体库", galleryType, gallery.galleryUid)
-                    parent.addView(row)
-                    // Per-item type detection: has "title" field -> Movie, has "name" field -> Tv
-                    // This matches tv/index.html: var type = forceType || (item.title ? 'movie' : 'tv')
-                    val mappedItems = items.map { item ->
-                        if (item.title != null) {
-                            Movie(id = item.id, title = item.title, posterPath = item.posterPath)
-                        } else {
-                            Tv(id = item.id, name = item.name, posterPath = item.posterPath)
-                        } as Any
-                    }
-                    val recyclerView = buildHorizontalCardList(mappedItems, "mixed")
-                    parent.addView(recyclerView)
-                }
+                val recyclerView = buildHorizontalCardList(mappedItems, "mixed")
+                parent.addView(recyclerView)
             }
         }
     }
@@ -1067,6 +1116,10 @@ class MainActivity : Activity() {
                     outRect.right = cardGap / 2
                 }
             })
+            // 限制 prefetch：首屏只预取 6 个（一行约 6 张），避免一进入首页所有行同时 bind 20+ 卡片
+            val lm = this.layoutManager as? LinearLayoutManager
+            lm?.setInitialPrefetchItemCount(6)
+            setItemViewCacheSize(6)
         }
         container.addView(recyclerView)
 
@@ -1693,10 +1746,10 @@ class MainActivity : Activity() {
                     .override(tvDp(180), tvDp(270))
                     .placeholder(placeholder)
                     .error(placeholder)
-                // custom-image 用户可能改 picture/ 目录内容：跳过缓存避免显示旧图
+                // custom-image 的 URL 现在带 ?t=SESSION_NONCE：
+                //   同启动 → SOURCE 缓存命中；下次启动 → URL 变了，自动拉 picture/ 新内容
                 if (posterUrl.contains("/custom-image/", ignoreCase = true)) {
-                    detailReq.skipMemoryCache(true)
-                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.SOURCE)
                 } else {
                     detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                 }
@@ -1937,10 +1990,10 @@ class MainActivity : Activity() {
                     .override(tvDp(180), tvDp(270))
                     .placeholder(placeholder)
                     .error(placeholder)
-                // custom-image 用户可能改 picture/ 目录内容：跳过缓存避免显示旧图
+                // custom-image 的 URL 现在带 ?t=SESSION_NONCE：
+                //   同启动 → SOURCE 缓存命中；下次启动 → URL 变了，自动拉 picture/ 新内容
                 if (posterUrl.contains("/custom-image/", ignoreCase = true)) {
-                    detailReq.skipMemoryCache(true)
-                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                    detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.SOURCE)
                 } else {
                     detailReq.diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
                 }
