@@ -994,19 +994,14 @@ class MainActivity : Activity() {
             isClickable = true
             isFocusable = true
             setPadding(tvDp(12), tvDp(6), tvDp(12), tvDp(6))
-            setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) {
-                    v.animate().cancel()
-                    v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
-                    (v as TextView).setTextColor(Color.WHITE)
-                    v.setBackgroundColor(Color.parseColor("#6366f1"))
-                } else {
-                    v.animate().cancel()
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
-                    (v as TextView).setTextColor(Color.WHITE)
-                    v.setBackgroundColor(Color.TRANSPARENT)
-                }
+            // 预建 StateListDrawable：focused=主题色填充，normal=透明；不再在 onFocusChange 中 new
+            val focused = GradientDrawable().apply { setColor(Color.parseColor("#6366f1")) }
+            val normal = GradientDrawable().apply { setColor(Color.TRANSPARENT) }
+            background = android.graphics.drawable.StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), focused)
+                addState(intArrayOf(), normal)
             }
+            setOnFocusScale(1.05f, 120)
             setOnClickListener {
                 currentGalleryId = galleryId
                 currentGalleryTitle = title
@@ -1679,7 +1674,14 @@ class MainActivity : Activity() {
                     setColor(Color.parseColor("#1a1a2e"))
                     cornerRadius = tvDp(4).toFloat()
                 }
-                Glide.with(this@MainActivity).load(posterUrl).placeholder(placeholder).error(placeholder).into(this)
+                Glide.with(this@MainActivity)
+                    .load(posterUrl)
+                    .override(tvDp(180), tvDp(270))
+                    .centerCrop()
+                    .placeholder(placeholder)
+                    .error(placeholder)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                    .into(this)
             }
         }
         contentLayout.addView(posterView)
@@ -1760,6 +1762,13 @@ class MainActivity : Activity() {
 
         // 喜爱按钮
         var isHearted = movie.heart == true
+        val activeColor = Color.parseColor("#e50914")
+        val inactiveColor = Color.parseColor("#333355")
+        // 同一个 GradientDrawable 实例：点击/失焦只改内部 color/stroke，不再每次 new
+        val heartBg = GradientDrawable().apply {
+            cornerRadius = tvDp(8).toFloat()
+            setColor(if (isHearted) activeColor else inactiveColor)
+        }
         val heartBtn = Button(this).apply {
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
             setTextColor(Color.WHITE)
@@ -1767,36 +1776,21 @@ class MainActivity : Activity() {
             setPadding(tvDp(20), tvDp(12), tvDp(20), tvDp(12))
             isFocusable = true
             isClickable = true
-            val activeColor = Color.parseColor("#e50914")
-            val inactiveColor = Color.parseColor("#333355")
-            background = GradientDrawable().apply {
-                cornerRadius = tvDp(8).toFloat()
-                setColor(if (isHearted) activeColor else inactiveColor)
-            }
+            background = heartBg
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     v.scaleX = 1.08f; v.scaleY = 1.08f
-                    v.background = GradientDrawable().apply {
-                        cornerRadius = tvDp(8).toFloat()
-                        setColor(if (isHearted) activeColor else inactiveColor)
-                        setStroke(tvDp(3), Color.WHITE)
-                    }
+                    heartBg.setStroke(tvDp(3), Color.WHITE)
                 } else {
                     v.scaleX = 1f; v.scaleY = 1f
-                    v.background = GradientDrawable().apply {
-                        cornerRadius = tvDp(8).toFloat()
-                        setColor(if (isHearted) activeColor else inactiveColor)
-                    }
+                    heartBg.setStroke(0, 0)
                 }
             }
             setOnClickListener {
                 if (movie.id == null) return@setOnClickListener
                 isHearted = !isHearted
                 text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
-                background = GradientDrawable().apply {
-                    cornerRadius = tvDp(8).toFloat()
-                    setColor(if (isHearted) activeColor else inactiveColor)
-                }
+                heartBg.setColor(if (isHearted) activeColor else inactiveColor)
                 RetrofitClient.getService().toggleHeart(HeartToggleRequest("movie", movie.id)).enqueue(object : Callback<ApiResponse<Any>> {
                     override fun onResponse(call: Call<ApiResponse<Any>>, response: Response<ApiResponse<Any>>) {}
                     override fun onFailure(call: Call<ApiResponse<Any>>, t: Throwable) {
@@ -1804,10 +1798,7 @@ class MainActivity : Activity() {
                         isHearted = !isHearted
                         runOnUiThread {
                             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
-                            background = GradientDrawable().apply {
-                                cornerRadius = tvDp(8).toFloat()
-                                setColor(if (isHearted) activeColor else inactiveColor)
-                            }
+                            heartBg.setColor(if (isHearted) activeColor else inactiveColor)
                         }
                     }
                 })
@@ -1922,7 +1913,14 @@ class MainActivity : Activity() {
                     setColor(Color.parseColor("#1a1a2e"))
                     cornerRadius = tvDp(4).toFloat()
                 }
-                Glide.with(this@MainActivity).load(posterUrl).placeholder(placeholder).error(placeholder).into(this)
+                Glide.with(this@MainActivity)
+                    .load(posterUrl)
+                    .override(tvDp(180), tvDp(270))
+                    .centerCrop()
+                    .placeholder(placeholder)
+                    .error(placeholder)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                    .into(this)
             }
         }
         contentLayout.addView(posterView)
@@ -1955,6 +1953,13 @@ class MainActivity : Activity() {
 
         // 喜爱按钮
         var isHearted = tv.heart == true
+        val activeColorTv = Color.parseColor("#e50914")
+        val inactiveColorTv = Color.parseColor("#333355")
+        // 同一 GradientDrawable 实例复用，避免每次 new
+        val heartBgTv = GradientDrawable().apply {
+            cornerRadius = tvDp(8).toFloat()
+            setColor(if (isHearted) activeColorTv else inactiveColorTv)
+        }
         val heartBtn = Button(this).apply {
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
             setTextColor(Color.WHITE)
@@ -1962,46 +1967,28 @@ class MainActivity : Activity() {
             setPadding(tvDp(20), tvDp(10), tvDp(20), tvDp(10))
             isFocusable = true
             isClickable = true
-            val activeColor = Color.parseColor("#e50914")
-            val inactiveColor = Color.parseColor("#333355")
-            background = GradientDrawable().apply {
-                cornerRadius = tvDp(8).toFloat()
-                setColor(if (isHearted) activeColor else inactiveColor)
-            }
+            background = heartBgTv
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     v.scaleX = 1.08f; v.scaleY = 1.08f
-                    v.background = GradientDrawable().apply {
-                        cornerRadius = tvDp(8).toFloat()
-                        setColor(if (isHearted) activeColor else inactiveColor)
-                        setStroke(tvDp(3), Color.WHITE)
-                    }
+                    heartBgTv.setStroke(tvDp(3), Color.WHITE)
                 } else {
                     v.scaleX = 1f; v.scaleY = 1f
-                    v.background = GradientDrawable().apply {
-                        cornerRadius = tvDp(8).toFloat()
-                        setColor(if (isHearted) activeColor else inactiveColor)
-                    }
+                    heartBgTv.setStroke(0, 0)
                 }
             }
             setOnClickListener {
                 if (tv.id == null) return@setOnClickListener
                 isHearted = !isHearted
                 text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
-                background = GradientDrawable().apply {
-                    cornerRadius = tvDp(8).toFloat()
-                    setColor(if (isHearted) activeColor else inactiveColor)
-                }
+                heartBgTv.setColor(if (isHearted) activeColorTv else inactiveColorTv)
                 RetrofitClient.getService().toggleHeart(HeartToggleRequest("tv", tv.id)).enqueue(object : Callback<ApiResponse<Any>> {
                     override fun onResponse(call: Call<ApiResponse<Any>>, response: Response<ApiResponse<Any>>) {}
                     override fun onFailure(call: Call<ApiResponse<Any>>, t: Throwable) {
                         isHearted = !isHearted
                         runOnUiThread {
                             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
-                            background = GradientDrawable().apply {
-                                cornerRadius = tvDp(8).toFloat()
-                                setColor(if (isHearted) activeColor else inactiveColor)
-                            }
+                            heartBgTv.setColor(if (isHearted) activeColorTv else inactiveColorTv)
                         }
                     }
                 })
@@ -2120,10 +2107,8 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
-        // 保存剧集列表缓存（返回剧集详情还能回播放器 → 再返回来恢复剧集列表）
         currentSeasonEpisodes = episodes
         currentSeasonTitle = seasonTitle
-        // currentMovie/currentTv 保留不变，因为从剧集列表返回回到 tv detail 时需要 currentTv
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -2134,67 +2119,32 @@ class MainActivity : Activity() {
         val topBar = buildTopBar(seasonTitle, showSearch = false, showLogout = false)
         layout.addView(topBar)
 
-        val scroll = ScrollView(this)
-        val episodeLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // 用 RecyclerView 替代 ScrollView + for 循环 addView：ViewHolder 复用，
+        // 避免 50+ 集的长篇动漫/美剧首次进入时创建数百个 View
+        val recyclerView = RecyclerView(this).apply {
+            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this@MainActivity)
+            clipToPadding = false
             setPadding(dp(24), dp(8), dp(24), dp(16))
-        }
-
-        for (ep in episodes) {
-            val epBtn = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setBackgroundColor(Color.parseColor("#1a1a2e"))
-                setPadding(tvDp(16), tvDp(12), tvDp(16), tvDp(12))
-                isClickable = true
-                isFocusable = true
-                applyCardFocus()
-                setOnClickListener {
-                    if (ep.url != null) {
-                        // 设置心跳元数据，使播放统计正常上报
-                        currentVideoDataType = "tv"
-                        currentVideoDataId = currentTv?.id
-                        currentVideoTitle = currentTv?.name ?: ep.title
-                        currentVideoGalleryUid = ep.galleryUid
-                        currentVideoGalleryTitle = currentGalleryTitle
-                        android.util.Log.d("OneList", "TV play: tvId=${currentTv?.id} title='${currentVideoTitle}' galleryUid='${ep.galleryUid}' galleryTitle='$currentGalleryTitle' url='${ep.url}'")
-                        val pl = episodes.filter { it.url != null }.map { PlayItem(it.url!!, it.galleryUid, it.title) }
-                        val idx = episodes.indexOf(ep)
-                        showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
-                    } else {
-                        toast("暂无播放源")
-                    }
+            (layoutManager as androidx.recyclerview.widget.LinearLayoutManager).setInitialPrefetchItemCount(10)
+            setItemViewCacheSize(12)
+            adapter = EpisodeAdapter(episodes) { ep ->
+                if (ep.url != null) {
+                    currentVideoDataType = "tv"
+                    currentVideoDataId = currentTv?.id
+                    currentVideoTitle = currentTv?.name ?: ep.title
+                    currentVideoGalleryUid = ep.galleryUid
+                    currentVideoGalleryTitle = currentGalleryTitle
+                    android.util.Log.d("OneList", "TV play: tvId=${currentTv?.id} title='${currentVideoTitle}' galleryUid='${ep.galleryUid}' galleryTitle='$currentGalleryTitle' url='${ep.url}'")
+                    val pl = episodes.filter { it.url != null }.map { PlayItem(it.url!!, it.galleryUid, it.title) }
+                    val idx = episodes.indexOf(ep)
+                    showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
+                } else {
+                    toast("暂无播放源")
                 }
             }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            lp.topMargin = tvDp(6)
-
-            val epNum = TextView(this).apply {
-                text = "E${ep.episodeNumber ?: "?"}"
-                setTextColor(Color.parseColor("#6366f1"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                setTypeface(null, android.graphics.Typeface.BOLD)
-            }
-            epBtn.addView(epNum)
-
-            val epTitle = TextView(this).apply {
-                text = "  ${ep.title ?: ""}"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
-            }
-            epBtn.addView(epTitle, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { weight = 1f })
-
-            episodeLayout.addView(epBtn, lp)
         }
 
-        scroll.addView(episodeLayout)
-        layout.addView(scroll, LinearLayout.LayoutParams(
+        layout.addView(recyclerView, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0
         ).apply { weight = 1f })
 
@@ -2399,10 +2349,20 @@ class MainActivity : Activity() {
                 adapter = CardAdapter(movies.map { it as Any }, "movie") { item ->
                     if (item is Movie) showMovieDetail(item, fromSearch = true)
                 }
+                // 预取：一次取 3 行，减少翻页时的 bind 抖动
+                (layoutManager as GridLayoutManager).setInitialPrefetchItemCount(gridColumns * 3)
+                setItemViewCacheSize(gridColumns * 3)
+                // 固定高度（≈3 行卡片）让 GridLayoutManager 真正做 ViewHolder 回收，
+                // 而不是全部展开（原写法 tvDp(280 * rows) 会导致 0 回收）
+                isNestedScrollingEnabled = false
             }
+            // 电影列表最高占屏幕剩余的一半，多出的内部滚动
+            val rowHeight = tvDp(280)
+            val maxRows = 3
+            val fixedHeight = rowHeight * Math.min(maxRows, (movies.size + gridColumns - 1) / gridColumns)
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                tvDp(280 * ((movies.size + gridColumns - 1) / gridColumns))
+                fixedHeight
             ))
         }
 
@@ -2422,10 +2382,16 @@ class MainActivity : Activity() {
                 adapter = CardAdapter(tvs.map { it as Any }, "tv") { item ->
                     if (item is Tv) showTvDetail(item, fromSearch = true)
                 }
+                (layoutManager as GridLayoutManager).setInitialPrefetchItemCount(gridColumns * 3)
+                setItemViewCacheSize(gridColumns * 3)
+                isNestedScrollingEnabled = false
             }
+            val rowHeight = tvDp(280)
+            val maxRows = 3
+            val fixedHeight = rowHeight * Math.min(maxRows, (tvs.size + gridColumns - 1) / gridColumns)
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                tvDp(280 * ((tvs.size + gridColumns - 1) / gridColumns))
+                fixedHeight
             ))
         }
     }
@@ -3317,91 +3283,126 @@ class MainActivity : Activity() {
 
     // ==================== HELPERS ====================
 
+    // ====== 焦点样式 Drawable 缓存（按参数组合复用，避免每次 new GradientDrawable） ======
+    private val focusGlowCache = hashMapOf<Long, android.graphics.drawable.StateListDrawable>()
+    private val editTextBgCache = hashMapOf<Int, android.graphics.drawable.StateListDrawable>()
+    private val cardBgCache: android.graphics.drawable.StateListDrawable by lazy {
+        // 剧集按钮等「卡片」：focused=#6366f1+3dp白边，normal=#1a1a2e
+        val r = tvDp(4).toFloat()
+        val focused = GradientDrawable().apply {
+            cornerRadius = r; setColor(Color.parseColor("#6366f1")); setStroke(tvDp(3), Color.WHITE)
+        }
+        val normal = GradientDrawable().apply { cornerRadius = r; setColor(Color.parseColor("#1a1a2e")) }
+        android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), focused)
+            addState(intArrayOf(), normal)
+        }
+    }
+    private val textBtnBgCache: android.graphics.drawable.StateListDrawable by lazy {
+        // 顶部栏文本按钮：focused=#6366f1 填充，normal=透明
+        val focused = GradientDrawable().apply { setColor(Color.parseColor("#6366f1")) }
+        val normal = GradientDrawable().apply { setColor(Color.TRANSPARENT) }
+        android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), focused)
+            addState(intArrayOf(), normal)
+        }
+    }
+    private val textBtnTextColorCache: HashMap<Pair<Int,Int>, android.content.res.ColorStateList> = hashMapOf()
+
     /**
      * 为按钮设置焦点高亮样式（TV 遥控器模式）
-     * - 聚焦后：放大 + 描边 + 背景变亮（TV优化：放大1.12x，4dp白色描边）
+     * - 用 StateListDrawable：系统按 state_focused 自动切换背景色/描边，onFocusChange 只处理 scale
      */
     private fun View.applyFocusGlow(defaultColor: Int = Color.parseColor("#6366f1"), focusedColor: Int = Color.parseColor("#8b8ef7"), strokeColor: Int = Color.WHITE) {
-        val gd = GradientDrawable().apply {
-            setColor(defaultColor)
-            cornerRadius = tvDp(4).toFloat()
+        val r = tvDp(4).toFloat()
+        val strokeW = tvDp(4)
+        val key = (defaultColor.toLong() and 0xffffffffL) shl 32 or
+            ((focusedColor.toLong() and 0xffffffffL) shl 0) xor
+            ((strokeColor.toLong() and 0xffffffffL) + strokeW.toLong())
+        val sld = focusGlowCache.getOrPut(key) {
+            val focused = GradientDrawable().apply {
+                cornerRadius = r; setColor(focusedColor); setStroke(strokeW, strokeColor)
+            }
+            val normal = GradientDrawable().apply { cornerRadius = r; setColor(defaultColor) }
+            android.graphics.drawable.StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), focused)
+                addState(intArrayOf(), normal)
+            }
         }
-        this.background = gd
-        this.setOnFocusChangeListener { v, hasFocus ->
-            try {
-                val scale = if (hasFocus) 1.12f else 1.0f
-                v.animate().cancel()
-                v.animate().scaleX(scale).scaleY(scale).setDuration(150).start()
-                val bg = (v.background as? GradientDrawable) ?: gd.also { v.background = it }
-                bg.setColor(if (hasFocus) focusedColor else defaultColor)
-                if (hasFocus) bg.setStroke(tvDp(4), strokeColor) else bg.setStroke(0, 0)
-            } catch (e: Exception) {}
-        }
+        background = sld
+        setOnFocusScale(1.12f, 120)
     }
 
     /**
-     * 为 EditText 输入框设置焦点高亮（TV 遥控器模式）
-     * - 聚焦后：白色描边高亮，提示用户当前输入框位置
+     * 为 EditText 输入框设置焦点高亮：StateListDrawable 自动加/去 3dp 白边
      */
     private fun EditText.applyEditTextFocus() {
-        val defaultBg = Color.parseColor("#1a1a2e")
-        this.setOnFocusChangeListener { v, hasFocus ->
-            try {
-                val gd = GradientDrawable().apply {
-                    setColor(defaultBg)
-                    cornerRadius = tvDp(4).toFloat()
-                    if (hasFocus) {
-                        setStroke(tvDp(3), Color.WHITE)
-                    } else {
-                        setStroke(0, 0)
-                    }
-                }
-                v.background = gd
-            } catch (e: Exception) {}
+        val r = tvDp(4).toFloat()
+        val strokeW = tvDp(3)
+        val sld = editTextBgCache.getOrPut(0) {
+            val defaultBg = Color.parseColor("#1a1a2e")
+            val focused = GradientDrawable().apply {
+                cornerRadius = r; setColor(defaultBg); setStroke(strokeW, Color.WHITE)
+            }
+            val normal = GradientDrawable().apply { cornerRadius = r; setColor(defaultBg) }
+            android.graphics.drawable.StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), focused)
+                addState(intArrayOf(), normal)
+            }
         }
+        background = sld
+        // 缩放动画很小，仅作视觉反馈；不需要 1.12x 那么大（输入框太大影响排版）
+        setOnFocusScale(1.03f, 100)
     }
 
     /**
-     * 卡片/列表项焦点高亮：放大 + 背景变色（TV优化：放大1.1x，更明显的边框）
+     * 卡片/列表项（剧集按钮）焦点样式：StateListDrawable 自动切换背景 + 描边；
+     * onFocusChange 只处理 scale 和 bringToFront
      */
     private fun View.applyCardFocus() {
-        this.setOnFocusChangeListener { v, hasFocus ->
+        background = cardBgCache
+        setOnFocusChangeListener { v, hasFocus ->
             try {
-                val scale = if (hasFocus) 1.1f else 1.0f
-                v.animate().cancel()
-                v.animate().scaleX(scale).scaleY(scale).setDuration(150).start()
-                if (hasFocus) {
-                    v.setBackgroundColor(Color.parseColor("#6366f1"))
-                    // 添加可见的边框
-                    val gd = GradientDrawable().apply {
-                        setColor(Color.parseColor("#6366f1"))
-                        setStroke(tvDp(3), Color.WHITE)
-                        cornerRadius = tvDp(4).toFloat()
-                    }
-                    v.background = gd
-                } else {
-                    v.setBackgroundColor(Color.parseColor("#1a1a2e"))
+                val target = if (hasFocus) 1.1f else 1f
+                if (v.scaleX != target) {
+                    v.animate().cancel()
+                    v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                 }
-            } catch (e: Exception) {}
+                if (hasFocus) v.bringToFront()
+            } catch (_: Exception) {}
         }
     }
 
     /**
-     * TextView 焦点样式（顶部导航文本按钮等）：聚焦后反色 + 描边 + 轻微放大（TV优化：1.08x）
+     * TextView 焦点样式（顶部栏文本按钮）：StateListDrawable 自动处理背景色；
+     * ColorStateList 自动处理文字颜色；onFocusChange 只做 scale
      */
     private fun TextView.applyTextFocus(focusedTextColor: Int = Color.WHITE, defaultTextColor: Int = Color.parseColor("#6366f1")) {
+        background = textBtnBgCache
+        val csl = textBtnTextColorCache.getOrPut(focusedTextColor to defaultTextColor) {
+            android.content.res.ColorStateList(
+                arrayOf(
+                    intArrayOf(android.R.attr.state_focused),
+                    intArrayOf()
+                ),
+                intArrayOf(focusedTextColor, defaultTextColor)
+            )
+        }
+        setTextColor(csl)
+        setOnFocusScale(1.08f, 120)
+    }
+
+    /** 统一的 scale 动画：只有目标值变化才启动，避免重复 cancel+start 的调度抖动 */
+    private fun View.setOnFocusScale(focusedScale: Float, durationMs: Long) {
         this.setOnFocusChangeListener { v, hasFocus ->
             try {
-                val scale = if (hasFocus) 1.08f else 1.0f
-                v.animate().cancel()
-                v.animate().scaleX(scale).scaleY(scale).setDuration(150).start()
-                this.setTextColor(if (hasFocus) focusedTextColor else defaultTextColor)
-                if (hasFocus) {
-                    this.setBackgroundColor(Color.parseColor("#6366f1"))
-                } else {
-                    this.setBackgroundColor(Color.TRANSPARENT)
+                val target = if (hasFocus) focusedScale else 1f
+                if (v.scaleX != target) {
+                    v.animate().cancel()
+                    v.animate().scaleX(target).scaleY(target).setDuration(durationMs).start()
                 }
-            } catch (e: Exception) {}
+                if (hasFocus) v.bringToFront()
+            } catch (_: Exception) {}
         }
     }
 
@@ -3808,6 +3809,10 @@ class MainActivity : Activity() {
                     val imgUrl = buildWallpaperUrl(wallpaper.url)
                     com.bumptech.glide.Glide.with(this@MainActivity)
                         .load(imgUrl)
+                        // 屏保壁纸按屏幕真实尺寸下采样，避免 4K 原图直接解码
+                        .override(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+                        .centerCrop()
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.RESULT)
                         .into(imageView)
                     overlay.addView(imageView)
                 }
@@ -4012,5 +4017,75 @@ class MainActivity : Activity() {
         hint.visibility = View.VISIBLE
         operationHintHandler.removeCallbacksAndMessages(null)
         operationHintHandler.postDelayed({ hint.visibility = View.GONE }, 1200)
+    }
+
+    // ==================== 剧集列表专用 RecyclerView Adapter（ViewHolder 复用） ====================
+    private inner class EpisodeAdapter(
+        private val episodes: List<Episode>,
+        private val onClick: (Episode) -> Unit
+    ) : RecyclerView.Adapter<EpisodeAdapter.EpisodeVH>() {
+
+        inner class EpisodeVH(val row: LinearLayout) : RecyclerView.ViewHolder(row)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EpisodeVH {
+            val ctx = parent.context
+            val epBtn = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = RecyclerView.LayoutParams(
+                    RecyclerView.LayoutParams.MATCH_PARENT,
+                    RecyclerView.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = tvDp(6)
+                    bottomMargin = tvDp(2)
+                }
+                setPadding(tvDp(16), tvDp(12), tvDp(16), tvDp(12))
+                isClickable = true
+                isFocusable = true
+                // 复用 cardBgCache（StateListDrawable 克隆后每 row 独立使用，避免状态串扰）
+                background = cardBgCache.constantState?.newDrawable()?.mutate() ?: GradientDrawable().apply {
+                    cornerRadius = tvDp(4).toFloat(); setColor(Color.parseColor("#1a1a2e"))
+                }
+                clipChildren = false
+                clipToPadding = false
+                setOnFocusChangeListener { v, hasFocus ->
+                    try {
+                        val target = if (hasFocus) 1.04f else 1f
+                        if (v.scaleX != target) {
+                            v.animate().cancel()
+                            v.animate().scaleX(target).scaleY(target).setDuration(110).start()
+                        }
+                        if (hasFocus) v.bringToFront()
+                    } catch (_: Exception) {}
+                }
+            }
+            val epNum = TextView(ctx).apply {
+                textSize = tvSp(16f)
+                setTextColor(Color.parseColor("#6366f1"))
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                id = android.R.id.text1
+            }
+            epBtn.addView(epNum)
+            val epTitle = TextView(ctx).apply {
+                textSize = tvSp(15f)
+                setTextColor(Color.WHITE)
+                id = android.R.id.text2
+            }
+            epBtn.addView(epTitle, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { weight = 1f; marginStart = tvDp(8) })
+            return EpisodeVH(epBtn)
+        }
+
+        override fun onBindViewHolder(holder: EpisodeVH, position: Int) {
+            val ep = episodes[position]
+            val row = holder.row
+            (row.findViewById<TextView>(android.R.id.text1)).text = "E${ep.episodeNumber ?: "?"}"
+            (row.findViewById<TextView>(android.R.id.text2)).text = ep.title ?: ""
+            row.setOnClickListener { onClick(ep) }
+        }
+
+        override fun getItemCount(): Int = episodes.size
     }
 }

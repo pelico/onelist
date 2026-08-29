@@ -2,8 +2,7 @@ package com.onelist.tv
 
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
-import android.os.Handler
-import android.os.Looper
+import android.graphics.drawable.StateListDrawable
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -17,9 +16,6 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.onelist.tv.data.Movie
 import com.onelist.tv.data.RetrofitClient
 import com.onelist.tv.data.Tv
-import okhttp3.OkHttpClient
-import java.io.ByteArrayInputStream
-import java.util.concurrent.TimeUnit
 
 class CardAdapter(
     private val items: List<Any>,
@@ -27,23 +23,37 @@ class CardAdapter(
     private val onClick: (Any) -> Unit
 ) : RecyclerView.Adapter<CardAdapter.CardViewHolder>() {
 
+    // ---- 焦点/正常背景 StateListDrawable：按状态自动切换，避免 onFocusChange 每次 new ----
     companion object {
-        // 专用图片客户端：无拦截器，避免 authInterceptor 给图片请求加 Authorization 头
-        private val imageClient: OkHttpClient by lazy {
-            OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
-                .build()
+        /** 构造卡片背景：focused=主题色填充，normal=透明；统一圆角 8dp，构造一次复用 */
+        private fun makeCardBg(ctx: android.content.Context): StateListDrawable {
+            val r = dp(ctx, 8).toFloat()
+            val focused = GradientDrawable().apply {
+                cornerRadius = r
+                setColor(Color.parseColor("#6366f1"))
+            }
+            val normal = GradientDrawable().apply {
+                cornerRadius = r
+                setColor(Color.TRANSPARENT)
+            }
+            return StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), focused)
+                addState(intArrayOf(), normal)
+            }
         }
-        private val mainHandler = Handler(Looper.getMainLooper())
+
+        /** 占位图：纯色圆角矩形（与 TMDB 卡片尺寸无关，bind 时共享同一个对象引用） */
+        private fun makePlaceholder(): GradientDrawable {
+            return GradientDrawable().apply {
+                setColor(Color.parseColor("#1a1a2e"))
+                cornerRadius = 4f
+            }
+        }
     }
 
     /**
      * GridLayoutManager 均匀间距装饰器
      * 替代 RecyclerView.LayoutParams.setMargins()（在 GridLayoutManager 下不可靠）
-     * @param spanCount 列数
-     * @param spacingPx 间距像素值（item 之间 + 边缘）
-     * @param includeEdge 是否在 RecyclerView 边缘也加间距
      */
     class GridSpacingItemDecoration(
         private val spanCount: Int,
@@ -85,6 +95,11 @@ class CardAdapter(
             setPadding(dp(ctx, 4), dp(ctx, 4), dp(ctx, 4), dp(ctx, 4))
             isClickable = true
             isFocusable = true
+            // StateListDrawable：系统按 state_focused 自动切换，不再每次 new GradientDrawable
+            background = makeCardBg(ctx)
+            // 默认不裁剪子 View 外的缩放区域
+            clipChildren = false
+            clipToPadding = false
         }
 
         val poster = ImageView(ctx).apply {
@@ -104,21 +119,14 @@ class CardAdapter(
         }
         card.addView(title)
 
-        val normalBg = GradientDrawable().apply {
-            cornerRadius = dp(ctx, 8).toFloat()
-            setColor(Color.TRANSPARENT)
-        }
-        card.background = normalBg
-
+        // 焦点变化：只做 scale + bringToFront（不再创建新 Drawable）
         card.setOnFocusChangeListener { v, hasFocus ->
-            val bg = GradientDrawable().apply {
-                cornerRadius = dp(ctx, 8).toFloat()
-                setColor(if (hasFocus) Color.parseColor("#6366f1") else Color.TRANSPARENT)
+            val target = if (hasFocus) 1.08f else 1f
+            if (v.scaleX != target) {
+                v.animate().cancel()
+                v.animate().scaleX(target).scaleY(target).setDuration(120).start()
             }
-            v.background = bg
-            v.scaleX = if (hasFocus) 1.08f else 1f
-            v.scaleY = if (hasFocus) 1.08f else 1f
-            v.bringToFront()
+            if (hasFocus) v.bringToFront()
         }
 
         return CardViewHolder(card)
@@ -153,66 +161,32 @@ class CardAdapter(
             }
         }
 
-        val displayTitle = if (itemTitle.isNullOrEmpty()) "(未知)" else itemTitle
-        titleView.text = displayTitle
+        titleView.text = if (itemTitle.isNullOrEmpty()) "(未知)" else itemTitle
 
-        val scrapedUrl = RetrofitClient.imageUrl(posterPath)
-        val customUrl = RetrofitClient.customImageUrl(itemId)
+        // TMDB 刮削封面优先，其次自定义封面（/custom-image/{id}）
+        val url: String? = RetrofitClient.imageUrl(posterPath)
+            ?: RetrofitClient.customImageUrl(itemId)
 
-        val placeholder = GradientDrawable().apply {
-            setColor(Color.parseColor("#1a1a2e"))
-            cornerRadius = 4f
-        }
+        val placeholder = makePlaceholder()
+        val targetW = (card.layoutParams as? RecyclerView.LayoutParams)?.width
+            ?: poster.layoutParams?.width ?: dp(poster.context, 140)
+        val targetH = poster.layoutParams?.height ?: dp(poster.context, 210)
 
-        // 刮削封面：Glide 直接加载 URL（原始方案，稳定可靠）
-        if (!scrapedUrl.isNullOrEmpty()) {
+        if (url != null) {
+            // 全部统一走 Glide：
+            //   - override(width,height) → 解码前按目标尺寸下采样，省内存/省时间
+            //   - DiskCacheStrategy.ALL → 源文件+下采样都缓存，滚动更流畅
+            //   - custom-image 走 GlideModule 的 imageOkHttpClient，带 Authorization
             Glide.with(poster)
-                .load(scrapedUrl)
+                .load(url)
+                .override(targetW, targetH)
+                .centerCrop()
                 .placeholder(placeholder)
                 .error(placeholder)
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .into(poster)
-        } else if (!customUrl.isNullOrEmpty()) {
-            // 自定义封面：OkHttp 取字节 + BitmapFactory 直接解码，完全绕过 Glide
-            Log.d("OneList", "Card custom image loading url=$customUrl")
-            imageClient.newCall(okhttp3.Request.Builder().url(customUrl).get().build())
-                .enqueue(object : okhttp3.Callback {
-                    override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                        Log.e("OneList", "Card custom image fetch failed url=$customUrl: ${e.message}")
-                        mainHandler.post {
-                            poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
-                            poster.setImageDrawable(null)
-                        }
-                    }
-                    override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                        val code = response.code
-                        val contentType = response.header("Content-Type") ?: "null"
-                        Log.d("OneList", "Card custom image response code=$code contentType=$contentType url=$customUrl")
-                        val body = response.body?.bytes()
-                        Log.d("OneList", "Card custom image body size=${body?.size ?: 0} url=$customUrl")
-                        if (body != null && body.isNotEmpty()) {
-                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(body, 0, body.size)
-                            Log.d("OneList", "Card custom image bitmap=${if (bitmap != null) "${bitmap.width}x${bitmap.height}" else "null"} url=$customUrl")
-                            mainHandler.post {
-                                if (bitmap != null) {
-                                    poster.setImageBitmap(bitmap)
-                                    poster.setBackgroundColor(Color.TRANSPARENT)
-                                } else {
-                                    Log.e("OneList", "Card custom image decode returned null url=$customUrl")
-                                    poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
-                                    poster.setImageDrawable(null)
-                                }
-                            }
-                        } else {
-                            Log.w("OneList", "Card custom image empty body url=$customUrl code=$code")
-                            mainHandler.post {
-                                poster.setBackgroundColor(Color.parseColor("#1a1a2e"))
-                                poster.setImageDrawable(null)
-                            }
-                        }
-                    }
-                })
         } else {
+            Glide.with(poster).clear(poster)
             poster.setBackgroundColor(Color.parseColor("#2a2a4e"))
             poster.setImageDrawable(null)
         }
