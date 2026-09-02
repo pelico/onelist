@@ -3669,11 +3669,11 @@ class MainActivity : Activity() {
 
                 val remaining = screensaverDailyLimit - todayTotalSeconds
 
-                // 达到每日上限：画面变暗，等当前集播完再锁
+                // 达到每日上限：立即触发锁定屏保（不再只是变暗等待）
                 if (remaining <= 0) {
-                    showDailyLimitDimmed(true)
+                    android.util.Log.d("OneList", "Screensaver: daily limit reached ($todayTotalSeconds >= $screensaverDailyLimit), triggering lock")
                     showDailyLimitWarning(false)
-                    screensaverHandler.postDelayed(this, 1000)
+                    triggerScreensaver("locked")
                     return
                 }
 
@@ -4011,20 +4011,30 @@ class MainActivity : Activity() {
             if (screensaverEnabled) startScreensaverTracker()
         } else if (screensaverMode == "locked") {
             // 重新查询今日时长，确认是否已跨天
-            fetchTodayPlayDuration()
-            screensaverHandler.postDelayed({
-                if (todayTotalSeconds < screensaverDailyLimit) {
-                    // 已跨天解锁
-                    cumulativePlaySeconds = 0
-                    dismissScreensaver()
-                    player?.play()
-                    // 重新开始屏保计时
-                    if (screensaverEnabled) startScreensaverTracker()
-                } else {
-                    // 仍然锁定，1 分钟后再检查
-                    onScreensaverEnd()
+            // 把检查逻辑放到回调中，确保用最新数据而非竞态旧值
+            RetrofitClient.getService().getTodayDuration().enqueue(object : Callback<ApiResponse<Int>> {
+                override fun onResponse(call: Call<ApiResponse<Int>>, response: Response<ApiResponse<Int>>) {
+                    val serverToday = response.body()?.data ?: 0
+                    todayTotalSeconds = serverToday
+                    android.util.Log.d("OneList", "Lock check: server today=$serverToday limit=$screensaverDailyLimit")
+                    screensaverHandler.post {
+                        if (serverToday < screensaverDailyLimit) {
+                            // 已跨天解锁
+                            cumulativePlaySeconds = 0
+                            dismissScreensaver()
+                            player?.play()
+                            if (screensaverEnabled) startScreensaverTracker()
+                        } else {
+                            // 仍然锁定，1 分钟后再检查
+                            screensaverHandler.postDelayed({ onScreensaverEnd() }, 60000)
+                        }
+                    }
                 }
-            }, 60000)
+                override fun onFailure(call: Call<ApiResponse<Int>>, t: Throwable) {
+                    android.util.Log.e("OneList", "Lock check failed: ${t.message}, stay locked")
+                    screensaverHandler.postDelayed({ onScreensaverEnd() }, 60000)
+                }
+            })
         }
     }
 

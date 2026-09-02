@@ -29,6 +29,15 @@ func SaveConfig(c *gin.Context) {
 		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
 		return
 	}
+	// 脱敏补偿：GetWebConfig 返回的 KeyDb/WebhookToken 是空字符串，
+	// 前端保存时会原样提交空值。此处保留已有值，避免默认 key 被空值覆盖。
+	current := config.GetConfig()
+	if configData.KeyDb == "" {
+		configData.KeyDb = current.KeyDb
+	}
+	if configData.WebhookToken == "" {
+		configData.WebhookToken = current.WebhookToken
+	}
 	data, err := config.SaveConfig(configData)
 	if err != nil {
 		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
