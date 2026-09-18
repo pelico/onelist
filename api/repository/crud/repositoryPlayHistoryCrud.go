@@ -114,7 +114,10 @@ func (r *RepositoryPlayHistoryCRUD) GetStats(userId string, startDate string, en
 	return nil, retErr
 }
 
-// GetGalleryStats 按媒体库分组统计
+// GetGalleryStats 按媒体库分组统计。
+// 仅按真实 gallery_uid 分组，媒体库名称以 Gallery 表为准覆盖，从而把同一 uid 下
+// “最新电影”等伪库标题的播放记录合并回影片实际所在的媒体库，并排除 uid 空值或
+// 不对应任何真实媒体库的记录（避免伪库被单独统计进比例）。
 func (r *RepositoryPlayHistoryCRUD) GetGalleryStats(userId string, startDate string, endDate string) ([]repository.GalleryStat, error) {
 	var stats []repository.GalleryStat
 	var retErr error
@@ -122,7 +125,8 @@ func (r *RepositoryPlayHistoryCRUD) GetGalleryStats(userId string, startDate str
 	go func(ch chan<- bool) {
 		defer close(ch)
 		query := r.db.Model(&models.PlayHistory{}).
-			Select("gallery_uid, gallery_title, COALESCE(SUM(duration),0) as total_seconds, COUNT(*) as play_count")
+			Select("gallery_uid, COALESCE(SUM(duration),0) as total_seconds, COUNT(*) as play_count").
+			Where("gallery_uid <> ''")
 		if userId != "" {
 			query = query.Where("user_id = ?", userId)
 		}
@@ -132,8 +136,39 @@ func (r *RepositoryPlayHistoryCRUD) GetGalleryStats(userId string, startDate str
 		if endDate != "" {
 			query = query.Where("started_at < ?", endDate)
 		}
-		retErr = query.Group("gallery_uid, gallery_title").Order("total_seconds desc").Scan(&stats).Error
-		ch <- retErr == nil
+		if err := query.Group("gallery_uid").Order("total_seconds desc").Scan(&stats).Error; err != nil {
+			retErr = err
+			ch <- false
+			return
+		}
+		// 用 Gallery 表取权威媒体库名称，并仅保留真实存在的媒体库
+		if len(stats) > 0 {
+			uids := make([]string, 0, len(stats))
+			for _, s := range stats {
+				uids = append(uids, s.GalleryUid)
+			}
+			var galleries []models.Gallery
+			if err := r.db.Where("gallery_uid IN ?", uids).Find(&galleries).Error; err != nil {
+				retErr = err
+				ch <- false
+				return
+			}
+			titleMap := make(map[string]string, len(galleries))
+			for _, g := range galleries {
+				titleMap[g.GalleryUid] = g.Title
+			}
+			filtered := stats[:0]
+			for _, s := range stats {
+				title, ok := titleMap[s.GalleryUid]
+				if !ok {
+					continue // gallery_uid 不对应真实媒体库，排除
+				}
+				s.GalleryTitle = title
+				filtered = append(filtered, s)
+			}
+			stats = filtered
+		}
+		ch <- true
 	}(done)
 	if channels.OK(done) {
 		return stats, retErr
