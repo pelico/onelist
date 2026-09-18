@@ -310,7 +310,7 @@ export default defineComponent({
             return sorted
         })
 
-        // Top 影片：按模式排序后显示，默认显示前5，展开显示全部
+        // Top 影片：按模式排序后显示，默认显示 Top5，展开后显示 Top10
         const displayedMovies = computed(() => {
             const sorted = [...topMovies.value].sort((a, b) => {
                 if (topMoviesMode.value === 'count') {
@@ -318,7 +318,8 @@ export default defineComponent({
                 }
                 return (b.total_seconds || 0) - (a.total_seconds || 0)
             })
-            if (showAllMovies.value) return sorted
+            // 默认显示 Top5，展开后也只显示 Top10
+            if (showAllMovies.value) return sorted.slice(0, 10)
             return sorted.slice(0, 5)
         })
 
