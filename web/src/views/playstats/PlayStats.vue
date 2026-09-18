@@ -471,9 +471,42 @@ export default defineComponent({
             }).catch(() => { })
         }
 
+        // 本地时区日期格式化（避免 toISOString 的 UTC 偏移导致日期差一天）
+        function fmtDate(d) {
+            const y = d.getFullYear()
+            const m = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            return `${y}-${m}-${day}`
+        }
+
+        // 每日播放时间段专用参数：手动选了日期范围则优先；否则按 7天/30天 计算
+        function getPeriodParams() {
+            const params = {}
+            if (dateRange.value && dateRange.value.length === 2) {
+                const start = new Date(dateRange.value[0])
+                const end = new Date(dateRange.value[1])
+                end.setDate(end.getDate() + 1)
+                params.start_date = fmtDate(start)
+                params.end_date = fmtDate(end)
+            } else {
+                const today = new Date()
+                const start = new Date(today)
+                start.setDate(today.getDate() - (timePeriodDays.value - 1))
+                start.setHours(0, 0, 0, 0)
+                const end = new Date(today)
+                end.setDate(today.getDate() + 1)
+                end.setHours(0, 0, 0, 0)
+                params.start_date = fmtDate(start)
+                params.end_date = fmtDate(end)
+            }
+            if (selectedUser.value) params.user_id = selectedUser.value
+            if (selectedGallery.value) params.gallery_uid = selectedGallery.value
+            return params
+        }
+
         // 获取每日播放时间段
         function fetchDailyTimePeriods() {
-            const params = getDateParams()
+            const params = getPeriodParams()
             const qs = buildQuery(params)
             apiPost(`${proxy.COMMON.apiUrl}/v1/api/play-history/daily-time-periods?${qs}`).then(res => {
                 if (res.data.code === 200) {
