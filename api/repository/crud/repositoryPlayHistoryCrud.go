@@ -141,13 +141,31 @@ func (r *RepositoryPlayHistoryCRUD) GetGalleryStats(userId string, startDate str
 	return nil, retErr
 }
 
-// GetTopMovies 按影片分组统计Top排行
+// normalizeSeriesName 提取系列根名：
+// 播放列表(连播)模式心跳的 title 常为完整文件名，如 "布鲁伊第二季_25_0820_174421_4k"
+// 找到第一个 "_数字" 段，其前部分即系列名（同一系列多集可归并统计）
+func normalizeSeriesName(title string) string {
+	if title == "" {
+		return title
+	}
+	for i := 0; i < len(title); i++ {
+		if title[i] == '_' && i+1 < len(title) && title[i+1] >= '0' && title[i+1] <= '9' {
+			return title[:i]
+		}
+	}
+	return title
+}
+
+// GetTopMovies 影片Top排行：先把各 data_id 聚合行取出，再在 Go 层按系列根名归并（同系列多集累加）
+// 修复：播放列表(连播)模式心跳 title 为完整文件名（含集数/质量后缀），原按 data_id 分组会把
+// 同系列不同集拆成独立组，导致播放多次的高频内容反被挤出 Top。改为按系列名聚合并展示系列名。
 func (r *RepositoryPlayHistoryCRUD) GetTopMovies(userId string, galleryUid string, startDate string, endDate string, limit int) ([]repository.MoviePlayStat, error) {
 	var stats []repository.MoviePlayStat
 	var retErr error
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
+		// 先按 data_id 聚合成中间结果（此时同系列不同集仍各自为组），再在 Go 层按系列名归并
 		query := r.db.Model(&models.PlayHistory{}).
 			Select("data_id, data_type, title, gallery_uid, gallery_title, COALESCE(SUM(duration),0) as total_seconds, COUNT(*) as play_count")
 		if userId != "" {
@@ -162,11 +180,53 @@ func (r *RepositoryPlayHistoryCRUD) GetTopMovies(userId string, galleryUid strin
 		if endDate != "" {
 			query = query.Where("started_at < ?", endDate)
 		}
+		// 去掉 Group/Order/Limit，取出所有按 data_id 的聚合行，交由 Go 归并
+		if err := query.Group("data_id, data_type, title, gallery_uid, gallery_title").Scan(&stats).Error; err != nil {
+			retErr = err
+			ch <- false
+			return
+		}
+		// 按系列根名 + 媒体库 + 类型归并，累加时长与次数
+		type key struct {
+			root    string
+			gallery string
+			dtype   string
+		}
+		merged := make(map[key]*repository.MoviePlayStat)
+		for i := range stats {
+			k := key{
+				root:    normalizeSeriesName(stats[i].Title),
+				gallery: stats[i].GalleryUid,
+				dtype:   stats[i].DataType,
+			}
+			if k.gallery == "" {
+				k.gallery = stats[i].GalleryTitle
+			}
+			if m, ok := merged[k]; ok {
+				m.TotalSeconds += stats[i].TotalSeconds
+				m.PlayCount += stats[i].PlayCount
+			} else {
+				s := stats[i]
+				s.Title = k.root // 系列名展示
+				merged[k] = &s
+			}
+		}
+		// 汇总后转切片，按时长降序，取前 limit
 		if limit <= 0 {
 			limit = 10
 		}
-		retErr = query.Group("data_id, data_type, title, gallery_uid, gallery_title").Order("total_seconds desc").Limit(limit).Scan(&stats).Error
-		ch <- retErr == nil
+		result := make([]repository.MoviePlayStat, 0, len(merged))
+		for _, v := range merged {
+			result = append(result, *v)
+		}
+		sort.Slice(result, func(a, b int) bool {
+			return result[a].TotalSeconds > result[b].TotalSeconds
+		})
+		if len(result) > limit {
+			result = result[:limit]
+		}
+		stats = result
+		ch <- true
 	}(done)
 	if channels.OK(done) {
 		return stats, retErr
