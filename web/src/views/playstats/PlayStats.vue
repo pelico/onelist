@@ -232,8 +232,8 @@ export default defineComponent({
                 const start = new Date(dateRange.value[0])
                 const end = new Date(dateRange.value[1])
                 end.setDate(end.getDate() + 1)
-                params.start_date = start.toISOString().split('T')[0]
-                params.end_date = end.toISOString().split('T')[0]
+                params.start_date = fmtDate(start)
+                params.end_date = fmtDate(end)
             }
             if (selectedUser.value) {
                 params.user_id = selectedUser.value

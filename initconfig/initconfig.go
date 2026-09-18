@@ -51,8 +51,9 @@ DB_PASSWORD_Debug=123456
 DB_PASSWORD_Release=123456
 
 # TheMovieDb Key
-# 在https://www.themoviedb.org网站申请
-KeyDb=22f10ca52f109158ac7fe064ebbcf697
+# 在https://www.themoviedb.org网站申请后填入；留空则刮削功能不可用
+# 出于安全考虑，仓库不再内置默认 key，请填写自己申请的 key
+KeyDb=
 `
 
 func InitConfigEnv() error {

@@ -263,7 +263,7 @@ func LoadFromDB() {
 	if v, ok := settingMap["FaviconicoUrl"]; ok {
 		FaviconicoUrl = v
 	}
-	if v, ok := settingMap["KeyDb"]; ok {
+	if v, ok := settingMap["KeyDb"]; ok && v != "" {
 		KeyDb = v
 	}
 	if v, ok := settingMap["VideoTypes"]; ok {

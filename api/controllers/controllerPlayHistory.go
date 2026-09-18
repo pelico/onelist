@@ -96,6 +96,9 @@ func PlayHistoryTopMovies(c *gin.Context) {
 // PlayHistoryList 播放历史列表（管理员）
 func PlayHistoryList(c *gin.Context) {
 	userId := c.Query("user_id")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	galleryUid := c.Query("gallery_uid")
 	page := 1
 	size := 20
 	if p, err := strconv.Atoi(c.Query("page")); err == nil {
@@ -107,7 +110,7 @@ func PlayHistoryList(c *gin.Context) {
 	db := database.NewDb()
 	repo := crud.NewRepositoryPlayHistoryCRUD(db)
 	func(hRepo repository.PlayHistoryRepository) {
-		list, num, err := hRepo.GetHistoryList(userId, page, size)
+		list, num, err := hRepo.GetHistoryList(userId, startDate, endDate, galleryUid, page, size)
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": "查询失败!", "data": list, "num": num})
 			return

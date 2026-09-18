@@ -7,7 +7,7 @@ type PlayHistoryRepository interface {
 	Heartbeat(models.PlayHistory) (models.PlayHistory, error)
 	GetStats(userId string, startDate string, endDate string) ([]models.PlayHistory, error)
 	GetGalleryStats(userId string, startDate string, endDate string) ([]GalleryStat, error)
-	GetHistoryList(userId string, page int, size int) ([]models.PlayHistory, int, error)
+	GetHistoryList(userId string, startDate string, endDate string, galleryUid string, page int, size int) ([]models.PlayHistory, int, error)
 	GetTodayDuration(userId string) (int, error)
 	GetDailyTimePeriods(userId string, startDate string, endDate string) ([]DailyTimePeriod, error)
 	GetTopMovies(userId string, galleryUid string, startDate string, endDate string, limit int) ([]MoviePlayStat, error)

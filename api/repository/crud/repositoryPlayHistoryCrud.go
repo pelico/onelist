@@ -175,17 +175,26 @@ func (r *RepositoryPlayHistoryCRUD) GetTopMovies(userId string, galleryUid strin
 }
 
 // GetHistoryList 分页获取播放历史
-func (r *RepositoryPlayHistoryCRUD) GetHistoryList(userId string, page int, size int) ([]models.PlayHistory, int, error) {
+func (r *RepositoryPlayHistoryCRUD) GetHistoryList(userId string, startDate string, endDate string, galleryUid string, page int, size int) ([]models.PlayHistory, int, error) {
 	var list []models.PlayHistory
 	var num int64
 	var retErr error
 	done := make(chan bool)
 	go func(ch chan<- bool) {
 		defer close(ch)
-		// applyFilter 统一施加 userId 过滤条件
+		// applyFilter 统一施加 userId/日期/媒体库过滤条件，与 Top排行/统计等接口保持一致
 		applyFilter := func(q *gorm.DB) *gorm.DB {
 			if userId != "" {
-				return q.Where("user_id = ?", userId)
+				q = q.Where("user_id = ?", userId)
+			}
+			if galleryUid != "" {
+				q = q.Where("gallery_uid = ?", galleryUid)
+			}
+			if startDate != "" {
+				q = q.Where("started_at >= ?", startDate)
+			}
+			if endDate != "" {
+				q = q.Where("started_at < ?", endDate)
 			}
 			return q
 		}
