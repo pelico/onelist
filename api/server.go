@@ -87,7 +87,12 @@ func Run() {
 	// 启用 Release 模式，减少调试日志和路由匹配开销
 	gin.SetMode(gin.ReleaseMode)
 
-	//系统初始化
+	r := NewRouter()
+	r.Run(fmt.Sprintf(":%d", config.PORT))
+}
+
+// NewRouter 构建完整路由表（进程内回归测试复用同一份路由定义）
+func NewRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
 	Static(r)
@@ -416,5 +421,5 @@ func Run() {
 	logApi := r.Group("/v1/api/log", auth.JWTAuth())
 	logApi.GET("/list", controllers.GetLogs)
 	logApi.POST("/clean", controllers.CleanLogs)
-	r.Run(fmt.Sprintf(":%d", config.PORT))
+	return r
 }

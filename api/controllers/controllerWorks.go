@@ -401,9 +401,9 @@ func DeleteWorkById(c *gin.Context) {
 		for _, tv := range tvs {
 			var remainingEps int64
 			tx.Model(&models.Episode{}).
-				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
-				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
-				Where("the_tvs.id = ?", tv.ID).
+				Joins("JOIN the_season ON episode.the_season_id = the_season.id").
+				Joins("JOIN the_tv ON the_season.the_tv_id = the_tv.id").
+				Where("the_tv.id = ?", tv.ID).
 				Count(&remainingEps)
 			if remainingEps == 0 {
 				tx.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", tv.ID).Delete(&models.Played{})
@@ -630,9 +630,9 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 			// 检查该节目在本任务路径范围内是否还有剧集
 			var scopedEps int64
 			db.Model(&models.Episode{}).
-				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
-				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
-				Where("the_tvs.id = ? AND episodes.url LIKE ?", tv.ID, pathPrefix+"%").
+				Joins("JOIN the_season ON episode.the_season_id = the_season.id").
+				Joins("JOIN the_tv ON the_season.the_tv_id = the_tv.id").
+				Where("the_tv.id = ? AND episode.url LIKE ?", tv.ID, pathPrefix+"%").
 				Count(&scopedEps)
 			if scopedEps > 0 {
 				continue // 本任务范围内仍有剧集，跳过
@@ -640,9 +640,9 @@ func cleanupStaleRecords(db *gorm.DB, currentFiles []string, work models.Work, g
 			// 本任务范围内无剧集，再检查全局是否也无剧集
 			var remainingEps int64
 			db.Model(&models.Episode{}).
-				Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
-				Joins("JOIN the_tvs ON the_seasons.the_tv_id = the_tvs.id").
-				Where("the_tvs.id = ?", tv.ID).
+				Joins("JOIN the_season ON episode.the_season_id = the_season.id").
+				Joins("JOIN the_tv ON the_season.the_tv_id = the_tv.id").
+				Where("the_tv.id = ?", tv.ID).
 				Count(&remainingEps)
 			if remainingEps == 0 {
 				// 无剧集：可能是未刮削的基础记录，也可能是剧集被清理的旧记录
