@@ -273,6 +273,7 @@ func Run() {
 	gallery := r.Group("/v1/api/gallery")
 	gallery.POST("/create", auth.JWTAuthAdmin(), controllers.CreateGallery)
 	gallery.POST("/update", auth.JWTAuthAdmin(), controllers.UpdateGalleryById)
+	gallery.POST("/sort", auth.JWTAuthAdmin(), controllers.SortGalleryByIds)
 	gallery.POST("/delete", auth.JWTAuthAdmin(), controllers.DeleteGalleryById)
 	gallery.POST("/id", auth.JWTAuthAdmin(), controllers.GetGalleryById)
 	gallery.POST("/list", auth.JWTAuth(), controllers.GetGalleryList)

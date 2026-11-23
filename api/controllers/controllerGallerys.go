@@ -26,6 +26,10 @@ func CreateGallery(c *gin.Context) {
 	}
 	db := database.NewDb()
 	gallery.AlistHost = strings.TrimRight(gallery.AlistHost, "/")
+	// 新建媒体库排在已排序列表末尾，不打乱用户已设置的显示顺序
+	var maxSort int
+	db.Model(&models.Gallery{}).Select("COALESCE(MAX(sort_num),-1)").Scan(&maxSort)
+	gallery.SortNum = maxSort + 1
 	repo := crud.NewRepositoryGallerysCRUD(db)
 	func(galleryRepository repository.GalleryRepository) {
 		gallery, err := galleryRepository.Save(gallery)
@@ -35,6 +39,24 @@ func CreateGallery(c *gin.Context) {
 		}
 		c.JSON(200, gin.H{"code": 200, "msg": "创建成功!", "data": gallery})
 	}(repo)
+}
+
+// SortGalleryByIds 按前端传入的 id 顺序保存媒体库显示顺序
+func SortGalleryByIds(c *gin.Context) {
+	form := struct {
+		Ids []uint `json:"ids"`
+	}{}
+	if err := c.ShouldBind(&form); err != nil || len(form.Ids) == 0 {
+		c.JSON(200, gin.H{"code": 201, "msg": "参数错误,需要 ids 数组!"})
+		return
+	}
+	db := database.NewDb()
+	repo := crud.NewRepositoryGallerysCRUD(db)
+	if err := repo.SortGallerys(form.Ids); err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "保存排序失败!"})
+		return
+	}
+	c.JSON(200, gin.H{"code": 200, "msg": "排序已保存!"})
 }
 
 func DeleteGalleryById(c *gin.Context) {

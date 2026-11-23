@@ -41,7 +41,7 @@ func GetHomeData(c *gin.Context) {
 	}
 
 	var galleries []models.Gallery
-	db.Model(&models.Gallery{}).Order("id desc").Find(&galleries)
+	db.Model(&models.Gallery{}).Order("sort_num asc, id desc").Find(&galleries)
 	homeData.Galleries = galleries
 
 	// 收集所有有效 GalleryUid，用于过滤掉孤儿记录

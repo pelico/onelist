@@ -36,6 +36,14 @@
                         <template #header-extra>
                             <n-space justify="end" size="medium">
 
+                                <n-button @click="MoveUp(item, index)" :disabled="index === 0" strong secondary circle
+                                    title="上移">
+                                    <i class='bx bx-up-arrow'></i>
+                                </n-button>
+                                <n-button @click="MoveDown(item, index)" :disabled="index === data.length - 1" strong
+                                    secondary circle title="下移">
+                                    <i class='bx bx-down-arrow'></i>
+                                </n-button>
                                 <n-button @click="EditGallery(item)" strong secondary circle>
                                     <i class='bx bx-detail'></i>
                                 </n-button>
@@ -409,6 +417,35 @@ export default {
         EditGallery(gallery) {
             this.gallery = gallery;
             this.updateModal = !this.updateModal;
+        },
+        // 上移/下移媒体库：本地换位后按新顺序保存 sort_num，失败则刷新回滚
+        MoveUp(item, index) {
+            if (index <= 0) return;
+            this.SwapGallery(index, index - 1);
+        },
+        MoveDown(item, index) {
+            if (!this.data || index >= this.data.length - 1) return;
+            this.SwapGallery(index, index + 1);
+        },
+        SwapGallery(i, j) {
+            const list = [...this.data];
+            [list[i], list[j]] = [list[j], list[i]];
+            this.data = list;
+            const ids = list.map(g => g.id);
+            this.axios.post(this.COMMON.apiUrl + '/v1/api/gallery/sort', { ids: ids }, {
+                headers: {
+                    'content-type': 'application/json',
+                    'Authorization': this.$cookies.get("Authorization")
+                }
+            }).then(res => {
+                if (res.data.code != 200) {
+                    this.COMMON.ShowMsg(res.data.msg)
+                    this.reF();
+                }
+            }).catch((error) => {
+                this.COMMON.ShowMsg(error);
+                this.reF();
+            });
         },
         Request(api, data) {
             this.axios.post(api, data, {

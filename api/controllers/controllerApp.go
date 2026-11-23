@@ -38,13 +38,13 @@ func AppIndex(c *gin.Context) {
 	gallerys := []models.Gallery{}
 	result := db.Model(&models.Gallery{}).Find(&gallerys)
 	if config.DBDRIVER == "sqlite" {
-		err := result.Limit(size).Offset((page - 1) * size).Order("datetime(updated_at) desc").Scan(&gallerys).Error
+		err := result.Limit(size).Offset((page - 1) * size).Order("sort_num asc, datetime(updated_at) desc").Scan(&gallerys).Error
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
 			return
 		}
 	} else {
-		err := result.Limit(size).Offset((page - 1) * size).Order("-updated_at").Scan(&gallerys).Error
+		err := result.Limit(size).Offset((page - 1) * size).Order("sort_num asc, -updated_at").Scan(&gallerys).Error
 		if err != nil {
 			c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
 			return

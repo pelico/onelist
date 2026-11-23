@@ -21,6 +21,7 @@ export const getAdminGalleryList = (params) => request.post('/v1/api/gallery/adm
 export const getGalleryHost = (id) => request.post('/v1/api/gallery/host?id=' + id, {})
 export const createGallery = (form) => request.post('/v1/api/gallery/create', form)
 export const updateGallery = (id, form) => request.post('/v1/api/gallery/update?id=' + id, form)
+export const sortGallery = (ids) => request.post('/v1/api/gallery/sort', { ids })
 export const deleteGallery = (id) => request.post('/v1/api/gallery/delete?id=' + id, {})
 
 // 挂载目录（Work）

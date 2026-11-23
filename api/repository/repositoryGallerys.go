@@ -11,4 +11,5 @@ type GalleryRepository interface {
 	UpdateByID(string, models.Gallery) (int64, error)
 	DeleteByID(string) (int64, error)
 	Search(string, int, int) ([]models.Gallery, int, error)
+	SortGallerys(ids []uint) error
 }

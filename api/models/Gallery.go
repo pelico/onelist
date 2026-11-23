@@ -20,6 +20,7 @@ type Gallery struct {
 	AlistHost   string    `json:"alist_host"`                   //alist网站域名
 	AlistUser   string    `json:"alist_user"`                   //alist网站管理账号
 	AlistPwd    string    `json:"alist_pwd"`                    //alist网站管理密码
+	SortNum     int       `json:"sort_num"`                     //显示排序，越小越靠前
 	Works       []Work    `json:"works"`                        //添加的目录列表
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
