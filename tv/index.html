@@ -855,16 +855,18 @@ function renderDetailContent(container, likeItems) {
   wrap.appendChild(layout);
 
   // TV: Seasons & Episodes
-  if (S.detailType === 'tv' && d.seasons && d.seasons.length > 0) {
-    S.seasons = d.seasons;
+  // 后端 TheTv 关联季字段为 the_seasons（未刮削的本地聚合剧集走此字段），兼容刮削数据的 seasons
+  var tvSeasons = (d.seasons && d.seasons.length > 0) ? d.seasons : (d.the_seasons || []);
+  if (S.detailType === 'tv' && tvSeasons.length > 0) {
+    S.seasons = tvSeasons;
     var epSection = el('div', 'episodes-section');
     epSection.innerHTML = '<div style="font-size:17px;font-weight:bold;color:#ccc;margin-bottom:10px">分集</div>';
 
     // Season tabs
     var tabsDiv = el('div', 'season-tabs');
     tabsDiv.id = 'seasonTabs';
-    for (var si = 0; si < d.seasons.length; si++) {
-      var s = d.seasons[si];
+    for (var si = 0; si < tvSeasons.length; si++) {
+      var s = tvSeasons[si];
       var tab = el('div', 'season-tab' + (si === 0 ? ' active' : ''), '第' + s.season_number + '季');
       tab.setAttribute('data-fi', 'season');
       tab.setAttribute('data-season-id', s.id);
@@ -885,7 +887,7 @@ function renderDetailContent(container, likeItems) {
     wrap.appendChild(epSection);
 
     // Load first season
-    selectSeason(d.seasons[0].id, 0);
+    selectSeason(tvSeasons[0].id, 0);
   }
 
   // Recommendations
@@ -1075,12 +1077,27 @@ function renderPlayer(container, params) {
   };
 
   // Heartbeat for play history
+  // 电影按影片上报；剧集按剧上报（data_id=剧ID，服务端自动填充剧名）。
+  // 字段对齐 PlayHistory：data_type/data_id/position/duration（duration=心跳间隔，用于位置回跳计时）
+  var hbId = 0;
+  var hbTitle = '';
   if (type === 'movie' && data.id) {
+    hbId = data.id;
+    hbTitle = data.title || data.original_title || '';
+  } else if (type === 'tv' && S.detail && S.detail.id) {
+    hbId = S.detail.id;
+    hbTitle = S.detail.name || '';
+  }
+  if (hbId) {
     S.heartbeatTimer = setInterval(function() {
       api('POST', '/v1/api/play-history/heartbeat', {
-        id: data.id,
-        type: 'themovie',
-        time: Math.floor(vid.currentTime || 0)
+        data_type: type,
+        data_id: hbId,
+        title: hbTitle,
+        gallery_uid: galleryUid,
+        position: Math.floor(vid.currentTime || 0),
+        duration: 30,
+        total_duration: Math.floor(vid.duration || 0)
       }, function(){});
     }, 30000);
   }
