@@ -50,6 +50,8 @@ func RunWork(work models.Work) {
 				}
 			}
 		}
+		// 文件夹级自定义封面:检测固定名图片并写入 CustomPoster(在刮削循环结束后执行)
+		DetectAndApplyFolderCovers(files, gallery)
 	}
 }
 

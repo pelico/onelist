@@ -43,6 +43,7 @@ type TheMovie struct {
 	Tagline               string               `json:"tagline"`
 	Title                 string               `json:"title"`
 	Url                   string               `json:"url" gorm:"index"`
+	CustomPoster          string               `json:"custom_poster"`
 	Video                 bool                 `json:"video"`
 	VoteAverage           float64              `json:"vote_average"`
 	VoteCount             int                  `json:"vote_count"`

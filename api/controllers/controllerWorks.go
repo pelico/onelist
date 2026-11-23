@@ -18,6 +18,7 @@ import (
 	"github.com/msterzhang/onelist/api/utils/logger"
 	"github.com/msterzhang/onelist/plugins/alist"
 	"github.com/msterzhang/onelist/plugins/thedb"
+	"github.com/msterzhang/onelist/plugins/watch"
 	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
@@ -137,6 +138,9 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	// 清理不在当前文件列表中的旧记录
 	cleanupStaleRecords(db, files, work, gallery)
 
+	// 文件夹级自定义封面:检测固定名图片并写入 CustomPoster(在刮削完成后执行,避免被全量更新覆盖)
+	watch.DetectAndApplyFolderCovers(files, gallery)
+
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)
 	logger.Info("work", "刮削任务完成", "路径: "+work.Path+", 成功: "+strconv.FormatInt(successCount, 10)+", 失败: "+strconv.FormatInt(errCount, 10))
@@ -197,6 +201,9 @@ func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 		// 使用默认封面时直接设置进度为完成
 		db.Model(&models.Work{}).Where("id = ?", work.Id).Update("speed", len(files))
 	}
+
+	// 文件夹级自定义封面:检测固定名图片并写入 CustomPoster(在刮削完成后执行,避免被全量更新覆盖)
+	watch.DetectAndApplyFolderCovers(files, gallery)
 
 	work.IsOk = true
 	db.Model(&models.Work{}).Where("id = ?", work.Id).Select("*").Updates(&work)

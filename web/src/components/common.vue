@@ -25,7 +25,11 @@ function ShowMsg(msg) {
 
 // 自定义封面版本号：用 ref 保证响应式，递增时触发组件重新渲染以刷新图片 URL
 let customImageVersion = ref(0);
-function getPosterUrl(posterPath, videoId) {
+function getPosterUrl(posterPath, videoId, customPoster) {
+    // 文件夹自定义封面优先(后端扫描影片所在文件夹的固定名图片后写入 custom_poster)
+    if (customPoster && customPoster.length > 0) {
+        return customPoster;
+    }
     if (!posterPath || posterPath.length === 0 || posterPath === '/') {
         if (customDefaultImage && videoId) {
             return '/custom-image/' + videoId + '?v=' + customImageVersion.value;
@@ -38,10 +42,16 @@ function getPosterUrl(posterPath, videoId) {
 }
 
 // 海报图片加载失败时回退到远程 TMDB（每个元素只回退一次，避免无限循环）
-function onPosterError(event, posterPath) {
+function onPosterError(event, posterPath, customPoster) {
     const el = event.target;
     if (el._fallbackTried) return;
     el._fallbackTried = true;
+    // 文件夹自定义封面加载失败(图片被删等):刮削海报有效则回退远程 TMDB,否则用默认图
+    if (customPoster && customPoster.length > 0 && (!posterPath || posterPath === '/')) {
+        el.src = '/images/not_video.jpg';
+        el.style.opacity = '1';
+        return;
+    }
     el.src = imgUrl + "/t/p/w220_and_h330_face" + posterPath;
     el.style.opacity = '1'; // 确保远程也失败时图片可见
 }

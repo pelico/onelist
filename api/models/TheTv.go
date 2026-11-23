@@ -78,6 +78,7 @@ type TheTv struct {
 	Overview            string               `json:"overview"`
 	Popularity          float64              `json:"popularity"`
 	PosterPath          string               `json:"poster_path"`
+	CustomPoster        string               `json:"custom_poster"`
 	ProductionCompanies []ProductionCompanie `json:"production_companies" gorm:"many2many:thetv_ProductionCompanies;"`
 	ProductionCountries []ProductionCountrie `json:"production_countries" gorm:"many2many:thetv_ProductionCountries;"`
 	Seasons             []Season             `json:"seasons"`

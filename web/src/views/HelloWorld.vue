@@ -76,8 +76,8 @@
                                 }
                             }">
                                 <img loading="lazy" v-img-fade class="carousel-img"
-                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'
-                                    @error="COMMON.onPosterError($event, item.poster_path)">
+                                    :src='COMMON.getPosterUrl(item.poster_path, item.id, item.custom_poster)'
+                                    @error="COMMON.onPosterError($event, item.poster_path, item.custom_poster)">
                             </router-link>
                             <div class="view-item-title">
                                 {{ item.title }}
@@ -123,8 +123,8 @@
                                 }
                             }">
                                 <img loading="lazy" v-img-fade class="carousel-img"
-                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'
-                                    @error="COMMON.onPosterError($event, item.poster_path)">
+                                    :src='COMMON.getPosterUrl(item.poster_path, item.id, item.custom_poster)'
+                                    @error="COMMON.onPosterError($event, item.poster_path, item.custom_poster)">
                             </router-link>
                             <div class="view-item-title">
                                 {{ item.name }}
@@ -170,8 +170,8 @@
                                 }
                             }">
                                 <img loading="lazy" v-img-fade class="carousel-img"
-                                    :src='COMMON.getPosterUrl(item.poster_path, item.id)'
-                                    @error="COMMON.onPosterError($event, item.poster_path)">
+                                    :src='COMMON.getPosterUrl(item.poster_path, item.id, item.custom_poster)'
+                                    @error="COMMON.onPosterError($event, item.poster_path, item.custom_poster)">
                             </router-link>
                             <div v-if="item.title != null" class="view-item-title">
                                 {{ item.title }}

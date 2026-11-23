@@ -256,6 +256,44 @@ func CustomImgServer(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.File(imgPath)
 }
+// 文件夹级自定义封面图片服务:与 FileServer 同约定(剥前导 / 后按 cwd 相对路径读文件),
+// 仅允许图片扩展名,防止把任意文件当图片输出
+func FolderPosterServer(c *gin.Context) {
+	rawPath := c.Param("path")
+	if len(rawPath) < 1 {
+		c.String(http.StatusBadRequest, "非法路径")
+		return
+	}
+	// URL 解码:浏览器请求含中文/特殊字符的路径时会自动编码
+	filePath, err := url.QueryUnescape(rawPath)
+	if err != nil {
+		// 解码失败时使用原始路径
+		filePath = rawPath
+	}
+	filePath = filePath[1:]
+	filePath = filepath.Clean(filePath)
+	// 禁止路径遍历:清理后仍含 ".." 说明是恶意路径
+	if strings.Contains(filePath, "..") {
+		c.String(http.StatusForbidden, "非法路径")
+		return
+	}
+	ext := strings.ToLower(filepath.Ext(filePath))
+	allowedExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
+	if !allowedExts[ext] {
+		c.String(http.StatusForbidden, "仅支持图片文件")
+		return
+	}
+	if !dir.FileExists(filePath) {
+		c.Writer.WriteHeader(http.StatusNotFound)
+		c.Writer.Flush()
+		return
+	}
+	c.Header("Content-Type", "image/*")
+	// 不缓存,确保换图后立即生效
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.File(filePath)
+}
+
 func getAlistPlaylist(gallery models.Gallery, fileUrl string) []string {
 	// fileUrl 格式如 /d/电影/xxx.mp4，去掉 /d 前缀得到 alist 路径
 	alistPath := strings.TrimPrefix(fileUrl, "/d")

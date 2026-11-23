@@ -405,6 +405,7 @@ func Run() {
 	r.GET("/t/p/*path", controllers.ImgServer)
 	r.GET("/gallery/*path", controllers.GalleryImgServer)
 	r.GET("/custom-image/:seed", controllers.CustomImgServer)
+	r.GET("/custom-poster/*path", controllers.FolderPosterServer)
 	r.GET("/file/*path", controllers.FileServer)
 	r.GET("/alist/proxy/:gallery_uid/*path", controllers.AlistProxy)
 	r.GET("/v1/api/playlist", controllers.GetPlaylist)

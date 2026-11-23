@@ -116,8 +116,8 @@
                                             </div>
                                         </div>
                                         <img loading="lazy" class="carousel-img"
-                                            :src='COMMON.getPosterUrl(item.poster_path, item.id)'
-                                            @error="COMMON.onPosterError($event, item.poster_path)">
+                                            :src='COMMON.getPosterUrl(item.poster_path, item.id, item.custom_poster)'
+                                            @error="COMMON.onPosterError($event, item.poster_path, item.custom_poster)">
                                         <div v-if="item.video != null" class="view-item-title">
                                             {{ item.title }}
                                         </div>
@@ -173,8 +173,8 @@
                                     }
                                 }">
                                     <img loading="lazy" class="carousel-img"
-                                        :src='COMMON.getPosterUrl(item.poster_path, item.id)'
-                                        @error="COMMON.onPosterError($event, item.poster_path)">
+                                        :src='COMMON.getPosterUrl(item.poster_path, item.id, item.custom_poster)'
+                                        @error="COMMON.onPosterError($event, item.poster_path, item.custom_poster)">
                                 </router-link>
                                 <div class="view-item-content">
                                     <div v-if="item.video != null" class="view-item-title">
