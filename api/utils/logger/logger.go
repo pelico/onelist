@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/msterzhang/onelist/api/database"
@@ -22,7 +23,7 @@ func Warn(module string, message string, detail ...string) {
 }
 
 func Error(module string, message string, detail ...string) {
-	log.Printf("[ERROR][%s] %s", module, message)
+	log.Printf("[ERROR][%s] %s %s", module, message, strings.Join(detail, " | "))
 	saveLog("error", module, message, detail...)
 }
 

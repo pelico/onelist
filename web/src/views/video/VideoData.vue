@@ -565,7 +565,33 @@ export default {
             }
         }
     },
+    computed: {
+        // 剧集详情页是否有可展示的分集（未刮削的本地剧也会列出选集）
+        hasEpisodes() {
+            if (this.gallery_type != "tv" || !this.data || !this.data.the_seasons) {
+                return false;
+            }
+            return this.data.the_seasons.some(s => s.episodes && s.episodes.length > 0);
+        },
+        playableSeasons() {
+            if (!this.data || !this.data.the_seasons) {
+                return [];
+            }
+            return this.data.the_seasons.filter(s => s.episodes && s.episodes.length > 0);
+        }
+    },
     methods: {
+        PlayEpisode(season, index) {
+            this.$router.push({
+                path: "/player",
+                query: {
+                    id: this.id,
+                    gallery_type: this.gallery_type,
+                    season_id: season.id,
+                    speed: index + 1
+                }
+            })
+        },
         Play() {
             if (this.gallery_type == "tv") {
                 this.$router.push({
@@ -973,6 +999,67 @@ span.button-text {
     width: 160px;
     text-overflow: ellipsis;
     overflow: hidden;
+}
+
+/* 选集网格 */
+.episode-count-tip {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+}
+
+.season-episodes-block {
+    margin-bottom: 10px;
+}
+
+.season-episodes-title {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 14px;
+    margin: 8px 0;
+}
+
+.episode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 48px));
+    grid-gap: 10px;
+}
+
+.episode-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    overflow: hidden;
+}
+
+.episode-grid-item:hover {
+    background: var(--linear-color, #66ccff);
+    transform: scale(1.08);
+}
+
+.episode-grid-num {
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.episode-grid-name {
+    display: none;
+    max-width: 220px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    font-size: 12px;
+}
+
+.episode-grid-item:hover .episode-grid-name {
+    display: block;
 }
 
 
