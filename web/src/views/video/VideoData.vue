@@ -125,6 +125,28 @@
                         </div>
                     </n-scrollbar>
                 </div>
+                <!-- 选集：未刮削的本地剧集直接在详情页列出可播的分集 -->
+                <div v-if="gallery_type == 'tv' && hasEpisodes" class="showContainer">
+                    <div class="show-header">
+                        <div class="show-title">
+                            <h3>选集</h3>
+                        </div>
+                        <div class="show-header-tool" v-if="data.number_of_episodes > 0">
+                            <span class="episode-count-tip">共 {{ data.number_of_episodes }} 集</span>
+                        </div>
+                    </div>
+                    <div v-for="(season, si) in playableSeasons" :key="'s' + si" class="season-episodes-block">
+                        <div class="season-episodes-title" v-if="playableSeasons.length > 1">{{ season.name }}</div>
+                        <div class="episode-grid">
+                            <div class="episode-grid-item"
+                                v-for="(ep, ei) in season.episodes" :key="'e' + ei"
+                                @click="PlayEpisode(season, ei)">
+                                <span class="episode-grid-num">{{ ep.episode_number || (ei + 1) }}</span>
+                                <span class="episode-grid-name">{{ ep.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="showContainer">
                     <div class="show-header">
                         <div class="show-title">

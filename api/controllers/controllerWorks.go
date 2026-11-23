@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,57 +58,178 @@ func CreateBasicMovieRecord(file string, galleryUid string) error {
 	return db.Model(&models.TheMovie{}).Create(&movie).Error
 }
 
-// 创建基础电视剧记录（文件名作标题，可立即播放）
+// tvEpisodeMarkRe 匹配文件名中的集数标记：SxxExx / EPxx / 第N集(话/期)。
+// 取最后一段匹配作为集数标记，其前面的内容作为剧名。
+var tvEpisodeMarkRe = regexp.MustCompile(`(?i)(?:S(\d{1,4})\s*E(\d{1,4})|EP\s?(\d{1,4})|第(\d{1,4})[集话期])`)
+
+// tvCollectionMarkRe 匹配文件名尾部的合集标记（如 第001-030首合集），同样从剧名中剔除
+var tvCollectionMarkRe = regexp.MustCompile(`第\d{1,4}[-~—至]\d{1,4}[首集话]?(?:合集|合辑)?\s*$`)
+
+// parseTvShowTitle 从文件名解析剧名和集数。
+// "SSS英语启蒙儿歌 第001-030首合集 S01E01" -> ("SSS英语启蒙儿歌", 1)
+// "瑞克和莫蒂 S02E03.mkv" -> ("瑞克和莫蒂", 3)；无标记时整个文件名作剧名，集数为 0。
+func parseTvShowTitle(fileName string) (string, int) {
+	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	epNumber := 0
+	show := name
+	if locs := tvEpisodeMarkRe.FindAllStringSubmatchIndex(name, -1); len(locs) > 0 {
+		last := locs[len(locs)-1]
+		show = strings.TrimSpace(name[:last[0]])
+		// 子分组：1=S 2=E 3=EP 4=第N集，取集数值
+		switch {
+		case last[4] >= 0:
+			epNumber, _ = strconv.Atoi(name[last[4]:last[5]])
+		case last[6] >= 0:
+			epNumber, _ = strconv.Atoi(name[last[6]:last[7]])
+		case last[8] >= 0:
+			epNumber, _ = strconv.Atoi(name[last[8]:last[9]])
+		}
+	}
+	if show == "" {
+		show = name
+	}
+	trimmed := tvCollectionMarkRe.ReplaceAllString(show, "")
+	if strings.TrimSpace(trimmed) != "" {
+		show = strings.TrimSpace(trimmed)
+	}
+	return show, epNumber
+}
+
+// 创建基础电视剧记录（按剧名聚合：同一剧的多集共用一条 TheTv，每集一条 Episode）
 func CreateBasicTvRecord(file string, galleryUid string) error {
 	db := database.NewDb()
 	fileName := filepath.Base(file)
-	title := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	fullTitle := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	showTitle, epNumber := parseTvShowTitle(fullTitle)
 
 	// TheTv 没有 url 字段，按 name + gallery_uid 查重
 	var exist models.TheTv
-	err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", title, galleryUid).First(&exist).Error
+	err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", showTitle, galleryUid).First(&exist).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	tvId := uint(exist.ID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		tv := models.TheTv{
+			Name:       showTitle,
+			GalleryUid: galleryUid,
+			PosterPath: "/",
+		}
+		if err := db.Model(&models.TheTv{}).Create(&tv).Error; err != nil {
+			return err
+		}
+		tvId = uint(tv.ID)
+	}
+	return ensureTvEpisode(db, tvId, file, fullTitle, epNumber)
+}
+
+// ensureTvEpisode 确保文件对应的一集挂在该剧的默认季下。
+// 存量兼容：旧版本按文件名建了"一文件一剧"的记录，重扫时按 Episode.Url 识别，
+// 自动把集迁移合并到剧级记录，并清理因此变空的旧季/旧剧（刷新一次目录即可完成聚合）。
+func ensureTvEpisode(db *gorm.DB, tvId uint, file string, epName string, epNumber int) error {
+	// 目标季：该剧的第一个季（通常是默认"第 1 季"），没有则创建
+	var season models.TheSeason
+	err := db.Model(&models.TheSeason{}).
+		Where("the_tv_id = ?", tvId).
+		Order("season_number ASC, id ASC").
+		First(&season).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		season = models.TheSeason{
+			Name:         "第 1 季",
+			SeasonNumber: 1,
+			TheTvID:      tvId,
+		}
+		if err := db.Model(&models.TheSeason{}).Create(&season).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	// 同 url 的集已存在？
+	var ep models.Episode
+	err = db.Model(&models.Episode{}).Where("url = ?", file).First(&ep).Error
 	if err == nil {
-		// 已存在同名基础记录：确保有默认季集（存量数据兼容，重扫一次即可补齐）
-		return ensureDefaultTvSeason(db, uint(exist.ID), file, title)
+		if uint(ep.TheSeasonID) != uint(season.ID) {
+			// 迁移：把集从旧的文件名级记录挂到当前剧的默认季
+			oldSeasonId := ep.TheSeasonID
+			ep.TheSeasonID = uint(season.ID)
+			if epNumber > 0 {
+				ep.EpisodeNumber = epNumber
+			}
+			if err := db.Model(&models.Episode{}).Save(&ep).Error; err != nil {
+				return err
+			}
+			if err := cleanupEmptySeason(db, oldSeasonId); err != nil {
+				return err
+			}
+		}
+		return updateTvCounts(db, tvId)
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
-	tv := models.TheTv{
-		Name:       title,
-		GalleryUid: galleryUid,
-		PosterPath: "/",
-	}
-	if err := db.Model(&models.TheTv{}).Create(&tv).Error; err != nil {
-		return err
-	}
-	return ensureDefaultTvSeason(db, uint(tv.ID), file, title)
-}
-
-// ensureDefaultTvSeason 为未刮削的基础记录补建默认季+集（Episode.Url 指向文件），使其可点进详情页直接播放。
-func ensureDefaultTvSeason(db *gorm.DB, tvId uint, file string, title string) error {
-	var count int64
-	db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tvId).Count(&count)
-	if count > 0 {
-		return nil // 已有季（刮削过或已补建过），不重复创建
-	}
-	season := models.TheSeason{
-		Name:         "第 1 季",
-		SeasonNumber: 1,
-		TheTvID:      tvId,
-	}
-	if err := db.Model(&models.TheSeason{}).Create(&season).Error; err != nil {
-		return err
+	// 新集：集号取文件名解析值，解析不出则取该季现有最大集号 + 1
+	if epNumber <= 0 {
+		var maxNum int
+		db.Model(&models.Episode{}).
+			Where("the_season_id = ?", season.ID).
+			Select("COALESCE(MAX(episode_number), 0)").
+			Scan(&maxNum)
+		epNumber = maxNum + 1
 	}
 	episode := models.Episode{
-		Name:          title,
+		Name:          epName,
 		Url:           file,
-		EpisodeNumber: 1,
-		SeasonNumber:  1,
+		EpisodeNumber: epNumber,
+		SeasonNumber:  season.SeasonNumber,
 		TheSeasonID:   uint(season.ID),
 	}
-	return db.Model(&models.Episode{}).Create(&episode).Error
+	if err := db.Model(&models.Episode{}).Create(&episode).Error; err != nil {
+		return err
+	}
+	return updateTvCounts(db, tvId)
+}
+
+// cleanupEmptySeason 季下已无集时删除该季；若其所属剧因此没有任何季了，连同删除该剧
+func cleanupEmptySeason(db *gorm.DB, seasonId uint) error {
+	var epCount int64
+	db.Model(&models.Episode{}).Where("the_season_id = ?", seasonId).Count(&epCount)
+	if epCount > 0 {
+		return nil
+	}
+	var season models.TheSeason
+	if err := db.Model(&models.TheSeason{}).Where("id = ?", seasonId).First(&season).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if err := db.Model(&models.TheSeason{}).Delete(&season).Error; err != nil {
+		return err
+	}
+	var seasonCount int64
+	db.Model(&models.TheSeason{}).Where("the_tv_id = ?", season.TheTvID).Count(&seasonCount)
+	if seasonCount == 0 {
+		return db.Model(&models.TheTv{}).Where("id = ?", season.TheTvID).Delete(&models.TheTv{}).Error
+	}
+	return nil
+}
+
+// updateTvCounts 同步剧集的季数/集数统计字段
+func updateTvCounts(db *gorm.DB, tvId uint) error {
+	var seasonCount, epCount int64
+	db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tvId).Count(&seasonCount)
+	db.Model(&models.Episode{}).
+		Joins("JOIN the_season ON the_season.id = episode.the_season_id").
+		Where("the_season.the_tv_id = ?", tvId).
+		Count(&epCount)
+	return db.Model(&models.TheTv{}).Where("id = ?", tvId).
+		Updates(map[string]interface{}{
+			"number_of_seasons":  seasonCount,
+			"number_of_episodes": epCount,
+		}).Error
 }
 
 // 全局刮削并发池，所有刮削任务共用，避免多目录扫描时并发数爆炸
