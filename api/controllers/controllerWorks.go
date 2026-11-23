@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode/utf8"
 
 	"github.com/msterzhang/onelist/api/database"
 	"github.com/msterzhang/onelist/api/models"
@@ -77,16 +78,26 @@ func splitPathSegments(p string) []string {
 	return strings.FieldsFunc(p, func(r rune) bool { return r == '/' || r == '\\' })
 }
 
-func pathHasPrefix(parts []string, prefix []string) bool {
-	if len(parts) < len(prefix) {
-		return false
+// pathDepthUnderRoot 判断文件路径是否位于 rootPath 之下，返回文件与根目录之间的
+// 中间层数（0 = 文件平铺在根目录，-1 = 不在根目录下）。
+// 逐段对齐匹配，兼容 alist 文件 url 带 /d 前缀而 work.Path 没有的差异。
+func pathDepthUnderRoot(dirParts, rootParts []string) int {
+	if len(rootParts) == 0 || len(dirParts) < len(rootParts)+1 {
+		return -1
 	}
-	for i := range prefix {
-		if parts[i] != prefix[i] {
-			return false
+	for start := 0; start+len(rootParts) <= len(dirParts)-1; start++ {
+		match := true
+		for i := range rootParts {
+			if dirParts[start+i] != rootParts[i] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return len(dirParts) - 1 - (start + len(rootParts))
 		}
 	}
-	return true
+	return -1
 }
 
 // parseEpisodeNumber 从文件名提取集数（取最后一个集数标记），无标记返回 0
@@ -126,9 +137,10 @@ func resolveTvShowTitle(file string, rootPath string) (string, int) {
 
 	dirParts := splitPathSegments(file)
 	rootParts := splitPathSegments(rootPath)
-	// 从最里层子文件夹向外找第一个"非季文件夹"的层作剧名（最后一层是文件名，故从 len-2 开始）
-	if len(dirParts) > len(rootParts) && pathHasPrefix(dirParts, rootParts) {
-		for i := len(dirParts) - 2; i >= len(rootParts); i-- {
+	depth := pathDepthUnderRoot(dirParts, rootParts)
+	// 文件在根目录的子文件夹里：从最里层向外找第一个"非季文件夹"的层作剧名
+	if depth > 0 {
+		for i := len(dirParts) - 2; i >= len(dirParts)-1-depth; i-- {
 			if seasonDirRe.MatchString(dirParts[i]) {
 				continue
 			}
@@ -154,15 +166,160 @@ func resolveTvShowTitle(file string, rootPath string) (string, int) {
 	return show, epNumber
 }
 
-// 创建基础电视剧记录（按剧名聚合：同一剧的多集共用一条 TheTv，每集一条 Episode）
-func CreateBasicTvRecord(file string, galleryUid string, rootPath string) error {
+// isTitlePrefix 判断 candidate 是否以 name 为前缀且边界清晰（下一字符是分隔符或结尾），
+// 用于把文件归入以目录名/已有剧名开头的聚合组
+func isTitlePrefix(candidate, name string) bool {
+	if name == "" || len(name) > len(candidate) || !strings.HasPrefix(candidate, name) {
+		return false
+	}
+	rest := candidate[len(name):]
+	if rest == "" {
+		return true
+	}
+	// 分隔符都是单字节 ASCII，多字节中文的首字节不会与之冲突
+	switch rest[0] {
+	case ' ', '-', '.', '_', '[', '(':
+		return true
+	}
+	return strings.HasPrefix(rest, "（")
+}
+
+// longestCommonPrefix 取两个字符串的公共前缀（按字符切分，避免截断 UTF-8）
+func longestCommonPrefix(a, b string) string {
+	ai, bi := []rune(a), []rune(b)
+	n := len(ai)
+	if len(bi) < n {
+		n = len(bi)
+	}
+	for i := 0; i < n; i++ {
+		if ai[i] != bi[i] {
+			return string(ai[:i])
+		}
+	}
+	return string(ai[:n])
+}
+
+// trimTitleTail 去掉标题尾部的数字与分隔符（公共前缀可能停在"副标题+编号"中间，如 "儿歌1"）
+func trimTitleTail(s string) string {
+	s = strings.TrimRight(s, " -_.")
+	idx := len(s)
+	for idx > 0 && s[idx-1] >= '0' && s[idx-1] <= '9' {
+		idx--
+	}
+	return strings.TrimRight(s[:idx], " -_.")
+}
+
+// ResolveTvShowTitles 批量解析一次扫描文件列表的剧名（file -> 剧名）。
+// 平铺在扫描根目录的文件按三种信号聚合（子文件夹文件沿用文件夹名优先逻辑）：
+//  1. 挂载目录名即剧名：用户按剧集文件夹挂载、文件名形如 "剧名 副标题 SxxExx" 时，
+//     目录名就是剧名，每集副标题再乱也能正确聚合；
+//  2. 公共前缀：多部剧平铺在同一目录时按文件名公共前缀归组；
+//  3. 逐文件解析回退，并把增量新增文件归入同影库已存在的剧（前缀边界匹配）。
+func ResolveTvShowTitles(galleryUid string, files []string, rootPath string) map[string]string {
+	titles := make(map[string]string, len(files))
+	rootParts := splitPathSegments(rootPath)
+	rootName := ""
+	if len(rootParts) > 0 {
+		rootName = rootParts[len(rootParts)-1]
+	}
+	type flatFile struct {
+		file string
+		cand string
+	}
+	var flats []flatFile
+	for _, file := range files {
+		segs := splitPathSegments(file)
+		if len(segs) == 0 {
+			continue
+		}
+		name := segs[len(segs)-1]
+		if idx := strings.LastIndex(name, "."); idx > 0 {
+			name = name[:idx]
+		}
+		if pathDepthUnderRoot(segs, rootParts) > 0 {
+			// 子文件夹文件：文件夹名优先，逐文件解析
+			show, _ := resolveTvShowTitle(file, rootPath)
+			titles[file] = show
+			continue
+		}
+		// 平铺文件：候选剧名 = 去掉集数标记后的部分
+		cand := name
+		if locs := tvEpisodeMarkRe.FindAllStringSubmatchIndex(name, -1); len(locs) > 0 {
+			cand = strings.TrimSpace(name[:locs[len(locs)-1][0]])
+		}
+		if cand == "" {
+			cand = name
+		}
+		flats = append(flats, flatFile{file, cand})
+	}
+
+	if len(flats) == 0 {
+		return titles
+	}
+
+	// 1) 挂载目录名命中（"阿布故事 成语故事1" 挂载在 "阿布故事" 下）
+	var rest []flatFile
+	for _, it := range flats {
+		if rootName != "" && isTitlePrefix(it.cand, rootName) {
+			titles[it.file] = rootName
+		} else {
+			rest = append(rest, it)
+		}
+	}
+	flats = rest
+	if len(flats) == 0 {
+		return titles
+	}
+
+	// 2) 公共前缀归组
+	lcp := flats[0].cand
+	for _, it := range flats[1:] {
+		lcp = longestCommonPrefix(lcp, it.cand)
+	}
+	lcp = trimTitleTail(lcp)
+	if len(flats) >= 2 && utf8.RuneCountInString(lcp) >= 2 {
+		for _, it := range flats {
+			titles[it.file] = lcp
+		}
+		return titles
+	}
+
+	// 3) 逐文件解析 + 归入同影库已存在的剧（增量新增文件）
+	for _, it := range flats {
+		titles[it.file] = it.cand
+	}
+	if galleryUid != "" {
+		db := database.NewDb()
+		var shows []models.TheTv
+		db.Model(&models.TheTv{}).Where("gallery_uid = ?", galleryUid).Select("id, name").Find(&shows)
+		for _, it := range flats {
+			best := ""
+			for _, show := range shows {
+				if utf8.RuneCountInString(show.Name) > utf8.RuneCountInString(best) && isTitlePrefix(it.cand, show.Name) {
+					best = show.Name
+				}
+			}
+			if best != "" {
+				titles[it.file] = best
+			}
+		}
+	}
+	return titles
+}
+
+// 创建基础电视剧记录（按剧名聚合：同一剧的多集共用一条 TheTv，每集一条 Episode）。
+// showTitle 为批级解析结果（ResolveTvShowTitles），为空时回退到单文件解析。
+func CreateBasicTvRecord(file string, galleryUid string, rootPath string, showTitle string) error {
 	db := database.NewDb()
-	fileName := splitPathSegments(file)
-	fullTitle := fileName[len(fileName)-1]
+	fileSegs := splitPathSegments(file)
+	fullTitle := fileSegs[len(fileSegs)-1]
 	if idx := strings.LastIndex(fullTitle, "."); idx > 0 {
 		fullTitle = fullTitle[:idx]
 	}
-	showTitle, epNumber := resolveTvShowTitle(file, rootPath)
+	if showTitle == "" {
+		showTitle, _ = resolveTvShowTitle(file, rootPath)
+	}
+	epNumber := parseEpisodeNumber(fullTitle)
 
 	// TheTv 没有 url 字段，按 name + gallery_uid 查重
 	var exist models.TheTv
@@ -311,10 +468,14 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 	db := database.NewDb()
 	logger.Info("work", "开始刮削任务", "路径: "+work.Path+", 文件数: "+strconv.Itoa(len(files)))
 
-	// 先创建基础记录，让视频可立即播放
+	// 先创建基础记录，让视频可立即播放（TV 按批次聚合剧名）
+	tvTitles := map[string]string{}
+	if gallery.GalleryType == "tv" {
+		tvTitles = ResolveTvShowTitles(gallery.GalleryUid, files, work.Path)
+	}
 	for _, file := range files {
 		if gallery.GalleryType == "tv" {
-			if err := CreateBasicTvRecord(file, gallery.GalleryUid, work.Path); err != nil {
+			if err := CreateBasicTvRecord(file, gallery.GalleryUid, work.Path, tvTitles[file]); err != nil {
 				logger.Error("work", "创建剧集基础记录失败: "+file, err.Error())
 			}
 		} else {
@@ -376,13 +537,19 @@ func RunWork(files []string, work models.Work, gallery models.Gallery) {
 func RunWorkNew(files []string, work models.Work, gallery models.Gallery) {
 	db := database.NewDb()
 	
-	// 先创建基础记录
+	// 先创建基础记录（TV 按批次聚合剧名）
+	tvTitles := map[string]string{}
+	if gallery.GalleryType == "tv" {
+		tvTitles = ResolveTvShowTitles(gallery.GalleryUid, files, work.Path)
+	}
 	for _, file := range files {
 		if gallery.GalleryType == "tv" {
 			episode := models.Episode{}
 			err := db.Model(&models.Episode{}).Where("url = ?", file).First(&episode).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				_ = CreateBasicTvRecord(file, gallery.GalleryUid, work.Path)
+				if err := CreateBasicTvRecord(file, gallery.GalleryUid, work.Path, tvTitles[file]); err != nil {
+					logger.Error("work", "创建剧集基础记录失败: "+file, err.Error())
+				}
 			}
 		} else {
 			themovie := models.TheMovie{}
