@@ -27,6 +27,21 @@ func NewRepositoryTheTvsCRUD(db *gorm.DB) *RepositoryTheTvsCRUD {
 	}
 }
 
+// FindByID 按 id 查询剧集并加载详情页必需的关联数据(季/类型/演职人员)。
+// 泛型默认实现只 Take 不 Preload，会导致 the_seasons 恒为 null，前端详情页崩溃。
+func (r *RepositoryTheTvsCRUD) FindByID(id string) (models.TheTv, error) {
+	thetv := models.TheTv{}
+	err := r.db.Preload("TheSeasons").Preload("Genres").Preload("ThePersons").
+		Where("id = ?", id).Take(&thetv).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.TheTv{}, fmt.Errorf("%s Not Found", r.GenericCRUD.name)
+		}
+		return models.TheTv{}, err
+	}
+	return thetv, nil
+}
+
 // allowedTvSortModes 白名单：仅允许这些列作为排序字段，防止 SQL 注入
 var allowedTvSortModes = map[string]bool{
 	"vote_average": true, "last_air_date": true, "updated_at": true,

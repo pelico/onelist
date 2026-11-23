@@ -67,7 +67,8 @@ func CreateBasicTvRecord(file string, galleryUid string) error {
 	var exist models.TheTv
 	err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", title, galleryUid).First(&exist).Error
 	if err == nil {
-		return nil // 已存在同名基础记录，不重复创建
+		// 已存在同名基础记录：确保有默认季集（存量数据兼容，重扫一次即可补齐）
+		return ensureDefaultTvSeason(db, uint(exist.ID), file, title)
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
@@ -78,7 +79,35 @@ func CreateBasicTvRecord(file string, galleryUid string) error {
 		GalleryUid: galleryUid,
 		PosterPath: "/",
 	}
-	return db.Model(&models.TheTv{}).Create(&tv).Error
+	if err := db.Model(&models.TheTv{}).Create(&tv).Error; err != nil {
+		return err
+	}
+	return ensureDefaultTvSeason(db, uint(tv.ID), file, title)
+}
+
+// ensureDefaultTvSeason 为未刮削的基础记录补建默认季+集（Episode.Url 指向文件），使其可点进详情页直接播放。
+func ensureDefaultTvSeason(db *gorm.DB, tvId uint, file string, title string) error {
+	var count int64
+	db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tvId).Count(&count)
+	if count > 0 {
+		return nil // 已有季（刮削过或已补建过），不重复创建
+	}
+	season := models.TheSeason{
+		Name:         "第 1 季",
+		SeasonNumber: 1,
+		TheTvID:      tvId,
+	}
+	if err := db.Model(&models.TheSeason{}).Create(&season).Error; err != nil {
+		return err
+	}
+	episode := models.Episode{
+		Name:          title,
+		Url:           file,
+		EpisodeNumber: 1,
+		SeasonNumber:  1,
+		TheSeasonID:   uint(season.ID),
+	}
+	return db.Model(&models.Episode{}).Create(&episode).Error
 }
 
 // 全局刮削并发池，所有刮削任务共用，避免多目录扫描时并发数爆炸

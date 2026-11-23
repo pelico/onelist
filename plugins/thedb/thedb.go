@@ -547,12 +547,19 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 	if config.DownLoadImage == "是" {
 		DownEpisodeImages(episode.StillPath)
 	}
-	season.TheTvID = uint(data.ID)
-	theseason.TheTvID = uint(data.ID)
 	episode.TheSeasonID = uint(theseason.ID)
 	episode.Url = file
 	data.Seasons = []models.Season{}
 	theseason.Episodes = []models.Episode{}
+	data.GalleryUid = GalleryUid
+	// 先确定/更新剧集记录（基础记录转正并清掉默认季集），再写入真实季集，
+	// 避免季集挂到错误的 id 上（基础记录 id 是自增值，不等于 TMDB id）
+	finalTvID, err := ChunkTheTv(data, file)
+	if err != nil {
+		return data, err
+	}
+	season.TheTvID = finalTvID
+	theseason.TheTvID = finalTvID
 	err = ChunkSeason(season)
 	if err != nil {
 		return data, err
@@ -565,11 +572,6 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 	if err != nil {
 		return data, err
 	}
-	data.GalleryUid = GalleryUid
-	err = ChunkTheTv(data, file)
-	if err != nil {
-		return data, err
-	}
 
 	if config.DownLoadImageToMedia == "是" {
 		go DownloadImageToMedia(file, data.PosterPath, data.BackdropPath)
@@ -578,60 +580,116 @@ func TheTvDb(id int, file string, GalleryUid string) (models.TheTv, error) {
 	return data, nil
 }
 
-// 检查是否已存在此节目（支持基础记录更新），存在则更新，不存在则创建
-func ChunkTheTv(thetv models.TheTv, file string) error {
+// 检查是否已存在此节目（支持基础记录更新），存在则更新并返回最终记录 ID，不存在则创建。
+// 优先级：已刮削记录（TMDB 名字 / TMDB ID）> 文件名对应的基础记录 > 新建。
+func ChunkTheTv(thetv models.TheTv, file string) (uint, error) {
 	db := database.NewDb()
 	dbthetv := models.TheTv{}
-	// 先按文件名查找基础记录（支持未刮削的记录更新）
-	// CreateBasicTvRecord 用文件名（去扩展名）作为 name 创建基础记录
-	// 刮削时 TMDB 返回的 name 通常与文件名不同，需要用文件名才能匹配到基础记录
-	if file != "" {
-		fileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
-		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", fileName, thetv.GalleryUid).First(&dbthetv).Error
-		if err == nil {
-			// 找到基础记录，更新（保留原有的状态，不更新ID）
-			thetv.ID = dbthetv.ID
-			thetv.CreatedAt = dbthetv.CreatedAt
-			thetv.Star = dbthetv.Star
-			thetv.Heart = dbthetv.Heart
-			thetv.Played = dbthetv.Played
-			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
-		}
-	}
-	// 按文件名未找到，按 TMDB 名字查找（已刮削的记录重命名后重新刮削）
+
+	// 1. 按 TMDB 名字查找（已刮削的记录；含文件改名后重新刮削的场景）
 	if thetv.Name != "" {
 		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", thetv.Name, thetv.GalleryUid).First(&dbthetv).Error
 		if err == nil {
-			// 找到记录，更新（保留原有的状态，不更新ID）
+			// 找到已刮削记录，更新（保留原有的状态，不更新ID）
 			thetv.ID = dbthetv.ID
 			thetv.CreatedAt = dbthetv.CreatedAt
 			thetv.Star = dbthetv.Star
 			thetv.Heart = dbthetv.Heart
 			thetv.Played = dbthetv.Played
-			return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
+			if err := db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error; err != nil {
+				return 0, err
+			}
+			cleanupBasicTvRecord(db, thetv.GalleryUid, file, uint(thetv.ID))
+			return uint(thetv.ID), nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, err
 		}
 	}
-	// 按 TMDB 名字未找到，先在同一媒体库内按 TMDB ID 查找
+
+	// 2. 按 TMDB ID 在同一媒体库内查找
 	err := db.Model(&models.TheTv{}).Where("id = ? AND gallery_uid = ?", thetv.ID, thetv.GalleryUid).First(&dbthetv).Error
 	if err == nil {
-		// 同一媒体库内找到，更新（保留播放状态和创建时间）
+		// 找到记录，更新（保留播放状态和创建时间）
 		thetv.ID = dbthetv.ID
 		thetv.CreatedAt = dbthetv.CreatedAt
 		thetv.Star = dbthetv.Star
 		thetv.Heart = dbthetv.Heart
 		thetv.Played = dbthetv.Played
-		return db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error
+		if err := db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error; err != nil {
+			return 0, err
+		}
+		cleanupBasicTvRecord(db, thetv.GalleryUid, file, uint(thetv.ID))
+		return uint(thetv.ID), nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, err
+	}
+
+	// 3. 按文件名查找基础记录（未刮削的记录转正：清掉默认季集，随后写入真实季集）
+	if file != "" {
+		fileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", fileName, thetv.GalleryUid).First(&dbthetv).Error
+		if err == nil {
+			thetv.ID = dbthetv.ID
+			thetv.CreatedAt = dbthetv.CreatedAt
+			thetv.Star = dbthetv.Star
+			thetv.Heart = dbthetv.Heart
+			thetv.Played = dbthetv.Played
+			if err := clearTvSeasons(db, uint(dbthetv.ID)); err != nil {
+				return 0, err
+			}
+			if err := db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).Omit("id").Updates(&thetv).Error; err != nil {
+				return 0, err
+			}
+			return uint(thetv.ID), nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, err
+		}
+	}
+
+	// 4. 新建
+	if err := db.Model(&models.TheTv{}).Create(&thetv).Error; err != nil {
+		return 0, err
+	}
+	cleanupBasicTvRecord(db, thetv.GalleryUid, file, uint(thetv.ID))
+	return uint(thetv.ID), nil
+}
+
+// cleanupBasicTvRecord 清理与 file 同名的基础记录及其默认季集（该文件将由真实季集承载，避免重复记录）。
+func cleanupBasicTvRecord(db *gorm.DB, galleryUid string, file string, finalTvID uint) {
+	if file == "" {
+		return
+	}
+	fileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	basic := models.TheTv{}
+	err := db.Model(&models.TheTv{}).Where("name = ? AND gallery_uid = ?", fileName, galleryUid).First(&basic).Error
+	if err != nil || basic.ID == int(finalTvID) {
+		return
+	}
+	_ = clearTvSeasons(db, uint(basic.ID))
+	db.Model(&models.Played{}).Where("data_type = ? AND data_id = ?", "tv", basic.ID).Delete(&models.Played{})
+	db.Model(&models.Star{}).Where("data_type = ? AND data_id = ?", "tv", basic.ID).Delete(&models.Star{})
+	db.Model(&models.Heart{}).Where("data_type = ? AND data_id = ?", "tv", basic.ID).Delete(&models.Heart{})
+	db.Model(&models.TheTv{}).Where("id = ?", basic.ID).Delete(&models.TheTv{})
+}
+
+// clearTvSeasons 清空某个剧集记录下的全部季集（用于基础记录转正时移除默认季集）。
+func clearTvSeasons(db *gorm.DB, tvId uint) error {
+	var seasonIds []uint
+	if err := db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tvId).Pluck("id", &seasonIds).Error; err != nil {
 		return err
 	}
-	// 同一媒体库内未找到，按 TMDB ID 查找（其他媒体库的同部电视剧）
-	err = db.Model(&models.TheTv{}).Where("id = ?", thetv.ID).First(&dbthetv).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return db.Model(&models.TheTv{}).Create(&thetv).Error
+	if len(seasonIds) > 0 {
+		if err := db.Model(&models.Episode{}).Where("the_season_id IN ?", seasonIds).Delete(&models.Episode{}).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tvId).Delete(&models.TheSeason{}).Error; err != nil {
+			return err
+		}
 	}
-	// 其他媒体库存在同部电视剧，创建新记录（避免覆盖其他媒体库的记录）
-	return db.Model(&models.TheTv{}).Create(&thetv).Error
+	return db.Model(&models.Season{}).Where("the_tv_id = ?", tvId).Delete(&models.Season{}).Error
 }
 
 // 检查是否已存在此节目分季，存在则更新，不存在则创建

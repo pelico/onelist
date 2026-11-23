@@ -403,6 +403,10 @@ export default {
 
         // 根据Season获得电视剧的path
         function fetchSeason() {
+            // 未刮削的基础记录可能没有季数据，直接取[0]会抛错导致页面卡死
+            if (!data.value.the_seasons || data.value.the_seasons.length === 0) {
+                return;
+            }
             seasonId.value = data.value.the_seasons[0].id;
             let api = proxy.COMMON.apiUrl + `/v1/api/theseason/id?id=${seasonId.value}`;
             proxy.axios.post(api, {}, {
@@ -446,12 +450,13 @@ export default {
                     form.value.data_type = gallery_type.value;
                     form.value.data_id = data.value.id;
                     backImg.value = proxy.COMMON.imgUrl + "/t/p/w1920_and_h1080_bestv2" + data.value.backdrop_path
+                    // 先停掉加载动画，后续季/集加载失败也不至于页面卡死
+                    loading.value = false;
                     if (gallery_type.value == "tv") {
                         fetchSeason();
                     } else {
                         file.value = data.value.url.replaceAll("/d/", "/");
                     }
-                    loading.value = false;
                 } else {
                     proxy.COMMON.ShowMsg(res.data.msg)
                 }
