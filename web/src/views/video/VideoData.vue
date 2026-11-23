@@ -92,12 +92,13 @@
                                     <div class="season-episodes-title" v-if="playableSeasons.length > 1">{{ season.name }}
                                     </div>
                                     <div class="episode-grid">
-                                        <div class="episode-grid-item"
+                                        <!-- 用原生 button 使遥控器（方向键/OK）可以聚焦导航 -->
+                                        <button type="button" class="episode-grid-item"
                                             v-for="(ep, ei) in season.episodes" :key="'e' + ei"
                                             @click="PlayEpisode(season, ei)">
                                             <span class="episode-grid-num">{{ ep.episode_number || (ei + 1) }}</span>
                                             <span class="episode-grid-name">{{ ep.name }}</span>
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -1038,9 +1039,16 @@ span.button-text {
     cursor: pointer;
     transition: background 0.2s, transform 0.2s;
     overflow: hidden;
+    /* 原生 button 样式重置 */
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    outline: none;
 }
 
-.episode-grid-item:hover {
+.episode-grid-item:hover,
+.episode-grid-item:focus {
     background: var(--linear-color, #66ccff);
     transform: scale(1.08);
 }
@@ -1060,7 +1068,8 @@ span.button-text {
     font-size: 12px;
 }
 
-.episode-grid-item:hover .episode-grid-name {
+.episode-grid-item:hover .episode-grid-name,
+.episode-grid-item:focus .episode-grid-name {
     display: block;
 }
 
