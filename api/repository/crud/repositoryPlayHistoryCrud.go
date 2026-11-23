@@ -63,7 +63,12 @@ func (r *RepositoryPlayHistoryCRUD) Heartbeat(ph models.PlayHistory) (models.Pla
 			// 更新已有记录：用位置增量计算实际观看时长（排除快进/跳过/暂停时间）
 			positionDelta := ph.Position - existing.Position
 			if positionDelta < 0 {
-				positionDelta = 0 // 回退进度（拖动进度条），不计入
+				// 位置回跳：TV 连播切集（新一集从 0 开始）或拖动回退，
+				// 用户实际观看了本次心跳间隔的时长，按心跳间隔计入
+				positionDelta = ph.Duration
+				if positionDelta < 0 {
+					positionDelta = 0
+				}
 			}
 			actualDuration := positionDelta
 			if ph.Duration > 0 && ph.Duration < actualDuration {

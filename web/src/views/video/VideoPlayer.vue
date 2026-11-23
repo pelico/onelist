@@ -1208,7 +1208,11 @@ export default {
                     "total_duration": duration
                 };
 
-                if (inPlaylist) {
+                if (gallery_type.value == "tv" && data.value && data.value.id) {
+                    // 电视剧：按剧维度上报（连播/选集共用剧 ID），统计 Top 才能按剧聚合
+                    heartbeatData.data_id = data.value.id;
+                    heartbeatData.title = data.value.name;
+                } else if (inPlaylist) {
                     // 播放列表模式：用当前文件路径的 hash 作为 data_id，文件名作为标题
                     const currentFile = playlist.value[playlistIndex.value] || '';
                     const fileName = currentFile.split('/').pop().replace(/\.[^/.]+$/, "");
