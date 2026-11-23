@@ -339,6 +339,7 @@ export default {
             currentPath,
             breadcrumb,
             reF,
+            startAutoRefresh,
             typeOptions: ["movie", "tv"].map(
                 (v) => ({
                     label: v,
@@ -504,7 +505,7 @@ export default {
                     this.COMMON.ShowMsg(res.data.msg)
                     this.showModal = false;
                     this.reF();
-                    startAutoRefresh();
+                    this.startAutoRefresh();
                 } else {
                     this.COMMON.ShowMsg(res.data.msg)
                 }

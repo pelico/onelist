@@ -67,6 +67,24 @@ function onPosterError(event, posterPath, customPoster) {
     el.style.opacity = '1'; // 确保远程也失败时图片可见
 }
 
+// 媒体库封面地址解析：
+// 1. http(s):// 开头 → 直接使用外部图片 URL
+// 2. 含 "gallery" 的路径 → 后端托管图片（如上传后返回的 /gallery/xxx.jpg）
+// 3. 其他 → 视为 TMDB 图片路径（如 /abc.jpg），拼 TMDB CDN 地址
+// 4. 空 → 内置占位图
+function getGalleryImage(image) {
+    if (!image || image.length === 0) {
+        return '/images/not_gellery.png';
+    }
+    if (image.indexOf("http://") === 0 || image.indexOf("https://") === 0) {
+        return image;
+    }
+    if (image.search(/gallery/) != -1) {
+        return apiUrl + image;
+    }
+    return imgUrl + "/t/p/w355_and_h200_multi_faces" + image;
+}
+
 function initConfig() {
     if (localStorage.getItem("title") != null) {
         title = localStorage.getItem("title")
@@ -126,6 +144,7 @@ const api = {
     ShowMsg,
     getPosterUrl,
     onPosterError,
+    getGalleryImage,
     setMsgHandler,
     applyConfig
 }
