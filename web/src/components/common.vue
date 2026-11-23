@@ -15,11 +15,22 @@ function setMsgHandler(handler) {
 }
 
 function ShowMsg(msg) {
+    // 统一转成可读字符串：后端/网络异常可能传进来对象或 Error（否则消息弹窗只剩一个图标）
+    let text = msg;
+    if (msg === null || msg === undefined || msg === '') {
+        text = '操作失败';
+    } else if (typeof msg !== 'string') {
+        // axios 错误优先取服务端返回的 msg，其次错误本体 message
+        text = (msg && msg.response && msg.response.data && msg.response.data.msg)
+            || (msg && msg.msg)
+            || (msg && msg.message)
+            || String(msg);
+    }
     if (_msgHandler) {
-        _msgHandler(msg);
+        _msgHandler(text);
     } else {
         // 降级：控制台输出
-        console.warn('[msg]', msg);
+        console.warn('[msg]', text);
     }
 }
 

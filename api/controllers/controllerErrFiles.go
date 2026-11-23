@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"errors"
 	"path/filepath"
 	"strconv"
 
@@ -61,13 +60,13 @@ func UpdateErrFileById(c *gin.Context) {
 	errfileDb := models.ErrFile{}
 	err = db.Model(&models.ErrFile{}).Where("id = ?", errfile.Id).First(&errfileDb).Error
 	if err != nil {
-		c.JSON(200, gin.H{"code": 201, "msg": err, "data": errfile})
+		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": errfile})
 		return
 	}
 	fileName := filepath.Base(errfile.File)
 	err = alist.AlistRnameFile(fileName, errfileDb)
 	if err != nil {
-		c.JSON(200, gin.H{"code": 201, "msg": err, "data": errfile})
+		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": errfile})
 		return
 	}
 	repo := crud.NewRepositoryErrFilesCRUD(db)
@@ -205,7 +204,7 @@ func RefErrFilesByWorkId(c *gin.Context) {
 	db := database.NewDb()
 	err := db.Model(&models.ErrFile{}).Where("work_id = ?", id).Find(&errfiles).Error
 	if err != nil {
-		c.JSON(200, gin.H{"code": 201, "msg": err, "data": ""})
+		c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
 		return
 	}
 
@@ -365,14 +364,14 @@ func RefErrTheTvById(c *gin.Context) {
 	if gallery.IsAlist {
 		files, err = alist.GetAlistFilesPath(path, true, gallery)
 		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": err, "data": ""})
+			c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
 			return
 		}
 	} else {
 		files = dir.GetFilesByPath(path)
 	}
 	if len(files) == 0 {
-		c.JSON(200, gin.H{"code": 201, "msg": errors.New("files is 0"), "data": ""})
+		c.JSON(200, gin.H{"code": 201, "msg": "未扫描到任何文件:挂载目录可能未就绪、路径有误或目录为空,请稍后重试!", "data": ""})
 		return
 	}
 	go RunRefTv(id, oldId, files, gallery)

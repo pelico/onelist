@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/msterzhang/onelist/api/database"
@@ -300,14 +299,14 @@ func AddTheTv(c *gin.Context) {
 	if gallery.IsAlist {
 		files, err = alist.GetAlistFilesPath(addVideo.Path, true, gallery)
 		if err != nil {
-			c.JSON(200, gin.H{"code": 201, "msg": err, "data": ""})
+			c.JSON(200, gin.H{"code": 201, "msg": err.Error(), "data": ""})
 			return
 		}
 	} else {
 		files = dir.GetFilesByPath(addVideo.Path)
 	}
 	if len(files) == 0 {
-		c.JSON(200, gin.H{"code": 201, "msg": errors.New("files is 0"), "data": ""})
+		c.JSON(200, gin.H{"code": 201, "msg": "未扫描到任何文件:挂载目录可能未就绪、路径有误或目录为空,请稍后重试!", "data": ""})
 		return
 	}
 	go RunTheTvById(addVideo, files, gallery)

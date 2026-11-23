@@ -313,7 +313,7 @@ func ReNewWork(c *gin.Context) {
 		files = dir.GetFilesByPath(work.Path)
 	}
 	if len(files) == 0 {
-		c.JSON(200, gin.H{"code": 201, "msg": errors.New("files is 0"), "data": ""})
+		c.JSON(200, gin.H{"code": 201, "msg": "未扫描到任何文件:挂载目录可能未就绪、路径有误或目录为空,请稍后重试!", "data": ""})
 		return
 	}
 	work.FileNumber = len(files)
