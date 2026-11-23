@@ -104,6 +104,11 @@ func buildFileSet(db *gorm.DB, gallery models.Gallery) map[string]bool {
 
 // cleanupOrphanMovies 清理电影失效记录（文件已不存在）
 func cleanupOrphanMovies(db *gorm.DB, gallery models.Gallery, fileSet map[string]bool) int {
+	// 文件列表为空说明文件获取失败，跳过以防全库误删
+	if len(fileSet) == 0 {
+		return 0
+	}
+
 	var movies []models.TheMovie
 	db.Where("gallery_uid = ?", gallery.GalleryUid).Find(&movies)
 
@@ -131,9 +136,30 @@ func cleanupOrphanMovies(db *gorm.DB, gallery models.Gallery, fileSet map[string
 func cleanupOrphanTvs(db *gorm.DB, gallery models.Gallery, fileSet map[string]bool) int {
 	deleted := 0
 
-	// 先清理不存在的剧集文件
+	// 文件列表为空说明文件获取失败或该库没有挂载目录，此时无法判定记录失效，跳过以防全库误删
+	if len(fileSet) == 0 {
+		return 0
+	}
+
+	// 只检查本媒体库的剧（避免用 A 库的文件列表误删 B 库的剧集）
+	var tvs []models.TheTv
+	db.Where("gallery_uid = ?", gallery.GalleryUid).Find(&tvs)
+	if len(tvs) == 0 {
+		return 0
+	}
+	tvIds := make([]int, 0, len(tvs))
+	for _, tv := range tvs {
+		tvIds = append(tvIds, tv.ID)
+	}
+
+	// 先清理不存在的剧集文件（按季 ID 过滤，不用 JOIN 查行数据——
+	// SELECT * + JOIN 时两表同名列会互相覆盖导致数据错乱）
+	var seasonIds []uint
+	db.Model(&models.TheSeason{}).Where("the_tv_id IN (?)", tvIds).Pluck("id", &seasonIds)
 	var episodes []models.Episode
-	db.Find(&episodes)
+	if len(seasonIds) > 0 {
+		db.Where("the_season_id IN (?)", seasonIds).Find(&episodes)
+	}
 	for _, ep := range episodes {
 		if ep.Url == "" {
 			continue
@@ -149,14 +175,13 @@ func cleanupOrphanTvs(db *gorm.DB, gallery models.Gallery, fileSet map[string]bo
 	}
 
 	// 再清理没有任何剧集的 TV 记录
-	var tvs []models.TheTv
-	db.Where("gallery_uid = ?", gallery.GalleryUid).Find(&tvs)
 	for _, tv := range tvs {
+		var sIds []uint
+		db.Model(&models.TheSeason{}).Where("the_tv_id = ?", tv.ID).Pluck("id", &sIds)
 		var epCount int64
-		db.Model(&models.Episode{}).
-			Joins("JOIN the_seasons ON episodes.the_season_id = the_seasons.id").
-			Where("the_seasons.the_tv_id = ?", tv.ID).
-			Count(&epCount)
+		if len(sIds) > 0 {
+			db.Model(&models.Episode{}).Where("the_season_id IN (?)", sIds).Count(&epCount)
+		}
 		if epCount == 0 {
 			deleteTvAndRelations(db, tv.ID)
 			deleted++
