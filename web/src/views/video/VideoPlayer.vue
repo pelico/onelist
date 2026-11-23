@@ -503,6 +503,12 @@ export default {
             lastHeartbeatPosition = 0;
             let nextUrl = playlist.value[playlistIndex.value];
             let title = nextUrl.split('/').pop().replace(/\.[^/.]+$/, "");
+            // TV:同步选集面板高亮与本地记忆,标题显示"第N集"
+            if (gallery_type.value == "tv") {
+                speed.value = playlistIndex.value;
+                localStorage.setItem(`${id.value}_${gallery_type.value}`, String(speed.value));
+                title = `${data.value.name}第${speed.value + 1}集`;
+            }
             document.title = title;
 
             // 自动触发假全屏（CSS 撑满视口，绕过浏览器手势限制）
@@ -515,7 +521,11 @@ export default {
                 url.value = playUrl;
                 urlBase.value = encodeURI(playUrl);
                 art.switchUrl(encodeURI(playUrl), title);
-                art.on('ready', () => art.play());
+                // 用 once 避免监听器随切集累积;连播切集后加载字幕,与手动选集行为一致
+                art.once('ready', () => {
+                    art.play();
+                    chunkSubtitles(nextUrl.replace(/^\/file\//, ''));
+                });
             }
         }
 
@@ -1281,6 +1291,12 @@ export default {
                 if (res.data.code == 200) {
                     season.value = res.data.data;
                     selectList();
+                    // TV 自动连播:用本季剧集列表作播放列表(接口已按集号排序)
+                    if (season.value.episodes && season.value.episodes.length > 0) {
+                        playlist.value = season.value.episodes.map(e => e.url);
+                        playlistIndex.value = Math.min(Math.max(speed.value, 0), playlist.value.length - 1);
+                        bindPlaylistEnded();
+                    }
                 } else {
                     proxy.COMMON.ShowMsg(res.data.msg)
                 }
@@ -1320,8 +1336,8 @@ export default {
 
                     } else {
                         fetchSeason();
-                        // 电视剧也加载同目录播放列表，用于自动连播
-                        loadPlaylist();
+                        // 电视剧连播列表由 fetchSeason 按季集构建:
+                        // TheTv 无 url 字段,目录播放列表不可用;且按集号排序,避免错序/串剧
                     }
                 } else {
                     proxy.COMMON.ShowMsg(res.data.msg)
