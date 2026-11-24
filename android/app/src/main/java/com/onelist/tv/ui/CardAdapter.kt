@@ -21,7 +21,9 @@ import com.onelist.tv.data.Tv
 class CardAdapter(
     private val items: List<Any>,
     private val type: String,
-    private val onClick: (Any) -> Unit
+    private val onClick: (Any) -> Unit,
+    /** 卡片获得焦点时回调其海报 URL（首页模糊背景跟随用；其他页面传 null 不回调） */
+    private val onFocused: ((String?) -> Unit)? = null
 ) : RecyclerView.Adapter<CardAdapter.CardViewHolder>() {
 
     // ---- 焦点背景统一使用 Ui.rowFocusBg（cardHover+accent 描边），无状态串扰 ----
@@ -100,9 +102,6 @@ class CardAdapter(
         }
         card.addView(title)
 
-        // 焦点变化：统一 Ui.scaleOnFocus（1.05 缩放 + bringToFront）
-        card.setOnFocusChangeListener { v, _ -> Ui.scaleOnFocus(v) }
-
         return CardViewHolder(card)
     }
 
@@ -172,6 +171,13 @@ class CardAdapter(
         }
 
         card.setOnClickListener { onClick(item) }
+
+        // 焦点变化：统一 Ui.scaleOnFocus（1.05 缩放 + bringToFront）；
+        // 获得焦点时回调海报 URL（bind 时闭包持有当前 item 的 url）
+        card.setOnFocusChangeListener { v, hasFocus ->
+            Ui.scaleOnFocus(v)
+            if (hasFocus) onFocused?.invoke(url)
+        }
     }
 
     override fun getItemCount(): Int = items.size

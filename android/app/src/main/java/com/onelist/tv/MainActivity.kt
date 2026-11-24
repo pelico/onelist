@@ -132,6 +132,23 @@ class MainActivity : Activity() {
     private var wallpaperWebView: WebView? = null
     private var backdropRotateAnim: ObjectAnimator? = null
 
+    // ==================== 首页焦点跟随模糊背景（方案 A） ====================
+    private var backdropA: ImageView? = null            // 双层交叉淡入淡出
+    private var backdropB: ImageView? = null
+    private var backdropIsA = false                     // 当前显示的是 A 还是 B
+    private var lastBackdropUrl: String? = null         // 已显示/加载中的海报 URL（去重）
+    private var backdropPendingUrl: String? = null      // 防抖窗口内最后聚焦的海报 URL
+    private val backdropHandler = Handler(Looper.getMainLooper())
+    /** 模糊结果缓存：URL → 120x180 模糊图，LRU 保留 4 张（每张 ~86KB） */
+    private val backdropCache = object : LinkedHashMap<String, Bitmap>(8, 1f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>): Boolean = size > 4
+    }
+    private val backdropDebounceRunnable = Runnable {
+        val url = backdropPendingUrl ?: return@Runnable
+        backdropPendingUrl = null
+        showHomeBackdrop(url)
+    }
+
     // ==================== 返回栈管理 ====================
     /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
     private sealed class ScreenState {
@@ -857,7 +874,7 @@ class MainActivity : Activity() {
         }
 
         // Top bar
-        val topBar = buildTopBar("悠悠TV", showSearch = true, showLogout = true, showUserPages = true)
+        val topBar = buildTopBar("悠悠TV", showSearch = true, showLogout = true, showUserPages = true, transparentBg = true)
         layout.addView(topBar)
 
         // Loading container with ProgressBar
@@ -900,8 +917,34 @@ class MainActivity : Activity() {
         layout.addView(loadingContainer)
 
         scroll.addView(layout)
-        rootLayout.addView(scroll)
+
+        // 焦点跟随模糊背景层：双 ImageView 交替淡入淡出 + 暗化层，垫在内容底下
+        val frame = FrameLayout(this)
+        val backA = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            alpha = 0f
+        }
+        val backB = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            alpha = 0f
+        }
+        frame.addView(backA, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(backB, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(View(this).apply { setBackgroundColor(Ui.c.bgGlass) }, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(scroll, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        rootLayout.addView(frame, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         rootLayout.disableClipTree()
+        // 页面重建：重置背景状态
+        backdropA = backA; backdropB = backB
+        backdropIsA = false
+        lastBackdropUrl = null
+        backdropPendingUrl = null
+        backdropHandler.removeCallbacks(backdropDebounceRunnable)
 
         // 优先走内存缓存：返回首页时「秒开」，同时并发刷新
         val cache = lastHomeCache
@@ -1093,12 +1136,12 @@ class MainActivity : Activity() {
     }
 
     private fun buildHorizontalCardList(items: List<Any>, type: String): FrameLayout {
-        val adapter = CardAdapter(items, type) { item ->
+        val adapter = CardAdapter(items, type, { item ->
             when (item) {
                 is Movie -> showMovieDetail(item)
                 is Tv -> showTvDetail(item)
             }
-        }
+        }, ::updateHomeBackdrop)
         val cardGap = Ui.dp(12)          // 卡片之间 12dp 水平间距（放大 1.08 倍不会再相互遮挡）
         val containerExtraH = Ui.dp(20)   // 多给 20dp 垂直方向余量（标题 + 放大不会被上下边缘裁剪）
 
@@ -1408,12 +1451,12 @@ class MainActivity : Activity() {
                         emptyView.visibility = View.VISIBLE
                     } else {
                         gridContainer.removeAllViews()
-                        val adapter = CardAdapter(parsedItems, if (dataType == "tv") "tv" else "movie") { item ->
+                        val adapter = CardAdapter(parsedItems, if (dataType == "tv") "tv" else "movie", onClick = { item ->
                             when (item) {
                                 is Movie -> showMovieDetail(item)
                                 is Tv -> showTvDetail(item)
                             }
-                        }
+                        })
                         val gridColumns = calculateGridColumns()
                         val recyclerView = RecyclerView(this@MainActivity).apply {
                             layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
@@ -1514,12 +1557,12 @@ class MainActivity : Activity() {
         }
         loadingContainer.addView(loadingText)
         
-        listAdapter = CardAdapter(listItems, currentGalleryType ?: "movie") { item ->
+        listAdapter = CardAdapter(listItems, currentGalleryType ?: "movie", onClick = { item ->
             when (item) {
                 is Movie -> showMovieDetail(item)
                 is Tv -> showTvDetail(item)
             }
-        }
+        })
         val gridColumns = calculateGridColumns()
         val recyclerView = RecyclerView(this).apply {
             layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
@@ -2585,9 +2628,9 @@ class MainActivity : Activity() {
                 clipToPadding = false
                 clipChildren = false
                 addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
-                adapter = CardAdapter(movies.map { it as Any }, "movie") { item ->
+                adapter = CardAdapter(movies.map { it as Any }, "movie", onClick = { item ->
                     if (item is Movie) showMovieDetail(item, fromSearch = true)
-                }
+                })
                 // 预取：一次取 3 行，减少翻页时的 bind 抖动
                 (layoutManager as GridLayoutManager).setInitialPrefetchItemCount(gridColumns * 3)
                 setItemViewCacheSize(gridColumns * 3)
@@ -2614,9 +2657,9 @@ class MainActivity : Activity() {
                 clipToPadding = false
                 clipChildren = false
                 addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
-                adapter = CardAdapter(tvs.map { it as Any }, "tv") { item ->
+                adapter = CardAdapter(tvs.map { it as Any }, "tv", onClick = { item ->
                     if (item is Tv) showTvDetail(item, fromSearch = true)
-                }
+                })
                 (layoutManager as GridLayoutManager).setInitialPrefetchItemCount(gridColumns * 3)
                 setItemViewCacheSize(gridColumns * 3)
             }
@@ -3671,6 +3714,61 @@ class MainActivity : Activity() {
         }
     }
 
+    /** 焦点移动入口：防抖 200ms，快速滑过不触发加载 */
+    private fun updateHomeBackdrop(url: String?) {
+        if (url == null) return
+        backdropPendingUrl = url
+        backdropHandler.removeCallbacks(backdropDebounceRunnable)
+        backdropHandler.postDelayed(backdropDebounceRunnable, 200)
+    }
+
+    /** 加载海报 → 模糊 → 显示（命中内存缓存直接显示，无网络/模糊开销） */
+    private fun showHomeBackdrop(url: String) {
+        if (url == lastBackdropUrl) return
+        if (backdropA == null || backdropB == null) return
+        lastBackdropUrl = url
+        val cached = backdropCache[url]
+        if (cached != null) {
+            crossfadeBackdrop(cached)
+            return
+        }
+        try {
+            Glide.with(this)
+                .asBitmap()
+                .load(url)
+                .override(120, 180)
+                .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                .into(object : com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
+                    override fun onResourceReady(
+                        resource: Bitmap,
+                        transition: com.bumptech.glide.request.transition.Transition<in Bitmap>?
+                    ) {
+                        // 回调时页面可能已切换：showHomeBackdrop 重新取当前 URL 再入缓存
+                        val bitmap = blurBitmap(resource) ?: resource
+                        backdropCache[url] = bitmap
+                        // 仅当仍是最新请求时才显示（连发时只显示最后一张）
+                        if (url == lastBackdropUrl) crossfadeBackdrop(bitmap)
+                    }
+                    override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {}
+                })
+        } catch (_: Exception) {}
+    }
+
+    /** 双层交叉淡入淡出：新图淡入 350ms，旧图同步淡出 */
+    private fun crossfadeBackdrop(bitmap: Bitmap) {
+        val a = backdropA ?: return
+        val b = backdropB ?: return
+        val showView = if (backdropIsA) b else a
+        val hideView = if (backdropIsA) a else b
+        showView.setImageBitmap(bitmap)
+        showView.alpha = 0f
+        showView.animate().cancel()
+        hideView.animate().cancel()
+        showView.animate().alpha(1f).setDuration(350).start()
+        hideView.animate().alpha(0f).setDuration(350).start()
+        backdropIsA = !backdropIsA
+    }
+
     private fun View.fillParent() {
         layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -3712,11 +3810,11 @@ class MainActivity : Activity() {
         } catch (_: Exception) {}
     }
 
-    /** 模糊背景缓慢旋转（120 秒一圈），让详情页背景有生命感；成本极低（GPU 合成层） */
+    /** 模糊背景缓慢旋转（60 秒一圈 ≈ 每秒 6°，可感知的缓慢流动但不干扰阅读）；GPU 合成层，成本极低 */
     private fun startBackdropRotation(target: View) {
         backdropRotateAnim?.cancel()
         backdropRotateAnim = ObjectAnimator.ofFloat(target, View.ROTATION, 0f, 360f).apply {
-            duration = 120_000
+            duration = 60_000
             repeatCount = ObjectAnimator.INFINITE
             interpolator = LinearInterpolator()
             start()
@@ -3726,6 +3824,10 @@ class MainActivity : Activity() {
     private fun stopBackdropRotation() {
         backdropRotateAnim?.cancel()
         backdropRotateAnim = null
+        // 一并清理首页焦点背景：防抖回调与 detached view 引用
+        backdropHandler.removeCallbacks(backdropDebounceRunnable)
+        backdropA = null
+        backdropB = null
     }
 
     private fun blurBitmap(src: Bitmap): Bitmap? = try {
