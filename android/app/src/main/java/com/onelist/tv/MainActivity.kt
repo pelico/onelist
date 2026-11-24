@@ -2112,47 +2112,67 @@ class MainActivity : Activity() {
         seasonsContainer.addView(seasonsLabel)
         layout.addView(seasonsContainer)
 
+        // 选集网格：默认展开第一季，点季切换；与 Web 端详情页一致
+        val episodesContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(tvDp(32), tvDp(12), tvDp(32), 0)
+        }
+        layout.addView(episodesContainer)
+
         scroll.addView(layout)
         rootLayout.addView(scroll)
 
         heartBtn.post { heartBtn.requestFocus() }
 
         if (tv.id != null) {
-            fetchTvDetail(tv.id.toString(), seasonsContainer)
+            fetchTvDetail(tv.id.toString(), seasonsContainer, episodesContainer)
         }
     }
 
-    private fun fetchTvDetail(id: String, seasonsContainer: LinearLayout) {
+    private fun fetchTvDetail(id: String, seasonsContainer: LinearLayout, episodesContainer: LinearLayout) {
         try {
             RetrofitClient.getService().getTvDetail(id).enqueue(object : Callback<TvDetailResponse> {
                 override fun onResponse(call: Call<TvDetailResponse>, response: Response<TvDetailResponse>) {
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val detail = body.data!!
-                        if (detail.allSeasons != null) {
-                            for (season in detail.allSeasons!!) {
+                        val seasons = detail.allSeasons
+                        if (!seasons.isNullOrEmpty()) {
+                            // 季按钮横向排列（单季时不占空间）
+                            val seasonRow = LinearLayout(this@MainActivity).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                            }
+                            for (season in seasons) {
                                 val seasonBtn = Button(this@MainActivity).apply {
                                     text = "第 ${season.seasonNumber ?: "?"} 季"
                                     setTextColor(Color.WHITE)
-                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                                    setPadding(tvDp(16), tvDp(10), tvDp(16), tvDp(10))
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
+                                    setPadding(tvDp(18), tvDp(8), tvDp(18), tvDp(8))
                                     isFocusable = true
                                     isClickable = true
                                     applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
-                                    val lp = LinearLayout.LayoutParams(
-                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                    layoutParams = LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.WRAP_CONTENT,
                                         LinearLayout.LayoutParams.WRAP_CONTENT
-                                    )
-                                    lp.topMargin = tvDp(8)
-                                    layoutParams = lp
+                                    ).apply { marginEnd = tvDp(10) }
                                     setOnClickListener {
                                         if (season.id != null) {
-                                            showSeasonEpisodes(season.id.toString(), season.seasonNumber ?: 0)
+                                            loadEpisodesInline(season, episodesContainer)
                                         }
                                     }
                                 }
-                                seasonsContainer.addView(seasonBtn)
+                                seasonRow.addView(seasonBtn)
                             }
+                            seasonsContainer.addView(seasonRow)
+                            // 默认展开第一季
+                            loadEpisodesInline(seasons[0], episodesContainer)
+                        } else {
+                            seasonsContainer.addView(TextView(this@MainActivity).apply {
+                                text = "暂无分季数据"
+                                setTextColor(Color.parseColor("#888888"))
+                                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
+                                setPadding(0, tvDp(8), 0, 0)
+                            })
                         }
                     }
                 }
@@ -2163,21 +2183,63 @@ class MainActivity : Activity() {
         } catch (e: Exception) {}
     }
 
-    private fun showSeasonEpisodes(seasonId: String, seasonNumber: Int) {
+    /** 详情页内嵌加载某季的分集（默认展开第一季，点季按钮切换） */
+    private fun loadEpisodesInline(season: Season, container: LinearLayout) {
+        if (season.id == null) return
         try {
-            RetrofitClient.getService().getSeasonDetail(seasonId).enqueue(object : Callback<ApiResponse<SeasonDetail>> {
+            RetrofitClient.getService().getSeasonDetail(season.id.toString()).enqueue(object : Callback<ApiResponse<SeasonDetail>> {
                 override fun onResponse(call: Call<ApiResponse<SeasonDetail>>, response: Response<ApiResponse<SeasonDetail>>) {
                     val body = response.body()
-                    if (body != null && body.code == 200 && body.data != null) {
-                        val seasonDetail = body.data!!
-                        showEpisodeList(seasonDetail.episodes ?: emptyList(), "第 $seasonNumber 季")
+                    if (body != null && body.code == 200) {
+                        renderEpisodesInline(body.data!!.episodes ?: emptyList(), season, container)
                     }
                 }
-                override fun onFailure(call: Call<ApiResponse<SeasonDetail>>, t: Throwable) {
-                    toast("加载剧集失败")
-                }
+                override fun onFailure(call: Call<ApiResponse<SeasonDetail>>, t: Throwable) {}
             })
         } catch (e: Exception) {}
+    }
+
+    /** 渲染内嵌分集网格（两列紧凑卡片，遥控器方向键直接导航） */
+    private fun renderEpisodesInline(episodes: List<Episode>, season: Season, container: LinearLayout) {
+        container.removeAllViews()
+        currentSeasonEpisodes = episodes
+        currentSeasonTitle = "第 ${season.seasonNumber ?: 1} 季"
+        if (episodes.isEmpty()) {
+            container.addView(TextView(this).apply {
+                text = "该季暂无分集"
+                setTextColor(Color.parseColor("#888888"))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
+                setPadding(0, tvDp(8), 0, 0)
+            })
+            return
+        }
+        val rv = RecyclerView(this).apply {
+            layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
+            nestedScrollingEnabled = false
+            adapter = EpisodeAdapter(episodes) { ep -> playEpisodeFromList(ep, episodes) }
+        }
+        container.addView(rv, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+    }
+
+    /** 分集点击播放（内嵌网格与选集页共用）；Episode 无 gallery_uid 时回退剧级 gallery_uid */
+    private fun playEpisodeFromList(ep: Episode, episodes: List<Episode>) {
+        if (ep.url == null) {
+            toast("暂无播放源")
+            return
+        }
+        currentVideoDataType = "tv"
+        currentVideoDataId = currentTv?.id
+        currentVideoTitle = currentTv?.name ?: ep.title
+        currentVideoGalleryUid = ep.galleryUid ?: currentTv?.galleryUid
+        currentVideoGalleryTitle = currentGalleryTitle
+        val pl = episodes.filter { it.url != null }.map {
+            PlayItem(it.url!!, it.galleryUid ?: currentTv?.galleryUid, it.title)
+        }
+        val idx = episodes.indexOf(ep)
+        showPlayer(ep.url!!, currentVideoGalleryUid, pl, if (idx >= 0) idx else 0)
     }
 
     private fun showEpisodeList(episodes: List<Episode>, seasonTitle: String, restoreFromCache: Boolean = false) {
@@ -2201,26 +2263,12 @@ class MainActivity : Activity() {
         // 用 RecyclerView 替代 ScrollView + for 循环 addView：ViewHolder 复用，
         // 避免 50+ 集的长篇动漫/美剧首次进入时创建数百个 View
         val recyclerView = RecyclerView(this).apply {
-            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this@MainActivity)
+            layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
             clipToPadding = false
             setPadding(dp(24), dp(8), dp(24), dp(16))
-            (layoutManager as androidx.recyclerview.widget.LinearLayoutManager).setInitialPrefetchItemCount(10)
+            (layoutManager as androidx.recyclerview.widget.GridLayoutManager).setInitialPrefetchItemCount(10)
             setItemViewCacheSize(12)
-            adapter = EpisodeAdapter(episodes) { ep ->
-                if (ep.url != null) {
-                    currentVideoDataType = "tv"
-                    currentVideoDataId = currentTv?.id
-                    currentVideoTitle = currentTv?.name ?: ep.title
-                    currentVideoGalleryUid = ep.galleryUid
-                    currentVideoGalleryTitle = currentGalleryTitle
-                    android.util.Log.d("OneList", "TV play: tvId=${currentTv?.id} title='${currentVideoTitle}' galleryUid='${ep.galleryUid}' galleryTitle='$currentGalleryTitle' url='${ep.url}'")
-                    val pl = episodes.filter { it.url != null }.map { PlayItem(it.url!!, it.galleryUid, it.title) }
-                    val idx = episodes.indexOf(ep)
-                    showPlayer(ep.url!!, ep.galleryUid, pl, if (idx >= 0) idx else 0)
-                } else {
-                    toast("暂无播放源")
-                }
-            }
+            adapter = EpisodeAdapter(episodes) { ep -> playEpisodeFromList(ep, episodes) }
         }
 
         layout.addView(recyclerView, LinearLayout.LayoutParams(
@@ -4115,9 +4163,9 @@ class MainActivity : Activity() {
                     RecyclerView.LayoutParams.MATCH_PARENT,
                     RecyclerView.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    topMargin = tvDp(6)
+                    topMargin = tvDp(4)
                 }
-                setPadding(tvDp(16), tvDp(12), tvDp(16), tvDp(12))
+                setPadding(tvDp(12), tvDp(9), tvDp(12), tvDp(9))
                 isClickable = true
                 isFocusable = true
                 // 复用 cardBgCache（StateListDrawable 克隆后每 row 独立使用，避免状态串扰）
@@ -4126,7 +4174,7 @@ class MainActivity : Activity() {
                 }
                 setOnFocusChangeListener { v, hasFocus ->
                     try {
-                        val target = if (hasFocus) 1.12f else 1f
+                        val target = if (hasFocus) 1.06f else 1f
                         if (v.scaleX != target) {
                             v.animate().cancel()
                             v.animate().scaleX(target).scaleY(target).setDuration(120).start()
@@ -4135,21 +4183,23 @@ class MainActivity : Activity() {
                 }
             }
             val epNum = TextView(ctx).apply {
-                textSize = tvSp(16f)
+                textSize = tvSp(14f)
                 setTextColor(Color.parseColor("#6366f1"))
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 id = android.R.id.text1
             }
             epBtn.addView(epNum)
             val epTitle = TextView(ctx).apply {
-                textSize = tvSp(15f)
+                textSize = tvSp(13f)
                 setTextColor(Color.WHITE)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 id = android.R.id.text2
             }
             epBtn.addView(epTitle, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { weight = 1f; marginStart = tvDp(8) })
+            ).apply { weight = 1f; marginStart = tvDp(6) })
             return EpisodeVH(epBtn)
         }
 
