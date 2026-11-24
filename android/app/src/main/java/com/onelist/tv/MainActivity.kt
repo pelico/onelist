@@ -1783,6 +1783,8 @@ class MainActivity : Activity() {
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(Ui.dp(24), 0, 0, 0)
+            // 播放/喜爱按钮聚焦放大时超出本容器左缘，关闭裁剪交给外层 padding 区承载
+            clipChildren = false
             // 占满海报右侧剩余宽度，长标题不再被屏幕右缘裁切
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
@@ -1829,6 +1831,7 @@ class MainActivity : Activity() {
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, Ui.dp(20), 0, 0)
+            clipChildren = false
         }
 
         val playBtn = Button(this).apply {
@@ -2046,6 +2049,8 @@ class MainActivity : Activity() {
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(Ui.dp(24), 0, 0, 0)
+            // 喜爱按钮聚焦放大时超出本容器左缘，关闭裁剪交给外层 padding 区承载
+            clipChildren = false
             // 占满海报右侧剩余宽度，长标题不再被屏幕右缘裁切
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
@@ -2145,6 +2150,8 @@ class MainActivity : Activity() {
         val seasonsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(Ui.dp(32), Ui.dp(24), Ui.dp(32), 0)
+            // 季按钮聚焦放大超出行容器边界时不被裁剪
+            clipChildren = false
         }
         val seasonsLabel = TextView(this).apply {
             text = "分季"
@@ -2198,6 +2205,7 @@ class MainActivity : Activity() {
                             // 季按钮横向排列（单季时不占空间）
                             val seasonRow = LinearLayout(this@MainActivity).apply {
                                 orientation = LinearLayout.HORIZONTAL
+                                clipChildren = false
                             }
                             for (season in seasons) {
                                 val seasonBtn = Button(this@MainActivity).apply {
