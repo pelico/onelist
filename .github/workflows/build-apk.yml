@@ -22,9 +22,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/*.gradle', 'android/app/*.gradle') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Download compatible Gradle 7.6.3
         run: |
-          curl -sL https://services.gradle.org/distributions/gradle-7.6.3-bin.zip -o /tmp/gradle.zip
+          for i in 1 2 3; do
+            curl -fL --retry 3 --retry-delay 5 https://services.gradle.org/distributions/gradle-7.6.3-bin.zip -o /tmp/gradle.zip && break
+            echo "download attempt $i failed, retrying..."
+            sleep 10
+          done
           unzip -q /tmp/gradle.zip -d /tmp
           /tmp/gradle-7.6.3/bin/gradle --version
 

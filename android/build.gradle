@@ -1,6 +1,9 @@
 buildscript {
     ext.kotlin_version = '1.8.22'
     repositories {
+        // 镜像前置更稳定，官方源作兜底
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
         google()
         mavenCentral()
     }
@@ -12,6 +15,8 @@ buildscript {
 
 allprojects {
     repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
         google()
         mavenCentral()
     }
