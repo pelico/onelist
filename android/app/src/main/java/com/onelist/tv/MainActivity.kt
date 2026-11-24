@@ -2215,7 +2215,7 @@ class MainActivity : Activity() {
         }
         val rv = RecyclerView(this).apply {
             layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
-            nestedScrollingEnabled = false
+            setNestedScrollingEnabled(false)
             // 焦点进入网格子项逐个移动，而不是把整个网格当一个焦点块
             descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             adapter = EpisodeAdapter(episodes) { ep -> playEpisodeFromList(ep, episodes) }

@@ -2,8 +2,6 @@
 /images/
 *.db
 *.exe
-onelist
-onelist-web
 # 前端构建输出（Docker构建时自动生成）
 public/dist
 # 前端依赖
