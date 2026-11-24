@@ -2216,6 +2216,8 @@ class MainActivity : Activity() {
         val rv = RecyclerView(this).apply {
             layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
             nestedScrollingEnabled = false
+            // 焦点进入网格子项逐个移动，而不是把整个网格当一个焦点块
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             adapter = EpisodeAdapter(episodes) { ep -> playEpisodeFromList(ep, episodes) }
         }
         container.addView(rv, LinearLayout.LayoutParams(
@@ -4161,7 +4163,7 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = RecyclerView.LayoutParams(
                     RecyclerView.LayoutParams.MATCH_PARENT,
-                    RecyclerView.LayoutParams.WRAP_CONTENT
+                    tvDp(52)
                 ).apply {
                     topMargin = tvDp(4)
                 }
@@ -4179,6 +4181,8 @@ class MainActivity : Activity() {
                             v.animate().cancel()
                             v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                         }
+                        // 焦点态背景高亮，遥控器下找焦点更醒目
+                        v.setBackgroundColor(Color.parseColor(if (hasFocus) "#2d2d55" else "#1a1a2e"))
                     } catch (_: Exception) {}
                 }
             }
