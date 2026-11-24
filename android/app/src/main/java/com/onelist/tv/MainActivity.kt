@@ -782,6 +782,7 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
         rootLayout.addView(scroll)
+        rootLayout.disableClipTree()
         serverInput.post { serverInput.requestFocus() }
     }
 
@@ -894,6 +895,7 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
         rootLayout.addView(scroll)
+        rootLayout.disableClipTree()
 
         // 优先走内存缓存：返回首页时「秒开」，同时并发刷新
         val cache = lastHomeCache
@@ -1335,6 +1337,7 @@ class MainActivity : Activity() {
         layout.addView(contentContainer)
         scroll.addView(layout)
         rootLayout.addView(scroll)
+        rootLayout.disableClipTree()
 
         // Update page info text
         val startIdx = (currentPageNum - 1) * 30 + 1
@@ -1558,6 +1561,7 @@ class MainActivity : Activity() {
         }
 
         rootLayout.addView(layout)
+        rootLayout.disableClipTree()
 
         if (!restoreFromCache) {
             loadListData(recyclerView)
@@ -1953,6 +1957,7 @@ class MainActivity : Activity() {
         rootLayout.addView(frame, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         loadBlurBackdrop(posterUrl, blurView)
+        rootLayout.disableClipTree()
 
         playBtn.post { playBtn.requestFocus() }
 
@@ -2185,6 +2190,7 @@ class MainActivity : Activity() {
         rootLayout.addView(frame, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         loadBlurBackdrop(posterUrl, blurView)
+        rootLayout.disableClipTree()
 
         heartBtn.post { heartBtn.requestFocus() }
 
@@ -2365,6 +2371,7 @@ class MainActivity : Activity() {
         ).apply { weight = 1f })
 
         rootLayout.addView(layout)
+        rootLayout.disableClipTree()
     }
 
     // ==================== SEARCH SCREEN ====================
@@ -2455,6 +2462,7 @@ class MainActivity : Activity() {
         ).apply { weight = 1f })
 
         rootLayout.addView(layout)
+        rootLayout.disableClipTree()
 
         // Focus search input
         searchInput.requestFocus()
@@ -3631,6 +3639,21 @@ class MainActivity : Activity() {
 
     private fun lp(w: Int = LinearLayout.LayoutParams.MATCH_PARENT, h: Int = LinearLayout.LayoutParams.WRAP_CONTENT): LinearLayout.LayoutParams {
         return LinearLayout.LayoutParams(w, h)
+    }
+
+    /**
+     * 递归关闭整棵 view 树的 clipChildren。
+     * 焦点放大（scale 1.05）的绘制要完整显示，必须从子 view 到根的每层
+     * 容器都不裁剪（只关直接父级不够，外层容器会继续裁到自身 bounds）。
+     * 每次页面渲染完静态树后调用；之后异步加入的子树（季按钮行/网格）
+     * 已在各自构建处单独关闭。
+     */
+    private fun ViewGroup.disableClipTree() {
+        clipChildren = false
+        for (i in 0 until childCount) {
+            val c = getChildAt(i)
+            if (c is ViewGroup) c.disableClipTree()
+        }
     }
 
     private fun View.fillParent() {
