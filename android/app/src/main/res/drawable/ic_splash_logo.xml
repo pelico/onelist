@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- accent rounded square -->
+    <path
+        android:fillColor="#6366f1"
+        android:pathData="M14,0h80a14,14 0 0 1 14,14v80a14,14 0 0 1 -14,14h-80a14,14 0 0 1 -14,-14v-80a14,14 0 0 1 14,-14z" />
+    <!-- "O" ring -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 C40.745,30 30,40.745 30,54 C30,67.255 40.745,78 54,78 C67.255,78 78,67.255 78,54 C78,40.745 67.255,30 54,30zM54,70 C45.163,70 38,62.837 38,54 C38,45.163 45.163,38 54,38 C62.837,38 70,45.163 70,54 C70,62.837 62.837,70 54,70z" />
+    <!-- play triangle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,46 L52,62 L64,54 Z" />
+</vector>

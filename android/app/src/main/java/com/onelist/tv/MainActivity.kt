@@ -198,7 +198,7 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         rootLayout = FrameLayout(this)
-        rootLayout.setBackgroundColor(Color.parseColor("#0d0d1a"))
+        rootLayout.setBackgroundColor(Ui.c.bg)
         // 在根布局上设置 OnKeyListener，确保 BACK/ESC 键在任何焦点状态下都能被拦截
         rootLayout.setOnKeyListener { _, keyCode, event ->
             if (event.action == KeyEvent.ACTION_DOWN && 
@@ -327,14 +327,14 @@ class MainActivity : Activity() {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(tvDp(40), tvDp(30), tvDp(40), tvDp(30))
+            setPadding(Ui.dp(40), Ui.dp(30), Ui.dp(40), Ui.dp(30))
             layoutParams = FrameLayout.LayoutParams(
                 (resources.displayMetrics.widthPixels * 0.7).toInt(),
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#1e1e2e"))
-                cornerRadius = tvDp(16).toFloat()
+                setColor(Ui.c.cardAlt)
+                cornerRadius = Ui.dp(16).toFloat()
             }
         }
 
@@ -346,82 +346,82 @@ class MainActivity : Activity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
             card.background = GradientDrawable().apply {
-                setColor(Color.parseColor("#cc1e1e2e")) // 半透明底色
-                cornerRadius = tvDp(12).toFloat()
+                setColor(Ui.c.cardGlass) // 半透明底色
+                cornerRadius = Ui.dp(12).toFloat()
             }
-            card.setPadding(tvDp(24), tvDp(20), tvDp(24), tvDp(20))
+            card.setPadding(Ui.dp(24), Ui.dp(20), Ui.dp(24), Ui.dp(20))
 
             val title = TextView(this).apply {
                 text = "消息通知"
-                setTextColor(Color.parseColor("#cdd6f4"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
                 gravity = Gravity.CENTER
             }
             card.addView(title)
 
             val sender = TextView(this).apply {
                 text = msg.senderName?.takeIf { it.isNotBlank() } ?: ""
-                setTextColor(Color.parseColor("#a6adc8"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(13f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(13f))
                 gravity = Gravity.CENTER
-                setPadding(0, tvDp(4), 0, 0)
+                setPadding(0, Ui.dp(4), 0, 0)
                 visibility = if (text.isNotBlank()) android.view.View.VISIBLE else android.view.View.GONE
             }
             card.addView(sender)
 
             val content = TextView(this).apply {
                 text = msg.content
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
                 gravity = Gravity.CENTER
-                setPadding(0, tvDp(8), 0, 0)
+                setPadding(0, Ui.dp(8), 0, 0)
             }
             card.addView(content)
         } else {
             // 强制通知：全遮罩 + 大卡片 + 确认按钮
-            layout.setBackgroundColor(Color.parseColor("#99000000"))
+            layout.setBackgroundColor(Ui.c.scrim)
 
             val icon = TextView(this).apply {
                 text = "📩"
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(48f))
                 gravity = Gravity.CENTER
             }
             card.addView(icon)
 
             val title = TextView(this).apply {
                 text = "重要通知"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(22f))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(22f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 gravity = Gravity.CENTER
-                setPadding(0, tvDp(12), 0, tvDp(8))
+                setPadding(0, Ui.dp(12), 0, Ui.dp(8))
             }
             card.addView(title)
 
             val sender = TextView(this).apply {
                 text = msg.senderName?.takeIf { it.isNotBlank() } ?: ""
-                setTextColor(Color.parseColor("#a6adc8"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
                 gravity = Gravity.CENTER
-                setPadding(0, 0, 0, tvDp(8))
+                setPadding(0, 0, 0, Ui.dp(8))
                 visibility = if (text.isNotBlank()) android.view.View.VISIBLE else android.view.View.GONE
             }
             card.addView(sender)
 
             val content = TextView(this).apply {
                 text = msg.content
-                setTextColor(Color.parseColor("#cdd6f4"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
                 gravity = Gravity.CENTER
-                setPadding(tvDp(24), 0, tvDp(24), 0)
+                setPadding(Ui.dp(24), 0, Ui.dp(24), 0)
             }
             card.addView(content)
 
             val confirmBtn = Button(this).apply {
                 text = "我知道了"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                setPadding(tvDp(36), tvDp(10), tvDp(36), tvDp(10))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                setPadding(Ui.dp(36), Ui.dp(8), Ui.dp(36), Ui.dp(8))
                 isFocusable = true
                 isClickable = true
                 applyFocusGlow()
@@ -430,7 +430,7 @@ class MainActivity : Activity() {
             val btnParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = tvDp(20) }
+            ).apply { topMargin = Ui.dp(20) }
             confirmBtn.layoutParams = btnParams
             card.addView(confirmBtn)
         }
@@ -646,7 +646,7 @@ class MainActivity : Activity() {
         val title = TextView(this).apply {
             text = "Onelist TV"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             gravity = Gravity.CENTER
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
@@ -659,9 +659,9 @@ class MainActivity : Activity() {
         layout.addView(serverLabel)
         val serverInput = EditText(this).apply {
             hint = "http://192.168.1.100:8080"
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.GRAY)
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            setTextColor(Ui.c.text1)
+            setHintTextColor(Ui.c.text3)
+            setBackgroundColor(Ui.c.card)
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             val saved = App.serverUrl
@@ -675,9 +675,9 @@ class MainActivity : Activity() {
         val userLabel = label("用户名")
         layout.addView(userLabel)
         val userInput = EditText(this).apply {
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.GRAY)
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            setTextColor(Ui.c.text1)
+            setHintTextColor(Ui.c.text3)
+            setBackgroundColor(Ui.c.card)
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             val saved = App.username
@@ -691,9 +691,9 @@ class MainActivity : Activity() {
         val passLabel = label("密码")
         layout.addView(passLabel)
         val passInput = EditText(this).apply {
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.GRAY)
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            setTextColor(Ui.c.text1)
+            setHintTextColor(Ui.c.text3)
+            setBackgroundColor(Ui.c.card)
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -705,7 +705,7 @@ class MainActivity : Activity() {
         // Login button
         val loginBtn = Button(this).apply {
             text = "登 录"
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             setPadding(dp(40), dp(14), dp(40), dp(14))
             isFocusable = true
@@ -770,7 +770,7 @@ class MainActivity : Activity() {
 
         // Status text
         val statusText = TextView(this).apply {
-            setTextColor(Color.GRAY)
+            setTextColor(Ui.c.text3)
             gravity = Gravity.CENTER
             setPadding(0, dp(20), 0, 0)
             visibility = View.GONE
@@ -843,7 +843,7 @@ class MainActivity : Activity() {
         scroll.fillParent()
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, tvDp(20), 0, tvDp(40))
+            setPadding(0, Ui.dp(20), 0, Ui.dp(40))
             clipChildren = false
             clipToPadding = false
         }
@@ -871,14 +871,20 @@ class MainActivity : Activity() {
 
         val loadingText = TextView(this).apply {
             text = "加载中..."
-            setTextColor(Color.GRAY)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setTextColor(Ui.c.text2)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+            setPadding(Ui.dp(40), Ui.dp(24), Ui.dp(40), Ui.dp(24))
+            // 错误信息会写入这里，统一卡片样式
+            background = GradientDrawable().apply {
+                cornerRadius = Ui.dp(12).toFloat()
+                setColor(Ui.c.card)
+            }
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.CENTER
-                topMargin = tvDp(60)
+                topMargin = Ui.dp(60)
             }
         }
         loadingContainer.addView(loadingText)
@@ -1033,20 +1039,20 @@ class MainActivity : Activity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(tvDp(24), tvDp(16), tvDp(24), tvDp(8))
+            setPadding(Ui.dp(24), Ui.dp(16), Ui.dp(24), Ui.dp(8))
             clipChildren = true  // 标题行按钮不允许越界绘制，避免色块残留
         }
 
         val titleView = TextView(this).apply {
             text = title
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(20f))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(20f))
             setTypeface(null, android.graphics.Typeface.BOLD)
             isClickable = true
             isFocusable = true
-            setPadding(tvDp(12), tvDp(6), tvDp(12), tvDp(6))
+            setPadding(Ui.dp(12), Ui.dp(8), Ui.dp(12), Ui.dp(8))
             // 预建 StateListDrawable：focused=主题色填充，normal=透明；不再在 onFocusChange 中 new
-            val focused = GradientDrawable().apply { setColor(Color.parseColor("#6366f1")) }
+            val focused = GradientDrawable().apply { setColor(Ui.c.accent) }
             val normal = GradientDrawable().apply { setColor(Color.TRANSPARENT) }
             background = android.graphics.drawable.StateListDrawable().apply {
                 addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -1067,9 +1073,9 @@ class MainActivity : Activity() {
         if (galleryId != null) {
             val more = TextView(this).apply {
                 text = "查看更多 >"
-                setTextColor(Color.parseColor("#888888"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-                setPadding(tvDp(12), tvDp(4), tvDp(4), tvDp(4))
+                setTextColor(Ui.c.text3)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
+                setPadding(Ui.dp(12), Ui.dp(4), Ui.dp(4), Ui.dp(4))
             }
             row.addView(more)
         }
@@ -1084,13 +1090,13 @@ class MainActivity : Activity() {
                 is Tv -> showTvDetail(item)
             }
         }
-        val cardGap = tvDp(12)          // 卡片之间 12dp 水平间距（放大 1.08 倍不会再相互遮挡）
-        val containerExtraH = tvDp(20)   // 多给 20dp 垂直方向余量（标题 + 放大不会被上下边缘裁剪）
+        val cardGap = Ui.dp(12)          // 卡片之间 12dp 水平间距（放大 1.08 倍不会再相互遮挡）
+        val containerExtraH = Ui.dp(20)   // 多给 20dp 垂直方向余量（标题 + 放大不会被上下边缘裁剪）
 
         val container = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                tvDp(280) + containerExtraH
+                Ui.dp(280) + containerExtraH
             )
             clipChildren = false
             clipToPadding = false
@@ -1099,7 +1105,7 @@ class MainActivity : Activity() {
         val recyclerView = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
             this.adapter = adapter
-            setPadding(tvDp(20), tvDp(10), tvDp(20), tvDp(10))
+            setPadding(Ui.dp(20), Ui.dp(8), Ui.dp(20), Ui.dp(8))
             clipToPadding = false
             clipChildren = false
             layoutParams = FrameLayout.LayoutParams(
@@ -1169,7 +1175,7 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { fillParent() }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, tvDp(20), 0, tvDp(40))
+            setPadding(0, Ui.dp(20), 0, Ui.dp(40))
         }
 
         val topBar = buildTopBar(title, showSearch = true, showLogout = false)
@@ -1178,21 +1184,25 @@ class MainActivity : Activity() {
         // Type tabs: 电影 / 剧集
         val tabsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(tvDp(24), 0, tvDp(24), tvDp(12))
+            setPadding(Ui.dp(24), 0, Ui.dp(24), Ui.dp(12))
         }
         val movieTab = TextView(this).apply {
             text = "电影"
-            setTextColor(if (currentDataType == "movie") Color.WHITE else Color.GRAY)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            setPadding(tvDp(16), tvDp(6), tvDp(16), tvDp(6))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+            setPadding(Ui.dp(16), Ui.dp(8), Ui.dp(16), Ui.dp(8))
             isClickable = true
             isFocusable = true
-            val bg = GradientDrawable().apply {
-                setColor(if (currentDataType == "movie") Color.parseColor("#6366f1") else Color.parseColor("#1a1a2e"))
-                cornerRadius = tvDp(16).toFloat()
+            // 选中=accent 底 / 未选=card 底；焦点=白描边示焦点（统一形态）
+            fun refresh(hasFocus: Boolean = isFocused) {
+                background = GradientDrawable().apply {
+                    cornerRadius = Ui.dp(16).toFloat()
+                    setColor(if (currentDataType == "movie") Ui.c.accent else Ui.c.card)
+                    if (hasFocus) setStroke(Ui.dp(2), Ui.c.text1)
+                }
+                setTextColor(if (hasFocus || currentDataType == "movie") Ui.c.text1 else Ui.c.text3)
             }
-            background = bg
-            applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
+            refresh()
+            setOnFocusChangeListener { _, hasFocus -> refresh(hasFocus) }
             setOnClickListener {
                 if (isHeart) { heartDataType = "movie"; heartPage = 1 } else { playedDataType = "movie"; playedPage = 1 }
                 showUserCollectionPage(pageType)
@@ -1202,17 +1212,20 @@ class MainActivity : Activity() {
 
         val tvTab = TextView(this).apply {
             text = "剧集"
-            setTextColor(if (currentDataType == "tv") Color.WHITE else Color.GRAY)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            setPadding(tvDp(16), tvDp(6), tvDp(16), tvDp(6))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+            setPadding(Ui.dp(16), Ui.dp(8), Ui.dp(16), Ui.dp(8))
             isClickable = true
             isFocusable = true
-            val bg = GradientDrawable().apply {
-                setColor(if (currentDataType == "tv") Color.parseColor("#6366f1") else Color.parseColor("#1a1a2e"))
-                cornerRadius = tvDp(16).toFloat()
+            fun refresh(hasFocus: Boolean = isFocused) {
+                background = GradientDrawable().apply {
+                    cornerRadius = Ui.dp(16).toFloat()
+                    setColor(if (currentDataType == "tv") Ui.c.accent else Ui.c.card)
+                    if (hasFocus) setStroke(Ui.dp(2), Ui.c.text1)
+                }
+                setTextColor(if (hasFocus || currentDataType == "tv") Ui.c.text1 else Ui.c.text3)
             }
-            background = bg
-            applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
+            refresh()
+            setOnFocusChangeListener { _, hasFocus -> refresh(hasFocus) }
             setOnClickListener {
                 if (isHeart) { heartDataType = "tv"; heartPage = 1 } else { playedDataType = "tv"; playedPage = 1 }
                 showUserCollectionPage(pageType)
@@ -1245,13 +1258,19 @@ class MainActivity : Activity() {
 
         val emptyView = TextView(this).apply {
             text = if (isHeart) "暂无最爱内容" else "暂无播放记录"
-            setTextColor(Color.GRAY)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+            setTextColor(Ui.c.text2)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
             gravity = Gravity.CENTER
             visibility = View.GONE
+            // 空态卡片样式（统一观感）
+            setPadding(Ui.dp(40), Ui.dp(24), Ui.dp(40), Ui.dp(24))
+            background = GradientDrawable().apply {
+                cornerRadius = Ui.dp(12).toFloat()
+                setColor(Ui.c.card)
+            }
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { gravity = Gravity.CENTER }
         }
         contentContainer.addView(emptyView)
@@ -1262,7 +1281,7 @@ class MainActivity : Activity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            setPadding(tvDp(16), 0, tvDp(16), 0)
+            setPadding(Ui.dp(16), 0, Ui.dp(16), 0)
             visibility = View.GONE
         }
         contentContainer.addView(gridContainer)
@@ -1271,23 +1290,23 @@ class MainActivity : Activity() {
         val pageLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, tvDp(8), 0, tvDp(12))
+            setPadding(0, Ui.dp(8), 0, Ui.dp(12))
         }
         val pageInfoText = TextView(this).apply {
             text = "$total 条记录"
-            setTextColor(Color.parseColor("#6366f1"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
-            setPadding(tvDp(16), 0, tvDp(16), 0)
+            setTextColor(Ui.c.accent)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+            setPadding(Ui.dp(16), 0, Ui.dp(16), 0)
         }
         pageLayout.addView(pageInfoText)
 
         val prevBtn = Button(this).apply {
             text = "上一页"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-            setPadding(tvDp(16), tvDp(4), tvDp(16), tvDp(4))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
+            setPadding(Ui.dp(16), Ui.dp(4), Ui.dp(16), Ui.dp(4))
             isFocusable = true; isClickable = true
-            applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
+            applyFocusGlow(Ui.c.card)
             setOnClickListener {
                 if (isHeart) { if (heartPage > 1) heartPage-- } else { if (playedPage > 1) playedPage-- }
                 fetchUserCollectionData(pageType, layout, gridContainer, loadingContainer, emptyView, pageInfoText)
@@ -1297,11 +1316,11 @@ class MainActivity : Activity() {
 
         val nextBtn = Button(this).apply {
             text = "下一页"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-            setPadding(tvDp(16), tvDp(4), tvDp(16), tvDp(4))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
+            setPadding(Ui.dp(16), Ui.dp(4), Ui.dp(16), Ui.dp(4))
             isFocusable = true; isClickable = true
-            applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
+            applyFocusGlow(Ui.c.card)
             setOnClickListener {
                 val maxPage = if (total > 0) Math.ceil(total / 30.0).toInt() else 1
                 if (isHeart) { if (heartPage < maxPage) heartPage++ } else { if (playedPage < maxPage) playedPage++ }
@@ -1387,7 +1406,7 @@ class MainActivity : Activity() {
                         val gridColumns = calculateGridColumns()
                         val recyclerView = RecyclerView(this@MainActivity).apply {
                             layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
-                            addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
+                            addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
                             this.adapter = adapter
                             setPadding(0, 0, 0, 0)
                             clipToPadding = false
@@ -1443,7 +1462,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             fillParent()
-            setBackgroundColor(Color.parseColor("#0d0d1a"))
+            setBackgroundColor(Ui.c.bg)
         }
 
         val topBar = buildTopBar(currentGalleryTitle ?: "浏览", showSearch = true, showLogout = false)
@@ -1454,7 +1473,7 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0
             ).apply { weight = 1f }
-            setBackgroundColor(Color.parseColor("#0d0d1a"))
+            setBackgroundColor(Ui.c.bg)
         }
         
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
@@ -1471,14 +1490,14 @@ class MainActivity : Activity() {
         val loadingText = TextView(this).apply {
             id = android.R.id.text1
             text = "加载中..."
-            setTextColor(Color.GRAY)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+            setTextColor(Ui.c.text3)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply { 
                 gravity = Gravity.CENTER
-                topMargin = tvDp(60)
+                topMargin = Ui.dp(60)
             }
         }
         loadingContainer.addView(loadingText)
@@ -1492,7 +1511,7 @@ class MainActivity : Activity() {
         val gridColumns = calculateGridColumns()
         val recyclerView = RecyclerView(this).apply {
             layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
-            addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
+            addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
             this.adapter = listAdapter
             setPadding(0, 0, 0, 0)
             clipToPadding = false
@@ -1735,16 +1754,16 @@ class MainActivity : Activity() {
         android.util.Log.d("OneList", "MovieDetail: title='${movie.title}' origTitle='${movie.originalTitle}' posterPath='${movie.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = LinearLayout.LayoutParams(tvDp(180), tvDp(270))
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            layoutParams = LinearLayout.LayoutParams(Ui.dp(180), Ui.dp(270))
+            setBackgroundColor(Ui.c.card)
             if (posterUrl != null) {
                 val placeholder = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#1a1a2e"))
-                    cornerRadius = tvDp(4).toFloat()
+                    setColor(Ui.c.card)
+                    cornerRadius = Ui.dp(4).toFloat()
                 }
                 val detailReq = Glide.with(this@MainActivity)
                     .load(posterUrl)
-                    .override(tvDp(180), tvDp(270))
+                    .override(Ui.dp(180), Ui.dp(270))
                     .placeholder(placeholder)
                     .error(placeholder)
                 // custom-image 的 URL 现在带 ?t=SESSION_NONCE：
@@ -1762,15 +1781,15 @@ class MainActivity : Activity() {
 
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(tvDp(24), 0, 0, 0)
+            setPadding(Ui.dp(24), 0, 0, 0)
             // 占满海报右侧剩余宽度，长标题不再被屏幕右缘裁切
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val titleView = TextView(this).apply {
             text = movie.title ?: movie.originalTitle ?: ""
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(28f))
             setTypeface(null, android.graphics.Typeface.BOLD)
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -1787,9 +1806,9 @@ class MainActivity : Activity() {
         if (metaText.isNotEmpty()) {
             val metaView = TextView(this).apply {
                 text = metaText
-                setTextColor(Color.parseColor("#aaaaaa"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                setPadding(0, tvDp(8), 0, 0)
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                setPadding(0, Ui.dp(8), 0, 0)
             }
             infoLayout.addView(metaView)
         }
@@ -1798,9 +1817,9 @@ class MainActivity : Activity() {
             val genreText = movie.genres.joinToString(" / ") { it.name ?: "" }
             val genreView = TextView(this).apply {
                 text = genreText
-                setTextColor(Color.parseColor("#888888"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-                setPadding(0, tvDp(6), 0, 0)
+                setTextColor(Ui.c.text3)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
+                setPadding(0, Ui.dp(8), 0, 0)
             }
             infoLayout.addView(genreView)
         }
@@ -1808,17 +1827,17 @@ class MainActivity : Activity() {
         // 按钮行：播放 + 喜爱
         val btnRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, tvDp(20), 0, 0)
+            setPadding(0, Ui.dp(20), 0, 0)
         }
 
         val playBtn = Button(this).apply {
             text = "▶  播放"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
-            setPadding(tvDp(32), tvDp(12), tvDp(32), tvDp(12))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
+            setPadding(Ui.dp(32), Ui.dp(12), Ui.dp(32), Ui.dp(12))
             isFocusable = true
             isClickable = true
-            applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE)
+            applyFocusGlow(Ui.c.red)
             setOnClickListener {
                 if (movie.url != null) {
                     // 设置心跳元数据，使播放统计正常上报
@@ -1840,25 +1859,25 @@ class MainActivity : Activity() {
 
         // 喜爱按钮
         var isHearted = movie.heart == true
-        val activeColor = Color.parseColor("#e50914")
-        val inactiveColor = Color.parseColor("#333355")
+        val activeColor = Ui.c.red
+        val inactiveColor = Ui.c.cardAlt
         // 同一个 GradientDrawable 实例：点击/失焦只改内部 color/stroke，不再每次 new
         val heartBg = GradientDrawable().apply {
-            cornerRadius = tvDp(8).toFloat()
+            cornerRadius = Ui.dp(8).toFloat()
             setColor(if (isHearted) activeColor else inactiveColor)
         }
         val heartBtn = Button(this).apply {
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            setPadding(tvDp(20), tvDp(12), tvDp(20), tvDp(12))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+            setPadding(Ui.dp(20), Ui.dp(12), Ui.dp(20), Ui.dp(12))
             isFocusable = true
             isClickable = true
             background = heartBg
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     v.scaleX = 1.08f; v.scaleY = 1.08f
-                    heartBg.setStroke(tvDp(3), Color.WHITE)
+                    heartBg.setStroke(Ui.dp(4), Ui.c.text1)
                 } else {
                     v.scaleX = 1f; v.scaleY = 1f
                     heartBg.setStroke(0, 0)
@@ -1883,7 +1902,7 @@ class MainActivity : Activity() {
             }
         }
         val heartLp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-            leftMargin = tvDp(12)
+            leftMargin = Ui.dp(12)
         }
         btnRow.addView(heartBtn, heartLp)
 
@@ -1898,18 +1917,18 @@ class MainActivity : Activity() {
         if (movie.desc != null && movie.desc!!.isNotEmpty()) {
             val descLabel = TextView(this).apply {
                 text = "简介"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
-                setPadding(tvDp(32), tvDp(24), tvDp(32), tvDp(8))
+                setPadding(Ui.dp(32), Ui.dp(24), Ui.dp(32), Ui.dp(8))
             }
             layout.addView(descLabel)
             val descView = TextView(this).apply {
                 text = movie.desc
-                setTextColor(Color.parseColor("#cccccc"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
                 setLineSpacing(0f, 1.4f)
-                setPadding(tvDp(32), 0, tvDp(32), 0)
+                setPadding(Ui.dp(32), 0, Ui.dp(32), 0)
             }
             layout.addView(descView)
         }
@@ -1984,16 +2003,16 @@ class MainActivity : Activity() {
         android.util.Log.d("OneList", "TvDetail: name='${tv.name}' origName='${tv.originalName}' posterPath='${tv.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = LinearLayout.LayoutParams(tvDp(180), tvDp(270))
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            layoutParams = LinearLayout.LayoutParams(Ui.dp(180), Ui.dp(270))
+            setBackgroundColor(Ui.c.card)
             if (posterUrl != null) {
                 val placeholder = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#1a1a2e"))
-                    cornerRadius = tvDp(4).toFloat()
+                    setColor(Ui.c.card)
+                    cornerRadius = Ui.dp(4).toFloat()
                 }
                 val detailReq = Glide.with(this@MainActivity)
                     .load(posterUrl)
-                    .override(tvDp(180), tvDp(270))
+                    .override(Ui.dp(180), Ui.dp(270))
                     .placeholder(placeholder)
                     .error(placeholder)
                 // custom-image 的 URL 现在带 ?t=SESSION_NONCE：
@@ -2011,15 +2030,15 @@ class MainActivity : Activity() {
 
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(tvDp(24), 0, 0, 0)
+            setPadding(Ui.dp(24), 0, 0, 0)
             // 占满海报右侧剩余宽度，长标题不再被屏幕右缘裁切
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val titleView = TextView(this).apply {
             text = tv.name ?: tv.originalName ?: ""
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(28f))
             setTypeface(null, android.graphics.Typeface.BOLD)
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -2032,34 +2051,34 @@ class MainActivity : Activity() {
         if (metaText.isNotEmpty()) {
             val metaView = TextView(this).apply {
                 text = metaText
-                setTextColor(Color.parseColor("#aaaaaa"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                setPadding(0, tvDp(8), 0, 0)
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                setPadding(0, Ui.dp(8), 0, 0)
             }
             infoLayout.addView(metaView)
         }
 
         // 喜爱按钮
         var isHearted = tv.heart == true
-        val activeColorTv = Color.parseColor("#e50914")
-        val inactiveColorTv = Color.parseColor("#333355")
+        val activeColorTv = Ui.c.red
+        val inactiveColorTv = Ui.c.cardAlt
         // 同一 GradientDrawable 实例复用，避免每次 new
         val heartBgTv = GradientDrawable().apply {
-            cornerRadius = tvDp(8).toFloat()
+            cornerRadius = Ui.dp(8).toFloat()
             setColor(if (isHearted) activeColorTv else inactiveColorTv)
         }
         val heartBtn = Button(this).apply {
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            setPadding(tvDp(20), tvDp(10), tvDp(20), tvDp(10))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+            setPadding(Ui.dp(20), Ui.dp(8), Ui.dp(20), Ui.dp(8))
             isFocusable = true
             isClickable = true
             background = heartBgTv
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     v.scaleX = 1.08f; v.scaleY = 1.08f
-                    heartBgTv.setStroke(tvDp(3), Color.WHITE)
+                    heartBgTv.setStroke(Ui.dp(4), Ui.c.text1)
                 } else {
                     v.scaleX = 1f; v.scaleY = 1f
                     heartBgTv.setStroke(0, 0)
@@ -2083,7 +2102,7 @@ class MainActivity : Activity() {
             }
         }
         infoLayout.addView(heartBtn, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-            topMargin = tvDp(16)
+            topMargin = Ui.dp(16)
         })
 
         contentLayout.addView(infoLayout)
@@ -2092,30 +2111,30 @@ class MainActivity : Activity() {
         if (tv.desc != null && tv.desc!!.isNotEmpty()) {
             val descLabel = TextView(this).apply {
                 text = "简介"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
-                setPadding(tvDp(32), tvDp(24), tvDp(32), tvDp(8))
+                setPadding(Ui.dp(32), Ui.dp(24), Ui.dp(32), Ui.dp(8))
             }
             layout.addView(descLabel)
             val descView = TextView(this).apply {
                 text = tv.desc
-                setTextColor(Color.parseColor("#cccccc"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
                 setLineSpacing(0f, 1.4f)
-                setPadding(tvDp(32), 0, tvDp(32), 0)
+                setPadding(Ui.dp(32), 0, Ui.dp(32), 0)
             }
             layout.addView(descView)
         }
 
         val seasonsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(tvDp(32), tvDp(24), tvDp(32), 0)
+            setPadding(Ui.dp(32), Ui.dp(24), Ui.dp(32), 0)
         }
         val seasonsLabel = TextView(this).apply {
             text = "分季"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
         seasonsContainer.addView(seasonsLabel)
@@ -2124,7 +2143,7 @@ class MainActivity : Activity() {
         // 选集网格：默认展开第一季，点季切换；与 Web 端详情页一致
         val episodesContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(tvDp(32), tvDp(12), tvDp(32), 0)
+            setPadding(Ui.dp(32), Ui.dp(12), Ui.dp(32), 0)
         }
         layout.addView(episodesContainer)
 
@@ -2154,16 +2173,16 @@ class MainActivity : Activity() {
                             for (season in seasons) {
                                 val seasonBtn = Button(this@MainActivity).apply {
                                     text = "第 ${season.seasonNumber ?: "?"} 季"
-                                    setTextColor(Color.WHITE)
-                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(15f))
-                                    setPadding(tvDp(18), tvDp(8), tvDp(18), tvDp(8))
+                                    setTextColor(Ui.c.text1)
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                                    setPadding(Ui.dp(18), Ui.dp(8), Ui.dp(18), Ui.dp(8))
                                     isFocusable = true
                                     isClickable = true
-                                    applyFocusGlow(Color.parseColor("#1a1a2e"), Color.parseColor("#6366f1"), Color.WHITE)
+                                    applyFocusGlow(Ui.c.card)
                                     layoutParams = LinearLayout.LayoutParams(
                                         LinearLayout.LayoutParams.WRAP_CONTENT,
                                         LinearLayout.LayoutParams.WRAP_CONTENT
-                                    ).apply { marginEnd = tvDp(10) }
+                                    ).apply { marginEnd = Ui.dp(8) }
                                     setOnClickListener {
                                         if (season.id != null) {
                                             loadEpisodesInline(season, episodesContainer)
@@ -2178,9 +2197,9 @@ class MainActivity : Activity() {
                         } else {
                             seasonsContainer.addView(TextView(this@MainActivity).apply {
                                 text = "暂无分季数据"
-                                setTextColor(Color.parseColor("#888888"))
-                                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-                                setPadding(0, tvDp(8), 0, 0)
+                                setTextColor(Ui.c.text3)
+                                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
+                                setPadding(0, Ui.dp(8), 0, 0)
                             })
                         }
                     }
@@ -2216,9 +2235,9 @@ class MainActivity : Activity() {
         if (episodes.isEmpty()) {
             container.addView(TextView(this).apply {
                 text = "该季暂无分集"
-                setTextColor(Color.parseColor("#888888"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-                setPadding(0, tvDp(8), 0, 0)
+                setTextColor(Ui.c.text3)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
+                setPadding(0, Ui.dp(8), 0, 0)
             })
             return
         }
@@ -2228,7 +2247,7 @@ class MainActivity : Activity() {
             // 焦点进入网格子项逐个移动，而不是把整个网格当一个焦点块
             descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             // 两列网格加间距，焦点放大时不与相邻卡片粘连
-            addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, tvDp(10), true))
+            addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, Ui.dp(8), true))
             adapter = EpisodeAdapter(episodes, { ep -> playEpisodeFromList(ep, episodes) }, currentVideoUrl)
         }
         container.addView(rv, LinearLayout.LayoutParams(
@@ -2267,7 +2286,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             fillParent()
-            setBackgroundColor(Color.parseColor("#0d0d1a"))
+            setBackgroundColor(Ui.c.bg)
         }
 
         val topBar = buildTopBar(seasonTitle, showSearch = false, showLogout = false)
@@ -2281,7 +2300,7 @@ class MainActivity : Activity() {
             setPadding(dp(24), dp(8), dp(24), dp(16))
             (layoutManager as androidx.recyclerview.widget.GridLayoutManager).setInitialPrefetchItemCount(10)
             setItemViewCacheSize(12)
-            addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, tvDp(10), true))
+            addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, Ui.dp(8), true))
             adapter = EpisodeAdapter(episodes, { ep -> playEpisodeFromList(ep, episodes) }, currentVideoUrl)
         }
 
@@ -2309,7 +2328,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             fillParent()
-            setBackgroundColor(Color.parseColor("#0d0d1a"))
+            setBackgroundColor(Ui.c.bg)
         }
 
         val topBar = buildTopBar("搜索", showSearch = false, showLogout = false)
@@ -2324,9 +2343,9 @@ class MainActivity : Activity() {
 
         val searchInput = EditText(this).apply {
             hint = "输入关键词..."
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.GRAY)
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            setTextColor(Ui.c.text1)
+            setHintTextColor(Ui.c.text3)
+            setBackgroundColor(Ui.c.card)
             setPadding(dp(16), dp(12), dp(16), dp(12))
             isSingleLine = true
             showSoftInputOnFocus = false
@@ -2338,7 +2357,7 @@ class MainActivity : Activity() {
 
         val searchBtn = Button(this).apply {
             text = "搜索"
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             isFocusable = true
             isClickable = true
             applyFocusGlow()
@@ -2395,7 +2414,7 @@ class MainActivity : Activity() {
 
         val loadingView = TextView(this).apply {
             text = "搜索中..."
-            setTextColor(Color.GRAY)
+            setTextColor(Ui.c.text3)
             gravity = Gravity.CENTER
             setPadding(0, dp(40), 0, dp(40))
         }
@@ -2446,7 +2465,7 @@ class MainActivity : Activity() {
             val emptyLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(tvDp(32), tvDp(60), tvDp(32), tvDp(60))
+                setPadding(Ui.dp(32), Ui.dp(60), Ui.dp(32), Ui.dp(60))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -2455,16 +2474,16 @@ class MainActivity : Activity() {
             
             val emptyIcon = TextView(this).apply {
                 text = "🔍"
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(48f))
                 gravity = Gravity.CENTER
-                setPadding(0, 0, 0, tvDp(16))
+                setPadding(0, 0, 0, Ui.dp(16))
             }
             emptyLayout.addView(emptyIcon)
             
             val empty = TextView(this).apply {
                 text = "未找到结果\n请尝试其他关键词"
-                setTextColor(Color.parseColor("#cccccc"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
                 gravity = Gravity.CENTER
                 setLineSpacing(0f, 1.5f)
             }
@@ -2477,16 +2496,16 @@ class MainActivity : Activity() {
         if (movies.isNotEmpty()) {
             val label = TextView(this).apply {
                 text = "电影 (${movies.size})"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
-                setPadding(0, tvDp(8), 0, tvDp(8))
+                setPadding(0, Ui.dp(8), 0, Ui.dp(8))
             }
             layout.addView(label)
             val gridColumns = calculateGridColumns()
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
-                addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
+                addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
                 adapter = CardAdapter(movies.map { it as Any }, "movie") { item ->
                     if (item is Movie) showMovieDetail(item, fromSearch = true)
                 }
@@ -2496,23 +2515,23 @@ class MainActivity : Activity() {
             }
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                tvDp(280 * ((movies.size + gridColumns - 1) / gridColumns))
+                Ui.dp(280) * ((movies.size + gridColumns - 1) / gridColumns)
             ))
         }
 
         if (tvs.isNotEmpty()) {
             val label = TextView(this).apply {
                 text = "电视 (${tvs.size})"
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(18f))
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
                 setTypeface(null, android.graphics.Typeface.BOLD)
-                setPadding(0, tvDp(16), 0, tvDp(8))
+                setPadding(0, Ui.dp(16), 0, Ui.dp(8))
             }
             layout.addView(label)
             val gridColumns = calculateGridColumns()
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
-                addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, tvDp(16), true))
+                addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
                 adapter = CardAdapter(tvs.map { it as Any }, "tv") { item ->
                     if (item is Tv) showTvDetail(item, fromSearch = true)
                 }
@@ -2521,7 +2540,7 @@ class MainActivity : Activity() {
             }
             layout.addView(recyclerView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                tvDp(280 * ((tvs.size + gridColumns - 1) / gridColumns))
+                Ui.dp(280) * ((tvs.size + gridColumns - 1) / gridColumns)
             ))
         }
     }
@@ -2565,7 +2584,7 @@ class MainActivity : Activity() {
 
         val loadingText = TextView(this).apply {
             text = "正在加载视频源..."
-            setTextColor(Color.parseColor("#cccccc"))
+            setTextColor(Ui.c.text2)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
         }
@@ -2576,10 +2595,10 @@ class MainActivity : Activity() {
 
         // 连播提示（右上角显示"下一个"）
         val nextHint = TextView(this).apply {
-            setTextColor(Color.parseColor("#cccccc"))
+            setTextColor(Ui.c.text2)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setPadding(dp(16), dp(8), dp(16), dp(8))
-            setBackgroundColor(Color.parseColor("#80000000"))
+            setBackgroundColor(Ui.c.scrim)
             visibility = View.GONE
         }
         val nextHintLP = FrameLayout.LayoutParams(
@@ -2589,13 +2608,13 @@ class MainActivity : Activity() {
 
         // 遥控器操作提示（屏幕中央半透明浮层，按键时短暂显示操作反馈）
         val opHint = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(12), dp(24), dp(12))
             background = GradientDrawable().apply {
                 cornerRadius = dp(8).toFloat()
-                setColor(Color.parseColor("#B0000000"))
+                setColor(Ui.c.scrim)
             }
             visibility = View.GONE
         }
@@ -3031,100 +3050,88 @@ class MainActivity : Activity() {
 
     // ==================== TOP BAR ====================
 
+    /**
+     * 顶栏图标按钮：图标+文字，normal=透明底，focused=cardHover+accent 描边（统一焦点形态）。
+     * 顶栏按钮不做 scale（5.1 上越界裁剪会导致色块残留）。
+     */
+    private fun buildTopBtn(iconRes: Int?, label: String, defaultColor: Int = Ui.c.text2, onClick: () -> Unit): LinearLayout {
+        val btn = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(Ui.dp(12), Ui.dp(6), Ui.dp(12), Ui.dp(6))
+            isClickable = true
+            isFocusable = true
+            background = Ui.rowFocusBg(Color.TRANSPARENT)
+            setOnClickListener { onClick() }
+        }
+        if (iconRes != null) {
+            btn.addView(ImageView(this).apply {
+                setImageResource(iconRes)
+                setColorFilter(defaultColor)
+                layoutParams = LinearLayout.LayoutParams(Ui.dp(16), Ui.dp(16)).apply { marginEnd = Ui.dp(6) }
+            })
+        }
+        btn.addView(TextView(this).apply {
+            text = label
+            setTextColor(defaultColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+        })
+        // 焦点：背景由 StateListDrawable 自动切换；图标/文字 tint 切换为白色
+        btn.setOnFocusChangeListener { _, hasFocus ->
+            val color = if (hasFocus) Ui.c.text1 else defaultColor
+            for (i in 0 until btn.childCount) {
+                when (val child = btn.getChildAt(i)) {
+                    is ImageView -> child.setColorFilter(color)
+                    is TextView -> child.setTextColor(color)
+                }
+            }
+        }
+        return btn
+    }
+
     private fun buildTopBar(title: String, showSearch: Boolean, showLogout: Boolean, showUserPages: Boolean = false): LinearLayout {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(tvDp(24), tvDp(12), tvDp(24), tvDp(12))
-            setBackgroundColor(Color.parseColor("#0d0d1a"))
+            setPadding(Ui.dp(24), Ui.dp(12), Ui.dp(24), Ui.dp(12))
+            setBackgroundColor(Ui.c.bg)
             // 顶栏明确裁剪子 View（避免按钮 scale 越界造成色块残留）
             clipChildren = true
         }
 
         // Back button (if not on home)
         if (currentScreen != Screen.HOME && currentScreen != Screen.LOGIN) {
-            val backBtn = TextView(this).apply {
-                text = "← 返回"
-                setTextColor(Color.parseColor("#6366f1"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                isClickable = true
-                isFocusable = true
-                setPadding(tvDp(8), tvDp(4), tvDp(8), tvDp(4))
-                applyTextFocus(Color.WHITE, Color.parseColor("#6366f1"))
-                setOnClickListener { navigateBack() }
-            }
-            bar.addView(backBtn)
+            bar.addView(buildTopBtn(R.drawable.ic_back, "返回", Ui.c.accent) { navigateBack() })
         }
 
         // Title
         val titleView = TextView(this).apply {
             text = title
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(22f))
+            setTextColor(Ui.c.text1)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(22f))
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
         val titleLp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        titleLp.leftMargin = tvDp(8)
+        titleLp.leftMargin = Ui.dp(8)
         bar.addView(titleView, titleLp)
 
         // User pages buttons (最爱 / 已播放)
         if (showUserPages) {
-            val heartBtn = TextView(this).apply {
-                text = "❤ 最爱"
-                setTextColor(Color.parseColor("#aaaaaa"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                isClickable = true
-                isFocusable = true
-                setPadding(tvDp(12), tvDp(4), tvDp(12), tvDp(4))
-                applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
-                setOnClickListener { showHeartPage() }
-            }
-            bar.addView(heartBtn)
-
-            val playedBtn = TextView(this).apply {
-                text = "✓ 已播放"
-                setTextColor(Color.parseColor("#aaaaaa"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                isClickable = true
-                isFocusable = true
-                setPadding(tvDp(12), tvDp(4), tvDp(12), tvDp(4))
-                applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
-                setOnClickListener { showPlayedPage() }
-            }
-            bar.addView(playedBtn)
+            bar.addView(buildTopBtn(R.drawable.ic_heart, "最爱") { showHeartPage() })
+            bar.addView(buildTopBtn(R.drawable.ic_history, "已播放") { showPlayedPage() })
         }
 
         // Search button
         if (showSearch) {
-            val searchBtn = TextView(this).apply {
-                text = "🔍 搜索"
-                setTextColor(Color.parseColor("#aaaaaa"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-                isClickable = true
-                isFocusable = true
-                setPadding(tvDp(12), tvDp(4), tvDp(12), tvDp(4))
-                applyTextFocus(Color.WHITE, Color.parseColor("#aaaaaa"))
-                setOnClickListener { showSearch() }
-            }
-            bar.addView(searchBtn)
+            bar.addView(buildTopBtn(R.drawable.ic_search, "搜索") { showSearch() })
         }
 
         // Logout button
         if (showLogout) {
-            val logoutBtn = TextView(this).apply {
-                text = "退出"
-                setTextColor(Color.parseColor("#888888"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(14f))
-                isClickable = true
-                isFocusable = true
-                setPadding(tvDp(12), tvDp(4), tvDp(12), tvDp(4))
-                applyTextFocus(Color.WHITE, Color.parseColor("#888888"))
-                setOnClickListener {
-                    App.logout()
-                    showLogin()
-                }
-            }
-            bar.addView(logoutBtn)
+            bar.addView(buildTopBtn(null, "退出", Ui.c.text3) {
+                App.logout()
+                showLogin()
+            })
         }
 
         return bar
@@ -3416,66 +3423,30 @@ class MainActivity : Activity() {
 
     // ==================== HELPERS ====================
 
-    // ====== 焦点样式 Drawable 缓存（按参数组合复用，避免每次 new GradientDrawable） ======
-    private val focusGlowCache = hashMapOf<Long, android.graphics.drawable.StateListDrawable>()
+    // ====== 焦点样式 Drawable 缓存 ======
     private val editTextBgCache = hashMapOf<Int, android.graphics.drawable.StateListDrawable>()
-    private val cardBgCache: android.graphics.drawable.StateListDrawable by lazy {
-        // 剧集按钮等「卡片」：focused=#6366f1+4dp白边，normal=#1a1a2e
-        val r = tvDp(4).toFloat()
-        val focused = GradientDrawable().apply {
-            cornerRadius = r; setColor(Color.parseColor("#6366f1")); setStroke(tvDp(4), Color.WHITE)
-        }
-        val normal = GradientDrawable().apply { cornerRadius = r; setColor(Color.parseColor("#1a1a2e")) }
-        android.graphics.drawable.StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_focused), focused)
-            addState(intArrayOf(), normal)
-        }
-    }
-    private val textBtnBgCache: android.graphics.drawable.StateListDrawable by lazy {
-        // 顶部栏文本按钮：focused=#6366f1 填充，normal=透明
-        val focused = GradientDrawable().apply { setColor(Color.parseColor("#6366f1")) }
-        val normal = GradientDrawable().apply { setColor(Color.TRANSPARENT) }
-        android.graphics.drawable.StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_focused), focused)
-            addState(intArrayOf(), normal)
-        }
-    }
-    private val textBtnTextColorCache: HashMap<Pair<Int,Int>, android.content.res.ColorStateList> = hashMapOf()
 
     /**
-     * 为按钮设置焦点高亮样式（TV 遥控器模式）
-     * - 用 StateListDrawable：系统按 state_focused 自动切换背景色/描边，onFocusChange 只处理 scale
+     * 统一焦点形态（全 app 一种观感）：
+     *  - normal：defaultColor 圆角底
+     *  - focused：cardHover 高亮底 + accent 描边（Ui.rowFocusBg）
+     * 缩放统一 1.05（顶栏按钮由调用方不设 scale）
      */
-    private fun View.applyFocusGlow(defaultColor: Int = Color.parseColor("#6366f1"), focusedColor: Int = Color.parseColor("#8b8ef7"), strokeColor: Int = Color.WHITE) {
-        val r = tvDp(4).toFloat()
-        val strokeW = tvDp(4)
-        val key = (defaultColor.toLong() and 0xffffffffL) shl 32 or
-            ((focusedColor.toLong() and 0xffffffffL) shl 0) xor
-            ((strokeColor.toLong() and 0xffffffffL) + strokeW.toLong())
-        val sld = focusGlowCache.getOrPut(key) {
-            val focused = GradientDrawable().apply {
-                cornerRadius = r; setColor(focusedColor); setStroke(strokeW, strokeColor)
-            }
-            val normal = GradientDrawable().apply { cornerRadius = r; setColor(defaultColor) }
-            android.graphics.drawable.StateListDrawable().apply {
-                addState(intArrayOf(android.R.attr.state_focused), focused)
-                addState(intArrayOf(), normal)
-            }
-        }
-        background = sld
-        setOnFocusScale(1.12f, 120)
+    private fun View.applyFocusGlow(defaultColor: Int = Ui.c.accent) {
+        background = Ui.rowFocusBg(defaultColor)
+        setOnFocusScale(1.05f, 120)
     }
 
     /**
      * 为 EditText 输入框设置焦点高亮：StateListDrawable 自动加/去 3dp 白边
      */
     private fun EditText.applyEditTextFocus() {
-        val r = tvDp(4).toFloat()
-        val strokeW = tvDp(3)
+        val r = Ui.dp(4).toFloat()
+        val strokeW = Ui.dp(4)
         val sld = editTextBgCache.getOrPut(0) {
-            val defaultBg = Color.parseColor("#1a1a2e")
+            val defaultBg = Ui.c.card
             val focused = GradientDrawable().apply {
-                cornerRadius = r; setColor(defaultBg); setStroke(strokeW, Color.WHITE)
+                cornerRadius = r; setColor(defaultBg); setStroke(strokeW, Ui.c.text1)
             }
             val normal = GradientDrawable().apply { cornerRadius = r; setColor(defaultBg) }
             android.graphics.drawable.StateListDrawable().apply {
@@ -3486,43 +3457,6 @@ class MainActivity : Activity() {
         background = sld
         // 缩放动画很小，仅作视觉反馈；不需要 1.12x 那么大（输入框太大影响排版）
         setOnFocusScale(1.03f, 100)
-    }
-
-    /**
-     * 卡片/列表项（剧集按钮）焦点样式：StateListDrawable 自动切换背景 + 描边；
-     * onFocusChange 只处理 scale 和 bringToFront
-     */
-    private fun View.applyCardFocus() {
-        background = cardBgCache
-        setOnFocusChangeListener { v, hasFocus ->
-            try {
-                val target = if (hasFocus) 1.12f else 1f
-                if (v.scaleX != target) {
-                    v.animate().cancel()
-                    v.animate().scaleX(target).scaleY(target).setDuration(120).start()
-                }
-            } catch (_: Exception) {}
-        }
-    }
-
-    /**
-     * TextView 焦点样式（顶部栏文本按钮）：StateListDrawable 自动处理背景色；
-     * ColorStateList 自动处理文字颜色；
-     * 每个按钮通过 constantState.newDrawable().mutate() 复制独立副本，避免多按钮共享 state 导致色块残留。
-     */
-    private fun TextView.applyTextFocus(focusedTextColor: Int = Color.WHITE, defaultTextColor: Int = Color.parseColor("#6366f1")) {
-        background = textBtnBgCache.constantState?.newDrawable()?.mutate() ?: textBtnBgCache
-        val csl = textBtnTextColorCache.getOrPut(focusedTextColor to defaultTextColor) {
-            android.content.res.ColorStateList(
-                arrayOf(
-                    intArrayOf(android.R.attr.state_focused),
-                    intArrayOf()
-                ),
-                intArrayOf(focusedTextColor, defaultTextColor)
-            )
-        }
-        setTextColor(csl)
-        // 顶栏按钮不做 scale 动画（5.1 上越界裁剪会导致色块残留在 bar 区域外）
     }
 
     /** 统一的 scale 动画：只有目标值变化才启动，避免重复 cancel+start 的调度抖动 */
@@ -3541,7 +3475,7 @@ class MainActivity : Activity() {
     private fun label(text: String): TextView {
         return TextView(this).apply {
             this.text = text
-            setTextColor(Color.parseColor("#aaaaaa"))
+            setTextColor(Ui.c.text2)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setPadding(0, 0, 0, dp(4))
         }
@@ -3550,63 +3484,60 @@ class MainActivity : Activity() {
     // ==================== HELPERS ====================
 
     /**
-     * 在加载容器中显示错误状态和重试按钮
+     * 统一空态/错误态卡片：警告图标 + 信息 + 可选重试按钮。
+     * 用于列表页加载失败等场景；样式与全 app 焦点形态一致。
      */
-    private fun showErrorInLoadingContainer(recyclerView: RecyclerView, errorMsg: String) {
-        val parent = recyclerView.parent as? FrameLayout ?: return
-        parent.removeAllViews()
-        
-        val errorLayout = LinearLayout(parent.context).apply {
+    private fun buildStateView(message: String, retry: (() -> Unit)? = null): LinearLayout {
+        return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
             )
-            setPadding(tvDp(32), tvDp(32), tvDp(32), tvDp(32))
-        }
-        
-        // 错误图标（用文字代替）
-        val errorIcon = TextView(parent.context).apply {
-            text = "⚠️"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(48f))
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, tvDp(16))
-        }
-        errorLayout.addView(errorIcon)
-        
-        // 错误信息
-        val errorText = TextView(parent.context).apply {
-            text = errorMsg
-            setTextColor(Color.parseColor("#cccccc"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, tvDp(24))
-        }
-        errorLayout.addView(errorText)
-        
-        // 重试按钮
-        val retryBtn = Button(parent.context).apply {
-            text = "重试"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(16f))
-            setPadding(tvDp(32), tvDp(12), tvDp(32), tvDp(12))
-            isFocusable = true
-            isClickable = true
-            applyFocusGlow(Color.parseColor("#e50914"), Color.parseColor("#ff3b4f"), Color.WHITE)
-            setOnClickListener {
-                // 重新加载数据
-                currentPage = 1
-                isLoadingMore = false
-                hasMorePages = true
-                listItems.clear()
-                loadListData(recyclerView)
+            setPadding(Ui.dp(32), Ui.dp(32), Ui.dp(32), Ui.dp(32))
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(R.drawable.ic_error)
+                setColorFilter(Ui.c.warn)
+                layoutParams = LinearLayout.LayoutParams(Ui.dp(40), Ui.dp(40)).apply { bottomMargin = Ui.dp(16) }
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = message
+                setTextColor(Ui.c.text2)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                gravity = Gravity.CENTER
+            })
+            if (retry != null) {
+                addView(TextView(this@MainActivity).apply {
+                    text = "按 OK 重试"
+                    setTextColor(Ui.c.text1)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                    setPadding(Ui.dp(32), Ui.dp(12), Ui.dp(32), Ui.dp(12))
+                    isFocusable = true
+                    isClickable = true
+                    applyFocusGlow(Ui.c.red)
+                    setOnClickListener { retry() }
+                }, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = Ui.dp(24) })
             }
         }
-        errorLayout.addView(retryBtn)
+    }
 
+    private fun showErrorInLoadingContainer(recyclerView: RecyclerView, errorMsg: String) {
+        val parent = recyclerView.parent as? FrameLayout ?: return
+        parent.removeAllViews()
+        val retry: () -> Unit = {
+            currentPage = 1
+            isLoadingMore = false
+            hasMorePages = true
+            listItems.clear()
+            loadListData(recyclerView)
+        }
+        val errorLayout = buildStateView(errorMsg, retry)
         parent.addView(errorLayout)
-        retryBtn.post { retryBtn.requestFocus() }
+        // 焦点自动落到重试按钮（最后一个子 View）
+        val focusTarget = errorLayout.getChildAt(errorLayout.childCount - 1)
+        focusTarget.post { focusTarget.requestFocus() }
     }
 
     /**
@@ -3624,20 +3555,6 @@ class MainActivity : Activity() {
         val columns = (screenWidth / minColumnWidthPx).toInt().coerceIn(3, 8)
         android.util.Log.d("OneList", "Screen width: ${screenWidth.toInt()}px, grid columns: $columns")
         return columns
-    }
-
-    /**
-     * TV适配：放大字体基准（相比手机增加20-30%）
-     */
-    private fun tvSp(baseSp: Float): Float {
-        return baseSp * 1.25f
-    }
-
-    /**
-     * TV适配：增大间距（相比手机增加50%）
-     */
-    private fun tvDp(baseDp: Int): Int {
-        return (baseDp * 1.5f).toInt()
     }
 
     private fun lp(w: Int = LinearLayout.LayoutParams.MATCH_PARENT, h: Int = LinearLayout.LayoutParams.WRAP_CONTENT): LinearLayout.LayoutParams {
@@ -3765,11 +3682,11 @@ class MainActivity : Activity() {
     private fun ensureWarningBanner() {
         if (warningBanner != null) return
         warningBanner = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
             setPadding(dp(20), dp(14), dp(20), dp(14))
-            setBackgroundColor(Color.parseColor("#EA9600"))
+            setBackgroundColor(Ui.c.warn)
             visibility = View.GONE
         }
         val lp = FrameLayout.LayoutParams(
@@ -3783,11 +3700,11 @@ class MainActivity : Activity() {
     private fun ensureDailyLimitWarningBanner() {
         if (dailyLimitWarningBanner != null) return
         dailyLimitWarningBanner = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
             setPadding(dp(20), dp(14), dp(20), dp(14))
-            setBackgroundColor(Color.parseColor("#FF5722"))
+            setBackgroundColor(Ui.c.red)
             visibility = View.GONE
         }
         val lp = FrameLayout.LayoutParams(
@@ -3801,7 +3718,7 @@ class MainActivity : Activity() {
     private fun ensureDailyLimitDimOverlay() {
         if (dailyLimitDimOverlay != null) return
         dailyLimitDimOverlay = View(this).apply {
-            setBackgroundColor(Color.parseColor("#8C000000"))
+            setBackgroundColor(Ui.c.scrim)
             visibility = View.GONE
         }
         val lp = FrameLayout.LayoutParams(
@@ -3993,12 +3910,12 @@ class MainActivity : Activity() {
 
         // 倒计时角标（右上角，最后添加以确保在最上层）
         val countdown = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setPadding(dp(20), dp(12), dp(20), dp(12))
             background = GradientDrawable().apply {
                 cornerRadius = dp(8).toFloat()
-                setColor(Color.parseColor("#BF000000"))
+                setColor(Ui.c.scrim)
             }
             gravity = Gravity.CENTER
             setLineSpacing(dp(4).toFloat(), 1f)
@@ -4049,13 +3966,13 @@ class MainActivity : Activity() {
             text = "\uD83C\uDF33"  // 🌳 tree emoji
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f)
             gravity = Gravity.CENTER
-            setTextColor(Color.parseColor("#2E7D32"))
+            setTextColor(Ui.c.success)
         }
         val msg = TextView(this).apply {
             text = "爱护眼睛，先休息一会吧"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             gravity = Gravity.CENTER
-            setTextColor(Color.parseColor("#2E7D32"))
+            setTextColor(Ui.c.success)
             setPadding(0, dp(16), 0, 0)
         }
         defaultView.addView(icon)
@@ -4148,8 +4065,40 @@ class MainActivity : Activity() {
         ).toInt()
     }
 
+    // 顶部横幅提示（替代 Toast：位置可控、样式统一、连发不叠加）
+    private var toastBanner: TextView? = null
+    private val toastHandler = Handler(Looper.getMainLooper())
+
     private fun toast(msg: String) {
-        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+        runOnUiThread {
+            if (isDestroying) return@runOnUiThread
+            toastHandler.removeCallbacksAndMessages(null)
+            toastBanner?.let { rootLayout.removeView(it) }
+            val banner = TextView(this).apply {
+                text = msg
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
+                setPadding(Ui.dp(24), Ui.dp(8), Ui.dp(24), Ui.dp(8))
+                background = GradientDrawable().apply {
+                    cornerRadius = Ui.dp(8).toFloat()
+                    setColor(Ui.c.cardHover)
+                    setStroke(Ui.dp(1), Ui.c.accent)
+                }
+            }
+            val lp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                topMargin = Ui.dp(16)
+            }
+            rootLayout.addView(banner, lp)
+            toastBanner = banner
+            toastHandler.postDelayed({
+                if (isDestroying) return@postDelayed
+                rootLayout.removeView(banner)
+                if (toastBanner === banner) toastBanner = null
+            }, 2000)
+        }
     }
 
     /** 在播放器屏幕中央短暂显示操作提示（1.2 秒后自动隐藏） */
@@ -4177,41 +4126,29 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = RecyclerView.LayoutParams(
                     RecyclerView.LayoutParams.MATCH_PARENT,
-                    tvDp(52)
+                    Ui.dp(52)
                 ).apply {
-                    topMargin = tvDp(8)
+                    topMargin = Ui.dp(8)
                 }
-                setPadding(tvDp(12), tvDp(9), tvDp(12), tvDp(9))
+                setPadding(Ui.dp(12), Ui.dp(8), Ui.dp(12), Ui.dp(8))
                 isClickable = true
                 isFocusable = true
-                // 复用 cardBgCache（StateListDrawable 克隆后每 row 独立使用，避免状态串扰）
-                background = cardBgCache.constantState?.newDrawable()?.mutate() ?: GradientDrawable().apply {
-                    cornerRadius = tvDp(4).toFloat(); setColor(Color.parseColor("#1a1a2e"))
-                }
-                setOnFocusChangeListener { v, hasFocus ->
-                    try {
-                        // 只做轻微放大（1.03f），网格内相邻卡片不互相遮挡
-                        val target = if (hasFocus) 1.03f else 1f
-                        if (v.scaleX != target) {
-                            v.animate().cancel()
-                            v.animate().scaleX(target).scaleY(target).setDuration(120).start()
-                        }
-                        // 焦点态背景高亮；正在播放的集用青色底突出
-                        val normalBg = if (v.tag == "current") "#0e7490" else "#1a1a2e"
-                        v.setBackgroundColor(Color.parseColor(if (hasFocus) "#2d2d55" else normalBg))
-                    } catch (_: Exception) {}
+                // 统一焦点形态：normal=行底色圆角，focused=cardHover+accent 描边（bind 时按当前集再设置）
+                background = Ui.rowFocusBg(Ui.c.card)
+                setOnFocusChangeListener { v, _ ->
+                    try { Ui.scaleOnFocus(v) } catch (_: Exception) {}
                 }
             }
             val epNum = TextView(ctx).apply {
-                textSize = tvSp(14f)
-                setTextColor(Color.parseColor("#6366f1"))
+                textSize = Ui.sp(14f)
+                setTextColor(Ui.c.accent)
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 id = android.R.id.text1
             }
             epBtn.addView(epNum)
             val epTitle = TextView(ctx).apply {
-                textSize = tvSp(13f)
-                setTextColor(Color.WHITE)
+                textSize = Ui.sp(13f)
+                setTextColor(Ui.c.text1)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 id = android.R.id.text2
@@ -4219,7 +4156,7 @@ class MainActivity : Activity() {
             epBtn.addView(epTitle, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { weight = 1f; marginStart = tvDp(6) })
+            ).apply { weight = 1f; marginStart = Ui.dp(8) })
             return EpisodeVH(epBtn)
         }
 
@@ -4229,11 +4166,10 @@ class MainActivity : Activity() {
             val isCurrent = currentUrl != null && ep.url != null && ep.url == currentUrl
             val epNumView = row.findViewById<TextView>(android.R.id.text1)
             epNumView.text = if (isCurrent) "▶ E${ep.episodeNumber ?: "?"}" else "E${ep.episodeNumber ?: "?"}"
-            epNumView.setTextColor(Color.parseColor(if (isCurrent) "#22d3ee" else "#6366f1"))
+            epNumView.setTextColor(if (isCurrent) Ui.c.cyan else Ui.c.accent)
             (row.findViewById<TextView>(android.R.id.text2)).text = ep.title ?: ""
-            // 正在播放的集：常驻青色底 + tag 供焦点监听区分普通/当前集背景色
-            row.tag = if (isCurrent) "current" else null
-            row.setBackgroundColor(Color.parseColor(if (isCurrent) "#0e7490" else "#1a1a2e"))
+            // 正在播放的集：常驻青色底，焦点态由 rowFocusBg 自动切换（cardHover+accent 描边）
+            row.background = Ui.rowFocusBg(if (isCurrent) Ui.c.teal else Ui.c.card)
             row.setOnClickListener { onClick(ep) }
         }
 

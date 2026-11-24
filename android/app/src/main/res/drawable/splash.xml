@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 冷启动窗口背景：bg + 居中 logo（进入后 rootLayout 全屏覆盖，仅启动瞬间可见） -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/bg_primary" />
+    <item android:gravity="center" android:drawable="@drawable/ic_splash_logo" />
+</layer-list>

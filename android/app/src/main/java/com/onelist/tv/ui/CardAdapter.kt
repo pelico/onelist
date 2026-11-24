@@ -13,6 +13,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.onelist.tv.Ui
 import com.onelist.tv.data.Movie
 import com.onelist.tv.data.RetrofitClient
 import com.onelist.tv.data.Tv
@@ -23,31 +24,12 @@ class CardAdapter(
     private val onClick: (Any) -> Unit
 ) : RecyclerView.Adapter<CardAdapter.CardViewHolder>() {
 
-    // ---- 焦点/正常背景 StateListDrawable：按状态自动切换，避免 onFocusChange 每次 new ----
+    // ---- 焦点背景统一使用 Ui.rowFocusBg（cardHover+accent 描边），无状态串扰 ----
     companion object {
-        /** 构造卡片背景：focused=主题色填充，normal=透明；统一圆角 8dp，构造一次复用 */
-        private fun makeCardBg(ctx: android.content.Context): StateListDrawable {
-            val r = TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, 8f, ctx.resources.displayMetrics
-            )
-            val focused = GradientDrawable().apply {
-                cornerRadius = r
-                setColor(Color.parseColor("#6366f1"))
-            }
-            val normal = GradientDrawable().apply {
-                cornerRadius = r
-                setColor(Color.TRANSPARENT)
-            }
-            return StateListDrawable().apply {
-                addState(intArrayOf(android.R.attr.state_focused), focused)
-                addState(intArrayOf(), normal)
-            }
-        }
-
         /** 占位图：纯色圆角矩形（与 TMDB 卡片尺寸无关，bind 时共享同一个对象引用） */
         private fun makePlaceholder(): GradientDrawable {
             return GradientDrawable().apply {
-                setColor(Color.parseColor("#1a1a2e"))
+                setColor(Ui.c.card)
                 cornerRadius = 4f
             }
         }
@@ -97,8 +79,8 @@ class CardAdapter(
             setPadding(dp(ctx, 4), dp(ctx, 4), dp(ctx, 4), dp(ctx, 4))
             isClickable = true
             isFocusable = true
-            // StateListDrawable：系统按 state_focused 自动切换，不再每次 new GradientDrawable
-            background = makeCardBg(ctx)
+            // 统一焦点形态：normal=透明，focused=cardHover+accent 描边
+            background = Ui.rowFocusBg(Color.TRANSPARENT)
         }
 
         val poster = ImageView(ctx).apply {
@@ -106,27 +88,20 @@ class CardAdapter(
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, cardHeight
             )
-            setBackgroundColor(Color.parseColor("#1a1a2e"))
+            setBackgroundColor(Ui.c.card)
         }
         card.addView(poster)
 
         val title = TextView(ctx).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             maxLines = 2
             setPadding(0, dp(ctx, 4), 0, 0)
         }
         card.addView(title)
 
-        // 焦点变化：只做 scale + bringToFront（不再创建新 Drawable）
-        card.setOnFocusChangeListener { v, hasFocus ->
-            val target = if (hasFocus) 1.08f else 1f
-            if (v.scaleX != target) {
-                v.animate().cancel()
-                v.animate().scaleX(target).scaleY(target).setDuration(120).start()
-            }
-            if (hasFocus) v.bringToFront()
-        }
+        // 焦点变化：统一 Ui.scaleOnFocus（1.05 缩放 + bringToFront）
+        card.setOnFocusChangeListener { v, _ -> Ui.scaleOnFocus(v) }
 
         return CardViewHolder(card)
     }
@@ -192,7 +167,7 @@ class CardAdapter(
             reqBuilder.into(poster)
         } else {
             Glide.with(poster).clear(poster)
-            poster.setBackgroundColor(Color.parseColor("#2a2a4e"))
+            poster.setBackgroundColor(Ui.c.cardAlt)
             poster.setImageDrawable(null)
         }
 

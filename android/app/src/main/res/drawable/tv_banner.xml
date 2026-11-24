@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <!-- page bg -->
+    <path android:fillColor="#0d0d1a" android:pathData="M0,0h320v180h-320z" />
+    <!-- accent circle with play triangle -->
+    <path android:fillColor="#6366f1"
+        android:pathData="M80,50 a40,40 0 1,0 0.01,0 z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M72,74 L72,106 L96,90 Z" />
+    <!-- "list" bars -->
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.9"
+        android:pathData="M150,70h110v12h-110z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.55"
+        android:pathData="M150,92h90v12h-90z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.3"
+        android:pathData="M150,114h70v12h-70z" />
+</vector>
