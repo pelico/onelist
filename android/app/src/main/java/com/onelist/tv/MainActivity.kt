@@ -2,6 +2,7 @@ package com.onelist.tv
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -639,7 +640,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(40), dp(80), dp(40), dp(40))
+            setPadding(Ui.dp(40), Ui.dp(80), Ui.dp(40), Ui.dp(40))
         }
 
         // Title
@@ -651,7 +652,7 @@ class MainActivity : Activity() {
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
         layout.addView(title, lp(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-            bottomMargin = dp(40)
+            bottomMargin = Ui.dp(40)
         })
 
         // Server URL input
@@ -662,14 +663,14 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setHintTextColor(Ui.c.text3)
             setBackgroundColor(Ui.c.card)
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(Ui.dp(16), Ui.dp(12), Ui.dp(16), Ui.dp(12))
             isSingleLine = true
             val saved = App.serverUrl
             if (saved != null) setText(saved)
             showSoftInputOnFocus = false
             applyEditTextFocus()
         }
-        layout.addView(serverInput, lp().apply { bottomMargin = dp(20) })
+        layout.addView(serverInput, lp().apply { bottomMargin = Ui.dp(20) })
 
         // Username input
         val userLabel = label("用户名")
@@ -678,14 +679,14 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setHintTextColor(Ui.c.text3)
             setBackgroundColor(Ui.c.card)
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(Ui.dp(16), Ui.dp(12), Ui.dp(16), Ui.dp(12))
             isSingleLine = true
             val saved = App.username
             if (saved != null) setText(saved)
             showSoftInputOnFocus = false
             applyEditTextFocus()
         }
-        layout.addView(userInput, lp().apply { bottomMargin = dp(20) })
+        layout.addView(userInput, lp().apply { bottomMargin = Ui.dp(20) })
 
         // Password input
         val passLabel = label("密码")
@@ -694,20 +695,20 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setHintTextColor(Ui.c.text3)
             setBackgroundColor(Ui.c.card)
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(Ui.dp(16), Ui.dp(12), Ui.dp(16), Ui.dp(12))
             isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             showSoftInputOnFocus = false
             applyEditTextFocus()
         }
-        layout.addView(passInput, lp().apply { bottomMargin = dp(30) })
+        layout.addView(passInput, lp().apply { bottomMargin = Ui.dp(30) })
 
         // Login button
         val loginBtn = Button(this).apply {
             text = "登 录"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            setPadding(dp(40), dp(14), dp(40), dp(14))
+            setPadding(Ui.dp(40), Ui.dp(14), Ui.dp(40), Ui.dp(14))
             isFocusable = true
             isClickable = true
             applyFocusGlow()
@@ -725,7 +726,7 @@ class MainActivity : Activity() {
             }
         }
         layout.addView(loginBtn, lp().apply {
-            width = dp(240)
+            width = Ui.dp(240)
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
@@ -772,7 +773,7 @@ class MainActivity : Activity() {
         val statusText = TextView(this).apply {
             setTextColor(Ui.c.text3)
             gravity = Gravity.CENTER
-            setPadding(0, dp(20), 0, 0)
+            setPadding(0, Ui.dp(20), 0, 0)
             visibility = View.GONE
         }
         layout.addView(statusText, lp().apply {
@@ -1739,7 +1740,7 @@ class MainActivity : Activity() {
         scroll.fillParent()
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(20), 0, dp(40))
+            setPadding(0, Ui.dp(20), 0, Ui.dp(40))
         }
 
         val topBar = buildTopBar(movie.title ?: "详情", showSearch = false, showLogout = false)
@@ -1747,7 +1748,7 @@ class MainActivity : Activity() {
 
         val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(32), dp(16), dp(32), 0)
+            setPadding(Ui.dp(32), Ui.dp(16), Ui.dp(32), 0)
         }
 
         val posterUrl = RetrofitClient.posterUrl(movie.posterPath, movie.customPoster, movie.id)
@@ -1869,19 +1870,19 @@ class MainActivity : Activity() {
         val heartBtn = Button(this).apply {
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
             setTextColor(Ui.c.text1)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
-            setPadding(Ui.dp(20), Ui.dp(12), Ui.dp(20), Ui.dp(12))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
+            setPadding(Ui.dp(24), Ui.dp(12), Ui.dp(24), Ui.dp(12))
             isFocusable = true
             isClickable = true
             background = heartBg
             setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) {
-                    v.scaleX = 1.08f; v.scaleY = 1.08f
-                    heartBg.setStroke(Ui.dp(4), Ui.c.text1)
-                } else {
-                    v.scaleX = 1f; v.scaleY = 1f
-                    heartBg.setStroke(0, 0)
+                // 统一焦点形态：1.05 缩放 + accent 描边
+                val target = if (hasFocus) 1.05f else 1f
+                if (v.scaleX != target) {
+                    v.animate().cancel()
+                    v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                 }
+                heartBg.setStroke(Ui.dp(2), if (hasFocus) Ui.c.accent else 0)
             }
             setOnClickListener {
                 if (movie.id == null) return@setOnClickListener
@@ -1934,7 +1935,21 @@ class MainActivity : Activity() {
         }
 
         scroll.addView(layout)
-        rootLayout.addView(scroll)
+
+        // 高斯模糊背景容器：封面模糊图 + 暗化层 + 内容
+        val frame = FrameLayout(this)
+        val blurView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+        }
+        frame.addView(blurView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(View(this).apply { setBackgroundColor(Ui.c.bgGlass) }, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(scroll)
+        rootLayout.addView(frame, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        loadBlurBackdrop(posterUrl, blurView)
 
         playBtn.post { playBtn.requestFocus() }
 
@@ -1988,7 +2003,7 @@ class MainActivity : Activity() {
         scroll.fillParent()
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(20), 0, dp(40))
+            setPadding(0, Ui.dp(20), 0, Ui.dp(40))
         }
 
         val topBar = buildTopBar(tv.title ?: "详情", showSearch = false, showLogout = false)
@@ -1996,7 +2011,7 @@ class MainActivity : Activity() {
 
         val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(32), dp(16), dp(32), 0)
+            setPadding(Ui.dp(32), Ui.dp(16), Ui.dp(32), 0)
         }
 
         val posterUrl = RetrofitClient.posterUrl(tv.posterPath, tv.customPoster, tv.id)
@@ -2070,19 +2085,19 @@ class MainActivity : Activity() {
         val heartBtn = Button(this).apply {
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
             setTextColor(Ui.c.text1)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
-            setPadding(Ui.dp(20), Ui.dp(8), Ui.dp(20), Ui.dp(8))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
+            setPadding(Ui.dp(24), Ui.dp(12), Ui.dp(24), Ui.dp(12))
             isFocusable = true
             isClickable = true
             background = heartBgTv
             setOnFocusChangeListener { v, hasFocus ->
-                if (hasFocus) {
-                    v.scaleX = 1.08f; v.scaleY = 1.08f
-                    heartBgTv.setStroke(Ui.dp(4), Ui.c.text1)
-                } else {
-                    v.scaleX = 1f; v.scaleY = 1f
-                    heartBgTv.setStroke(0, 0)
+                // 统一焦点形态：1.05 缩放 + accent 描边
+                val target = if (hasFocus) 1.05f else 1f
+                if (v.scaleX != target) {
+                    v.animate().cancel()
+                    v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                 }
+                heartBgTv.setStroke(Ui.dp(2), if (hasFocus) Ui.c.accent else 0)
             }
             setOnClickListener {
                 if (tv.id == null) return@setOnClickListener
@@ -2148,7 +2163,21 @@ class MainActivity : Activity() {
         layout.addView(episodesContainer)
 
         scroll.addView(layout)
-        rootLayout.addView(scroll)
+
+        // 高斯模糊背景容器：封面模糊图 + 暗化层 + 内容
+        val frame = FrameLayout(this)
+        val blurView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+        }
+        frame.addView(blurView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(View(this).apply { setBackgroundColor(Ui.c.bgGlass) }, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(scroll)
+        rootLayout.addView(frame, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        loadBlurBackdrop(posterUrl, blurView)
 
         heartBtn.post { heartBtn.requestFocus() }
 
@@ -2297,7 +2326,7 @@ class MainActivity : Activity() {
         val recyclerView = RecyclerView(this).apply {
             layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
             clipToPadding = false
-            setPadding(dp(24), dp(8), dp(24), dp(16))
+            setPadding(Ui.dp(24), Ui.dp(8), Ui.dp(24), Ui.dp(16))
             (layoutManager as androidx.recyclerview.widget.GridLayoutManager).setInitialPrefetchItemCount(10)
             setItemViewCacheSize(12)
             addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, Ui.dp(8), true))
@@ -2338,7 +2367,7 @@ class MainActivity : Activity() {
         val searchRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(24), dp(12), dp(24), dp(8))
+            setPadding(Ui.dp(24), Ui.dp(12), Ui.dp(24), Ui.dp(8))
         }
 
         val searchInput = EditText(this).apply {
@@ -2346,7 +2375,7 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setHintTextColor(Ui.c.text3)
             setBackgroundColor(Ui.c.card)
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(Ui.dp(16), Ui.dp(12), Ui.dp(16), Ui.dp(12))
             isSingleLine = true
             showSoftInputOnFocus = false
             applyEditTextFocus()
@@ -2362,7 +2391,7 @@ class MainActivity : Activity() {
             isClickable = true
             applyFocusGlow()
             val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            lp.leftMargin = dp(12)
+            lp.leftMargin = Ui.dp(12)
             layoutParams = lp
             setOnClickListener {
                 val q = searchInput.text.toString().trim()
@@ -2390,7 +2419,7 @@ class MainActivity : Activity() {
         val resultsScroll = ScrollView(this)
         val resultsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(8), dp(24), dp(16))
+            setPadding(Ui.dp(24), Ui.dp(8), Ui.dp(24), Ui.dp(16))
             id = View.generateViewId()
         }
         resultsScroll.addView(resultsLayout)
@@ -2416,7 +2445,7 @@ class MainActivity : Activity() {
             text = "搜索中..."
             setTextColor(Ui.c.text3)
             gravity = Gravity.CENTER
-            setPadding(0, dp(40), 0, dp(40))
+            setPadding(0, Ui.dp(40), 0, Ui.dp(40))
         }
         resultsLayout.addView(loadingView)
 
@@ -2597,13 +2626,13 @@ class MainActivity : Activity() {
         val nextHint = TextView(this).apply {
             setTextColor(Ui.c.text2)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setPadding(dp(16), dp(8), dp(16), dp(8))
+            setPadding(Ui.dp(16), Ui.dp(8), Ui.dp(16), Ui.dp(8))
             setBackgroundColor(Ui.c.scrim)
             visibility = View.GONE
         }
         val nextHintLP = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(16); rightMargin = dp(16) }
+        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = Ui.dp(16); rightMargin = Ui.dp(16) }
         playerContainer.addView(nextHint, nextHintLP)
 
         // 遥控器操作提示（屏幕中央半透明浮层，按键时短暂显示操作反馈）
@@ -2611,9 +2640,9 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             gravity = Gravity.CENTER
-            setPadding(dp(24), dp(12), dp(24), dp(12))
+            setPadding(Ui.dp(24), Ui.dp(12), Ui.dp(24), Ui.dp(12))
             background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
+                cornerRadius = Ui.dp(8).toFloat()
                 setColor(Ui.c.scrim)
             }
             visibility = View.GONE
@@ -3477,7 +3506,7 @@ class MainActivity : Activity() {
             this.text = text
             setTextColor(Ui.c.text2)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setPadding(0, 0, 0, dp(4))
+            setPadding(0, 0, 0, Ui.dp(4))
         }
     }
 
@@ -3567,6 +3596,50 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams.MATCH_PARENT
         )
     }
+
+    /**
+     * 详情页高斯模糊背景：封面小图 → RenderScript 高斯模糊(radius 25) → centerCrop 全屏放大。
+     *  - override(120,180) 先降采样，模糊后再由 ImageView 双线性放大，效果等同强模糊且开销极小
+     *  - RenderScript 内置 API（17+，本 app targetSdk 28 完全可用），低配盒子 RS 初始化失败时
+     *    降级为直接用小图放大（双线性自带柔化，仍可接受）
+     */
+    private fun loadBlurBackdrop(posterUrl: String?, blurView: ImageView) {
+        if (posterUrl == null) return
+        try {
+            Glide.with(this)
+                .asBitmap()
+                .load(posterUrl)
+                .override(120, 180)
+                .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.ALL)
+                .into(object : com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
+                    override fun onResourceReady(
+                        resource: Bitmap,
+                        transition: com.bumptech.glide.request.transition.Transition<in Bitmap>?
+                    ) {
+                        val blurred = blurBitmap(resource) ?: resource
+                        blurView.setImageBitmap(blurred)
+                        blurView.visibility = View.VISIBLE
+                    }
+                    override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {}
+                })
+        } catch (_: Exception) {}
+    }
+
+    private fun blurBitmap(src: Bitmap): Bitmap? = try {
+        val rs = android.renderscript.RenderScript.create(this)
+        val input = android.renderscript.Allocation.createFromBitmap(rs, src)
+        val output = android.renderscript.Allocation.createFromBitmap(rs, src)
+        val script = android.renderscript.ScriptIntrinsicBlur.create(
+            rs, android.renderscript.Element.U8_4(rs)
+        )
+        script.setRadius(25f) // API 允许的最大模糊半径
+        script.setInput(input)
+        script.forEach(output)
+        val result = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        output.copyTo(result)
+        rs.destroy()
+        result
+    } catch (_: Throwable) { null }
 
     // ==================== 护眼屏保逻辑 ====================
 
@@ -3685,7 +3758,7 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
-            setPadding(dp(20), dp(14), dp(20), dp(14))
+            setPadding(Ui.dp(20), Ui.dp(14), Ui.dp(20), Ui.dp(14))
             setBackgroundColor(Ui.c.warn)
             visibility = View.GONE
         }
@@ -3703,7 +3776,7 @@ class MainActivity : Activity() {
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             gravity = Gravity.CENTER
-            setPadding(dp(20), dp(14), dp(20), dp(14))
+            setPadding(Ui.dp(20), Ui.dp(14), Ui.dp(20), Ui.dp(14))
             setBackgroundColor(Ui.c.red)
             visibility = View.GONE
         }
@@ -3912,18 +3985,18 @@ class MainActivity : Activity() {
         val countdown = TextView(this).apply {
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            setPadding(dp(20), dp(12), dp(20), dp(12))
+            setPadding(Ui.dp(20), Ui.dp(12), Ui.dp(20), Ui.dp(12))
             background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
+                cornerRadius = Ui.dp(8).toFloat()
                 setColor(Ui.c.scrim)
             }
             gravity = Gravity.CENTER
-            setLineSpacing(dp(4).toFloat(), 1f)
+            setLineSpacing(Ui.dp(4).toFloat(), 1f)
         }
         val countdownLp = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = dp(24); rightMargin = dp(24) }
+        ).apply { gravity = Gravity.TOP or Gravity.END; topMargin = Ui.dp(24); rightMargin = Ui.dp(24) }
         overlay.addView(countdown, countdownLp)
         countdownText = countdown
 
@@ -3973,7 +4046,7 @@ class MainActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             gravity = Gravity.CENTER
             setTextColor(Ui.c.success)
-            setPadding(0, dp(16), 0, 0)
+            setPadding(0, Ui.dp(16), 0, 0)
         }
         defaultView.addView(icon)
         defaultView.addView(msg)
@@ -4057,13 +4130,6 @@ class MainActivity : Activity() {
         dailyLimitWarningBanner?.let { rootLayout.removeView(it); dailyLimitWarningBanner = null }
     }
 
-    private fun dp(value: Int): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value.toFloat(),
-            resources.displayMetrics
-        ).toInt()
-    }
 
     // 顶部横幅提示（替代 Toast：位置可控、样式统一、连发不叠加）
     private var toastBanner: TextView? = null

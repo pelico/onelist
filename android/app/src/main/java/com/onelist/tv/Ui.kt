@@ -17,6 +17,7 @@ object Ui {
     object c {
         // 背景 / 容器
         val bg        = Color.parseColor("#0d0d1a")   // 页面背景
+        val bgGlass   = Color.parseColor("#cc0d0d1a") // 模糊背景暗化层（80% bg）
         val card      = Color.parseColor("#1a1a2e")   // 卡片 / 输入框 / 行底
         val cardHover = Color.parseColor("#2d2d55")   // 行 / 按钮焦点高亮底
         val cardAlt   = Color.parseColor("#333355")   // 次级面板 / 图片占位
