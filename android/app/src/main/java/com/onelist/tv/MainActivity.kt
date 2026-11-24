@@ -1933,14 +1933,10 @@ class MainActivity : Activity() {
             isFocusable = true
             isClickable = true
             background = heartBg
-            setOnFocusChangeListener { v, hasFocus ->
-                // 统一焦点形态：1.05 缩放 + accent 描边
-                val target = if (hasFocus) 1.05f else 1f
-                if (v.scaleX != target) {
-                    v.animate().cancel()
-                    v.animate().scaleX(target).scaleY(target).setDuration(120).start()
-                }
-                heartBg.setStroke(Ui.dp(2), if (hasFocus) Ui.c.accent else 0)
+            setOnFocusChangeListener { v, _ ->
+                // 统一焦点形态：1.05 缩放 + accent 描边 + 提到最上层（触发父容器重绘越界区）
+                Ui.scaleOnFocus(v)
+                heartBg.setStroke(Ui.dp(2), if (v.isFocused) Ui.c.accent else 0)
             }
             setOnClickListener {
                 if (movie.id == null) return@setOnClickListener
@@ -2159,14 +2155,10 @@ class MainActivity : Activity() {
             isFocusable = true
             isClickable = true
             background = heartBgTv
-            setOnFocusChangeListener { v, hasFocus ->
-                // 统一焦点形态：1.05 缩放 + accent 描边
-                val target = if (hasFocus) 1.05f else 1f
-                if (v.scaleX != target) {
-                    v.animate().cancel()
-                    v.animate().scaleX(target).scaleY(target).setDuration(120).start()
-                }
-                heartBgTv.setStroke(Ui.dp(2), if (hasFocus) Ui.c.accent else 0)
+            setOnFocusChangeListener { v, _ ->
+                // 统一焦点形态：1.05 缩放 + accent 描边 + 提到最上层（触发父容器重绘越界区）
+                Ui.scaleOnFocus(v)
+                heartBgTv.setStroke(Ui.dp(2), if (v.isFocused) Ui.c.accent else 0)
             }
             setOnClickListener {
                 if (tv.id == null) return@setOnClickListener
@@ -3612,13 +3604,14 @@ class MainActivity : Activity() {
 
     /** 统一的 scale 动画：只有目标值变化才启动，避免重复 cancel+start 的调度抖动 */
     private fun View.setOnFocusScale(focusedScale: Float, durationMs: Long) {
-        this.setOnFocusChangeListener { v, hasFocus ->
+        this.setOnFocusChangeListener { v, _ ->
             try {
-                val target = if (hasFocus) focusedScale else 1f
+                val target = if (v.isFocused) focusedScale else 1f
                 if (v.scaleX != target) {
                     v.animate().cancel()
                     v.animate().scaleX(target).scaleY(target).setDuration(durationMs).start()
                 }
+                if (v.isFocused) v.bringToFront()
             } catch (_: Exception) {}
         }
     }
