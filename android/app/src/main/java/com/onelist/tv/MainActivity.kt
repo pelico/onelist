@@ -2561,6 +2561,9 @@ class MainActivity : Activity() {
             val gridColumns = calculateGridColumns()
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
+                // 卡片聚焦放大超界部分不被裁剪（外层 padding 32dp 承载）
+                clipToPadding = false
+                clipChildren = false
                 addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
                 adapter = CardAdapter(movies.map { it as Any }, "movie") { item ->
                     if (item is Movie) showMovieDetail(item, fromSearch = true)
@@ -2587,6 +2590,9 @@ class MainActivity : Activity() {
             val gridColumns = calculateGridColumns()
             val recyclerView = RecyclerView(this).apply {
                 layoutManager = GridLayoutManager(this@MainActivity, gridColumns)
+                // 卡片聚焦放大超界部分不被裁剪（外层 padding 32dp 承载）
+                clipToPadding = false
+                clipChildren = false
                 addItemDecoration(CardAdapter.GridSpacingItemDecoration(gridColumns, Ui.dp(16), true))
                 adapter = CardAdapter(tvs.map { it as Any }, "tv") { item ->
                     if (item is Tv) showTvDetail(item, fromSearch = true)
