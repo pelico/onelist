@@ -2273,6 +2273,9 @@ class MainActivity : Activity() {
         val rv = RecyclerView(this).apply {
             layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
             setNestedScrollingEnabled(false)
+            // 焦点放大 1.05 会超出卡片 bounds：关闭裁剪，允许绘制到父容器 padding 区
+            clipToPadding = false
+            clipChildren = false
             // 焦点进入网格子项逐个移动，而不是把整个网格当一个焦点块
             descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             // 两列网格加间距，焦点放大时不与相邻卡片粘连
@@ -2340,6 +2343,8 @@ class MainActivity : Activity() {
         val recyclerView = RecyclerView(this).apply {
             layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 2)
             clipToPadding = false
+            // 焦点放大部分允许超出自身 bounds 绘制（外层容器有 24dp padding 提供空间）
+            clipChildren = false
             setPadding(Ui.dp(24), Ui.dp(8), Ui.dp(24), Ui.dp(16))
             (layoutManager as androidx.recyclerview.widget.GridLayoutManager).setInitialPrefetchItemCount(10)
             setItemViewCacheSize(12)
