@@ -35,11 +35,19 @@ jobs:
 
       - name: Download compatible Gradle 7.6.3
         run: |
-          for i in 1 2 3; do
-            curl -fL --retry 3 --retry-delay 5 https://services.gradle.org/distributions/gradle-7.6.3-bin.zip -o /tmp/gradle.zip && break
-            echo "download attempt $i failed, retrying..."
-            sleep 10
+          ok=0
+          # 首选腾讯镜像，403/限流时回落官方源（连续构建时官方 CDN 可能限流）
+          for url in \
+            https://mirrors.cloud.tencent.com/gradle/gradle-7.6.3-bin.zip \
+            https://services.gradle.org/distributions/gradle-7.6.3-bin.zip; do
+            for i in 1 2 3; do
+              curl -fL --retry 3 --retry-delay 5 "$url" -o /tmp/gradle.zip && ok=1 && break
+              echo "download attempt $i failed for $url, retrying..."
+              sleep 10
+            done
+            [ $ok -eq 1 ] && break
           done
+          [ $ok -eq 1 ] || { echo "::error::all gradle download sources failed"; exit 1; }
           unzip -q /tmp/gradle.zip -d /tmp
           /tmp/gradle-7.6.3/bin/gradle --version
 
