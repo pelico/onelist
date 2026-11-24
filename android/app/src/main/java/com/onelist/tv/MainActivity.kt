@@ -2285,6 +2285,20 @@ class MainActivity : Activity() {
         ))
     }
 
+    /** TV 播放统计/显示标题：细化到集，格式「剧名 S1E3」；拿不到集号时回退单集名 */
+    private fun tvStatTitle(tvName: String?, ep: Episode): String {
+        val base = tvName ?: ""
+        val season = ep.seasonNumber
+            ?: Regex("\\d+").find(currentSeasonTitle ?: "")?.value?.toIntOrNull()
+        val epNum = ep.episodeNumber
+        val tag = when {
+            season != null && epNum != null -> " S${season}E$epNum"
+            epNum != null -> " E$epNum"
+            else -> ""
+        }
+        return if (tag.isEmpty()) (ep.title ?: base).ifEmpty { "未知" } else "$base$tag"
+    }
+
     /** 分集点击播放（内嵌网格与选集页共用）；Episode 无 gallery_uid 时回退剧级 gallery_uid */
     private fun playEpisodeFromList(ep: Episode, episodes: List<Episode>) {
         if (ep.url == null) {
@@ -2293,11 +2307,11 @@ class MainActivity : Activity() {
         }
         currentVideoDataType = "tv"
         currentVideoDataId = currentTv?.id
-        currentVideoTitle = currentTv?.name ?: ep.title
+        currentVideoTitle = tvStatTitle(currentTv?.name, ep)
         currentVideoGalleryUid = ep.galleryUid ?: currentTv?.galleryUid
         currentVideoGalleryTitle = currentGalleryTitle
         val pl = episodes.filter { it.url != null }.map {
-            PlayItem(it.url!!, it.galleryUid ?: currentTv?.galleryUid, it.title)
+            PlayItem(it.url!!, it.galleryUid ?: currentTv?.galleryUid, tvStatTitle(currentTv?.name, it))
         }
         val idx = episodes.indexOf(ep)
         showPlayer(ep.url!!, currentVideoGalleryUid, pl, if (idx >= 0) idx else 0)
