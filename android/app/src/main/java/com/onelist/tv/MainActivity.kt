@@ -9,7 +9,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
-import android.view.animation.LinearInterpolator
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebView
@@ -130,7 +129,7 @@ class MainActivity : Activity() {
     private var wallpaperPlayer: ExoPlayer? = null
     private var wallpaperPlayerView: PlayerView? = null
     private var wallpaperWebView: WebView? = null
-    private var backdropRotateAnim: ObjectAnimator? = null
+    private var backdropBreathAnim: ObjectAnimator? = null
 
     // ==================== 首页焦点跟随模糊背景（方案 A） ====================
     private var backdropA: ImageView? = null            // 双层交叉淡入淡出
@@ -1995,20 +1994,27 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
 
-        // 高斯模糊背景容器：封面模糊图 + 暗化层 + 内容
+        // 高斯模糊背景容器：封面模糊图（双层呼吸）+ 暗化层 + 内容
         val frame = FrameLayout(this)
         val blurView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             visibility = View.GONE
         }
+        val blurSoftView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+            alpha = 0f
+        }
         frame.addView(blurView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(blurSoftView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         frame.addView(View(this).apply { setBackgroundColor(Ui.c.bgGlass) }, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         frame.addView(scroll)
         rootLayout.addView(frame, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        loadBlurBackdrop(posterUrl, blurView)
+        loadBlurBackdrop(posterUrl, blurView, blurSoftView)
         rootLayout.disableClipTree()
 
         playBtn.post { playBtn.requestFocus() }
@@ -2229,20 +2235,27 @@ class MainActivity : Activity() {
 
         scroll.addView(layout)
 
-        // 高斯模糊背景容器：封面模糊图 + 暗化层 + 内容
+        // 高斯模糊背景容器：封面模糊图（双层呼吸）+ 暗化层 + 内容
         val frame = FrameLayout(this)
         val blurView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             visibility = View.GONE
         }
+        val blurSoftView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+            alpha = 0f
+        }
         frame.addView(blurView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        frame.addView(blurSoftView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         frame.addView(View(this).apply { setBackgroundColor(Ui.c.bgGlass) }, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         frame.addView(scroll)
         rootLayout.addView(frame, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        loadBlurBackdrop(posterUrl, blurView)
+        loadBlurBackdrop(posterUrl, blurView, blurSoftView)
         rootLayout.disableClipTree()
 
         heartBtn.post { heartBtn.requestFocus() }
@@ -3777,12 +3790,11 @@ class MainActivity : Activity() {
     }
 
     /**
-     * 详情页高斯模糊背景：封面小图 → RenderScript 高斯模糊(radius 25) → centerCrop 全屏放大。
-     *  - override(120,180) 先降采样，模糊后再由 ImageView 双线性放大，效果等同强模糊且开销极小
-     *  - RenderScript 内置 API（17+，本 app targetSdk 28 完全可用），低配盒子 RS 初始化失败时
-     *    降级为直接用小图放大（双线性自带柔化，仍可接受）
+     * 详情页高斯模糊背景：封面小图 → RenderScript 高斯模糊 → 全屏 centerCrop 放大。
+     * 呼吸感动效：两张不同模糊半径的图（清晰模糊 8 / 强模糊 25）叠放，
+     * 上层 alpha 0↔1 缓慢循环 → 视觉上虚化度高低变化，纯 GPU 合成，开销近零。
      */
-    private fun loadBlurBackdrop(posterUrl: String?, blurView: ImageView) {
+    private fun loadBlurBackdrop(posterUrl: String?, baseView: ImageView, softView: ImageView) {
         if (posterUrl == null) return
         try {
             Glide.with(this)
@@ -3795,49 +3807,46 @@ class MainActivity : Activity() {
                         resource: Bitmap,
                         transition: com.bumptech.glide.request.transition.Transition<in Bitmap>?
                     ) {
-                        val blurred = blurBitmap(resource) ?: resource
-                        // 放大 1.45 倍给旋转预留覆盖面积（旋转 45° 时对角需要 √2 倍屏宽）
-                        blurView.scaleX = 1.45f
-                        blurView.scaleY = 1.45f
-                        // hardware layer：模糊图作为 GPU 纹理，旋转由合成器完成，几乎零开销
-                        blurView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                        blurView.setImageBitmap(blurred)
-                        blurView.visibility = View.VISIBLE
-                        startBackdropRotation(blurView)
+                        val base = blurBitmap(resource, 25f) ?: resource
+                        val soft = blurBitmap(resource, 8f) ?: base
+                        baseView.setImageBitmap(base)
+                        softView.setImageBitmap(soft)
+                        softView.visibility = View.VISIBLE
+                        startBackdropBreath(softView)
                     }
                     override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {}
                 })
         } catch (_: Exception) {}
     }
 
-    /** 模糊背景缓慢旋转（60 秒一圈 ≈ 每秒 6°，可感知的缓慢流动但不干扰阅读）；GPU 合成层，成本极低 */
-    private fun startBackdropRotation(target: View) {
-        backdropRotateAnim?.cancel()
-        backdropRotateAnim = ObjectAnimator.ofFloat(target, View.ROTATION, 0f, 360f).apply {
-            duration = 60_000
+    /** 虚化度呼吸：上层清晰模糊图透明度 6 秒淡入→6 秒淡出循环 */
+    private fun startBackdropBreath(target: View) {
+        backdropBreathAnim?.cancel()
+        backdropBreathAnim = ObjectAnimator.ofFloat(target, View.ALPHA, 0f, 1f).apply {
+            duration = 6_000
             repeatCount = ObjectAnimator.INFINITE
-            interpolator = LinearInterpolator()
+            repeatMode = ObjectAnimator.REVERSE
             start()
         }
     }
 
     private fun stopBackdropRotation() {
-        backdropRotateAnim?.cancel()
-        backdropRotateAnim = null
+        backdropBreathAnim?.cancel()
+        backdropBreathAnim = null
         // 一并清理首页焦点背景：防抖回调与 detached view 引用
         backdropHandler.removeCallbacks(backdropDebounceRunnable)
         backdropA = null
         backdropB = null
     }
 
-    private fun blurBitmap(src: Bitmap): Bitmap? = try {
+    private fun blurBitmap(src: Bitmap, radius: Float = 25f): Bitmap? = try {
         val rs = android.renderscript.RenderScript.create(this)
         val input = android.renderscript.Allocation.createFromBitmap(rs, src)
         val output = android.renderscript.Allocation.createFromBitmap(rs, src)
         val script = android.renderscript.ScriptIntrinsicBlur.create(
             rs, android.renderscript.Element.U8_4(rs)
         )
-        script.setRadius(25f) // API 允许的最大模糊半径
+        script.setRadius(radius)
         script.setInput(input)
         script.forEach(output)
         val result = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
