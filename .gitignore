@@ -4,6 +4,10 @@
 *.exe
 # 前端构建输出（Docker构建时自动生成）
 public/dist
+# Android 构建产物
+android/app/build/
+android/.gradle/
+android/build/
 # 前端依赖
 web/node_modules
 # 包含敏感信息的配置文件

@@ -101,6 +101,7 @@ class MainActivity : Activity() {
     private var currentVideoDataId: Int? = null
     private var currentVideoTitle: String? = null
     private var currentVideoGalleryUid: String? = null
+    private var currentVideoUrl: String? = null
     private var currentVideoGalleryTitle: String? = null
     private var lastPlayedToggleId: Int? = null // 防止重复调用 togglePlayed
 
@@ -1016,9 +1017,9 @@ class MainActivity : Activity() {
                 parent.addView(row)
                 val mappedItems = items.map { item ->
                     if (item.title != null) {
-                        Movie(id = item.id, title = item.title, posterPath = item.posterPath)
+                        Movie(id = item.id, title = item.title, posterPath = item.posterPath, customPoster = item.customPoster)
                     } else {
-                        Tv(id = item.id, name = item.name, posterPath = item.posterPath)
+                        Tv(id = item.id, name = item.name, posterPath = item.posterPath, customPoster = item.customPoster)
                     } as Any
                 }
                 val recyclerView = buildHorizontalCardList(mappedItems, "mixed")
@@ -1762,6 +1763,8 @@ class MainActivity : Activity() {
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(tvDp(24), 0, 0, 0)
+            // 占满海报右侧剩余宽度，长标题不再被屏幕右缘裁切
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val titleView = TextView(this).apply {
@@ -1769,6 +1772,8 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
             setTypeface(null, android.graphics.Typeface.BOLD)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         infoLayout.addView(titleView)
 
@@ -2007,6 +2012,8 @@ class MainActivity : Activity() {
         val infoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(tvDp(24), 0, 0, 0)
+            // 占满海报右侧剩余宽度，长标题不再被屏幕右缘裁切
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val titleView = TextView(this).apply {
@@ -2014,6 +2021,8 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, tvSp(28f))
             setTypeface(null, android.graphics.Typeface.BOLD)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         infoLayout.addView(titleView)
 
@@ -2218,7 +2227,9 @@ class MainActivity : Activity() {
             setNestedScrollingEnabled(false)
             // 焦点进入网格子项逐个移动，而不是把整个网格当一个焦点块
             descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-            adapter = EpisodeAdapter(episodes) { ep -> playEpisodeFromList(ep, episodes) }
+            // 两列网格加间距，焦点放大时不与相邻卡片粘连
+            addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, tvDp(10), true))
+            adapter = EpisodeAdapter(episodes, { ep -> playEpisodeFromList(ep, episodes) }, currentVideoUrl)
         }
         container.addView(rv, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -2270,7 +2281,8 @@ class MainActivity : Activity() {
             setPadding(dp(24), dp(8), dp(24), dp(16))
             (layoutManager as androidx.recyclerview.widget.GridLayoutManager).setInitialPrefetchItemCount(10)
             setItemViewCacheSize(12)
-            adapter = EpisodeAdapter(episodes) { ep -> playEpisodeFromList(ep, episodes) }
+            addItemDecoration(CardAdapter.GridSpacingItemDecoration(2, tvDp(10), true))
+            adapter = EpisodeAdapter(episodes, { ep -> playEpisodeFromList(ep, episodes) }, currentVideoUrl)
         }
 
         layout.addView(recyclerView, LinearLayout.LayoutParams(
@@ -2536,6 +2548,7 @@ class MainActivity : Activity() {
         // 保存播放列表状态（用于遥控器上下键切换）
         currentPlaylist = playlist
         currentPlayIndex = playIndex
+        currentVideoUrl = url
 
         android.util.Log.d("OneList", "Player: original url='$url' galleryUid='$galleryUid' playlist=${playlist?.size ?: 0} index=$playIndex")
         if (url.isEmpty() || galleryUid == null) {
@@ -4151,7 +4164,8 @@ class MainActivity : Activity() {
     // ==================== 剧集列表专用 RecyclerView Adapter（ViewHolder 复用） ====================
     private inner class EpisodeAdapter(
         private val episodes: List<Episode>,
-        private val onClick: (Episode) -> Unit
+        private val onClick: (Episode) -> Unit,
+        private val currentUrl: String? = null
     ) : RecyclerView.Adapter<EpisodeAdapter.EpisodeVH>() {
 
         inner class EpisodeVH(val row: LinearLayout) : RecyclerView.ViewHolder(row)
@@ -4165,7 +4179,7 @@ class MainActivity : Activity() {
                     RecyclerView.LayoutParams.MATCH_PARENT,
                     tvDp(52)
                 ).apply {
-                    topMargin = tvDp(4)
+                    topMargin = tvDp(8)
                 }
                 setPadding(tvDp(12), tvDp(9), tvDp(12), tvDp(9))
                 isClickable = true
@@ -4176,13 +4190,15 @@ class MainActivity : Activity() {
                 }
                 setOnFocusChangeListener { v, hasFocus ->
                     try {
-                        val target = if (hasFocus) 1.06f else 1f
+                        // 只做轻微放大（1.03f），网格内相邻卡片不互相遮挡
+                        val target = if (hasFocus) 1.03f else 1f
                         if (v.scaleX != target) {
                             v.animate().cancel()
                             v.animate().scaleX(target).scaleY(target).setDuration(120).start()
                         }
-                        // 焦点态背景高亮，遥控器下找焦点更醒目
-                        v.setBackgroundColor(Color.parseColor(if (hasFocus) "#2d2d55" else "#1a1a2e"))
+                        // 焦点态背景高亮；正在播放的集用青色底突出
+                        val normalBg = if (v.tag == "current") "#0e7490" else "#1a1a2e"
+                        v.setBackgroundColor(Color.parseColor(if (hasFocus) "#2d2d55" else normalBg))
                     } catch (_: Exception) {}
                 }
             }
@@ -4210,8 +4226,14 @@ class MainActivity : Activity() {
         override fun onBindViewHolder(holder: EpisodeVH, position: Int) {
             val ep = episodes[position]
             val row = holder.row
-            (row.findViewById<TextView>(android.R.id.text1)).text = "E${ep.episodeNumber ?: "?"}"
+            val isCurrent = currentUrl != null && ep.url != null && ep.url == currentUrl
+            val epNumView = row.findViewById<TextView>(android.R.id.text1)
+            epNumView.text = if (isCurrent) "▶ E${ep.episodeNumber ?: "?"}" else "E${ep.episodeNumber ?: "?"}"
+            epNumView.setTextColor(Color.parseColor(if (isCurrent) "#22d3ee" else "#6366f1"))
             (row.findViewById<TextView>(android.R.id.text2)).text = ep.title ?: ""
+            // 正在播放的集：常驻青色底 + tag 供焦点监听区分普通/当前集背景色
+            row.tag = if (isCurrent) "current" else null
+            row.setBackgroundColor(Color.parseColor(if (isCurrent) "#0e7490" else "#1a1a2e"))
             row.setOnClickListener { onClick(ep) }
         }
 

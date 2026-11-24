@@ -81,7 +81,8 @@ data class GalleryItem(
     @SerializedName("first_air_date") val firstAirDate: String?,
     @SerializedName("gallery_uid") val galleryUid: String?,
     @SerializedName("url") val url: String?,
-    @SerializedName("overview") val overview: String?
+    @SerializedName("overview") val overview: String?,
+    @SerializedName("custom_poster") val customPoster: String? = null
 ) {
     val displayTitle: String get() = title ?: name ?: ""
     val isMovie: Boolean get() = title != null
