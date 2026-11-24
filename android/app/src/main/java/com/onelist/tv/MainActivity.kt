@@ -1,5 +1,6 @@
 package com.onelist.tv
 
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
@@ -8,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.animation.LinearInterpolator
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebView
@@ -128,6 +130,7 @@ class MainActivity : Activity() {
     private var wallpaperPlayer: ExoPlayer? = null
     private var wallpaperPlayerView: PlayerView? = null
     private var wallpaperWebView: WebView? = null
+    private var backdropRotateAnim: ObjectAnimator? = null
 
     // ==================== 返回栈管理 ====================
     /** 屏幕状态：用于按遥控器返回键时恢复到上一步的精确位置 */
@@ -607,6 +610,7 @@ class MainActivity : Activity() {
     private fun showScreen(screen: Screen) {
         currentScreen = screen
         rootLayout.removeAllViews()
+        stopBackdropRotation()
         stopHeartbeat()
         stopScreensaverTracker()
         cleanupScreensaver()
@@ -632,6 +636,7 @@ class MainActivity : Activity() {
         screenBackStack.clear()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
 
         val ctx = this
         val scroll = ScrollView(this)
@@ -837,6 +842,7 @@ class MainActivity : Activity() {
         player?.release()
         player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
 
         val scroll = ScrollView(this).apply {
             clipChildren = false
@@ -1167,6 +1173,7 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
 
         val isHeart = pageType == UserPageType.HEART
         val title = if (isHeart) "我的最爱" else "已播放"
@@ -1452,6 +1459,7 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
         detailFromSearch = false
 
         if (!restoreFromCache) {
@@ -1717,6 +1725,7 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
         // 清除剧集列表缓存（进入电影详情后不可能还在剧集列表）
         currentSeasonEpisodes = null
         currentSeasonTitle = null
@@ -2001,6 +2010,7 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
         // 进入TV详情后，可能跳到剧集列表，之后返回回来还能正确识别
         currentSeasonEpisodes = null
         currentSeasonTitle = null
@@ -2340,6 +2350,7 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
         currentSeasonEpisodes = episodes
         currentSeasonTitle = seasonTitle
 
@@ -2387,6 +2398,7 @@ class MainActivity : Activity() {
         stopHeartbeat()
         player?.release(); player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -2633,6 +2645,7 @@ class MainActivity : Activity() {
         player?.release()
         player = null
         rootLayout.removeAllViews()
+        stopBackdropRotation()
 
         // 保存播放列表状态（用于遥控器上下键切换）
         currentPlaylist = playlist
@@ -3495,6 +3508,8 @@ class MainActivity : Activity() {
         stopHeartbeat()
         // 清理护眼屏保资源
         cleanupScreensaver()
+        // 停止详情页模糊背景旋转
+        stopBackdropRotation()
         // 释放播放器
         player?.release()
         player = null
@@ -3683,12 +3698,34 @@ class MainActivity : Activity() {
                         transition: com.bumptech.glide.request.transition.Transition<in Bitmap>?
                     ) {
                         val blurred = blurBitmap(resource) ?: resource
+                        // 放大 1.45 倍给旋转预留覆盖面积（旋转 45° 时对角需要 √2 倍屏宽）
+                        blurView.scaleX = 1.45f
+                        blurView.scaleY = 1.45f
+                        // hardware layer：模糊图作为 GPU 纹理，旋转由合成器完成，几乎零开销
+                        blurView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
                         blurView.setImageBitmap(blurred)
                         blurView.visibility = View.VISIBLE
+                        startBackdropRotation(blurView)
                     }
                     override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) {}
                 })
         } catch (_: Exception) {}
+    }
+
+    /** 模糊背景缓慢旋转（120 秒一圈），让详情页背景有生命感；成本极低（GPU 合成层） */
+    private fun startBackdropRotation(target: View) {
+        backdropRotateAnim?.cancel()
+        backdropRotateAnim = ObjectAnimator.ofFloat(target, View.ROTATION, 0f, 360f).apply {
+            duration = 120_000
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            start()
+        }
+    }
+
+    private fun stopBackdropRotation() {
+        backdropRotateAnim?.cancel()
+        backdropRotateAnim = null
     }
 
     private fun blurBitmap(src: Bitmap): Bitmap? = try {
