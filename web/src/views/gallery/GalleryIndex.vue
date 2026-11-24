@@ -385,7 +385,6 @@ export default {
             form.set("file", file)
             this.axios.post(api, form, {
                 headers: {
-                    'content-type': 'application/json',
                     'Authorization': this.$cookies.get("Authorization")
                 }
             }).then(res => {

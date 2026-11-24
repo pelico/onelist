@@ -112,7 +112,15 @@ func FileUpload(c *gin.Context) {
 	id := tools.RandStringRunes(16)
 	dst := "./images/w355_and_h200_multi_faces/" + id + ext
 	data := "/gallery/w355_and_h200_multi_faces/" + id + ext
-	c.SaveUploadedFile(file, dst)
+	// 确保保存目录存在（首次上传时 ./images 可能尚未创建）
+	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "创建目录失败: " + err.Error()})
+		return
+	}
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		c.JSON(200, gin.H{"code": 201, "msg": "保存文件失败: " + err.Error()})
+		return
+	}
 	c.JSON(200, gin.H{"code": 200, "msg": "上传成功!", "data": data})
 }
 

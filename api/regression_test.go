@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -310,6 +312,36 @@ func TestRegressionAll(t *testing.T) {
 	var mc int64
 	db.Table("the_movie").Where("gallery_uid = ?", movUid).Count(&mc)
 	regCheck(t, "S5 电影失效清理(剩1条)", strings.Contains(msg, "失效记录 1 条") && mc == 1, msg, mc)
+
+	// ---------- S6 封面上传 + 图片服务 ----------
+	// 测试进程工作目录下会生成 ./images，结束后清理
+	t.Cleanup(func() { os.RemoveAll("./images") })
+	var upBody bytes.Buffer
+	w := multipart.NewWriter(&upBody)
+	fw, _ := w.CreateFormFile("file", "cover.png")
+	_, _ = fw.Write([]byte("png-bytes-for-test"))
+	_ = w.Close()
+	upReq, _ := http.NewRequest("POST", s.ts.URL+"/file/gallery/upload", &upBody)
+	upReq.Header.Set("Content-Type", w.FormDataContentType())
+	upReq.Header.Set("Authorization", s.token)
+	upResp, err := http.DefaultClient.Do(upReq)
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	upOut := map[string]any{}
+	_ = json.NewDecoder(upResp.Body).Decode(&upOut)
+	upResp.Body.Close()
+	imgPath, _ := upOut["data"].(string)
+	regCheck(t, "S6 封面上传", upOut["code"] == float64(200) && strings.HasPrefix(imgPath, "/gallery/"), upOut)
+
+	imgResp, err := http.Get(s.ts.URL + imgPath)
+	if err == nil {
+		imgBytes, _ := io.ReadAll(imgResp.Body)
+		imgResp.Body.Close()
+		regCheck(t, "S6 图片服务回读", imgResp.StatusCode == 200 && string(imgBytes) == "png-bytes-for-test", imgResp.StatusCode)
+	} else {
+		regCheck(t, "S6 图片服务回读", false, err)
+	}
 
 	// ---------- 汇总 ----------
 	t.Logf("========== 回归结果: PASS %d / FAIL %d ==========", regPass, regFail)
