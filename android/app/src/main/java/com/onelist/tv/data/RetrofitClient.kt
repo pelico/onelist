@@ -139,6 +139,22 @@ object RetrofitClient {
     }
 
     /**
+     * 封面统一取值（与 Web 端 getPosterUrl 逻辑一致）：
+     * 1. 文件夹自定义封面 custom_poster 优先（cover.jpg 等，后端扫描时写入，为服务端相对路径，需拼 base）
+     * 2. 其次 TMDB 刮削海报 poster_path
+     * 3. 都没有则回退 /custom-image/{id} 随机占位图
+     */
+    fun posterUrl(posterPath: String?, customPoster: String?, videoId: Int?): String? {
+        if (!customPoster.isNullOrEmpty()) {
+            if (customPoster.startsWith("http")) return customPoster
+            val base = getBaseUrl()
+            if (base.isEmpty()) return customPoster
+            return "${base.trimEnd('/')}$customPoster"
+        }
+        return imageUrl(posterPath) ?: customImageUrl(videoId)
+    }
+
+    /**
      * 自定义封面 URL：当 poster_path 为空时，请求后端 /custom-image/{seed} 接口，
      * 后端用 FNV-1a 哈希 + Fisher-Yates 洗牌从 picture/ 目录确定性分配一张随机封面。
      * seed 用影片 ID，保证同一影片每次得到同一张图。

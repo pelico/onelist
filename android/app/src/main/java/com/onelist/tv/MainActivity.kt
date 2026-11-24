@@ -1730,7 +1730,7 @@ class MainActivity : Activity() {
             setPadding(dp(32), dp(16), dp(32), 0)
         }
 
-        val posterUrl = RetrofitClient.imageUrl(movie.posterPath) ?: RetrofitClient.customImageUrl(movie.id)
+        val posterUrl = RetrofitClient.posterUrl(movie.posterPath, movie.customPoster, movie.id)
         android.util.Log.d("OneList", "MovieDetail: title='${movie.title}' origTitle='${movie.originalTitle}' posterPath='${movie.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -1975,7 +1975,7 @@ class MainActivity : Activity() {
             setPadding(dp(32), dp(16), dp(32), 0)
         }
 
-        val posterUrl = RetrofitClient.imageUrl(tv.posterPath) ?: RetrofitClient.customImageUrl(tv.id)
+        val posterUrl = RetrofitClient.posterUrl(tv.posterPath, tv.customPoster, tv.id)
         android.util.Log.d("OneList", "TvDetail: name='${tv.name}' origName='${tv.originalName}' posterPath='${tv.posterPath}' -> url='$posterUrl'")
         val posterView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER

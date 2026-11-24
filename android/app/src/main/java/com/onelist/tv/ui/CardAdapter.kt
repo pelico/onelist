@@ -139,22 +139,26 @@ class CardAdapter(
 
         val itemTitle: String?
         val posterPath: String?
+        val customPoster: String?
         val itemId: Int?
 
         when (item) {
             is Movie -> {
                 itemTitle = item.title ?: item.originalTitle
                 posterPath = item.posterPath
+                customPoster = item.customPoster
                 itemId = item.id
             }
             is Tv -> {
                 itemTitle = item.name ?: item.originalName
                 posterPath = item.posterPath
+                customPoster = item.customPoster
                 itemId = item.id
             }
             else -> {
                 itemTitle = "?"
                 posterPath = null
+                customPoster = null
                 itemId = null
                 Log.w("OneList", "Card[$position] Unknown item type: ${item::class.java.name}")
             }
@@ -162,9 +166,8 @@ class CardAdapter(
 
         titleView.text = if (itemTitle.isNullOrEmpty()) "(未知)" else itemTitle
 
-        // TMDB 刮削封面优先，其次自定义封面（/custom-image/{id}）
-        val url: String? = RetrofitClient.imageUrl(posterPath)
-            ?: RetrofitClient.customImageUrl(itemId)
+        // 封面优先级与 Web 端一致：文件夹自定义封面(cover.jpg) → TMDB 刮削海报 → 随机占位图
+        val url: String? = RetrofitClient.posterUrl(posterPath, customPoster, itemId)
 
         val placeholder = makePlaceholder()
         val targetW = (card.layoutParams as? RecyclerView.LayoutParams)?.width
