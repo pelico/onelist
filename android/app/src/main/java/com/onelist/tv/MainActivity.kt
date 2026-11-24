@@ -2129,8 +2129,8 @@ class MainActivity : Activity() {
                     val body = response.body()
                     if (body != null && body.code == 200 && body.data != null) {
                         val detail = body.data!!
-                        if (detail.seasons != null) {
-                            for (season in detail.seasons) {
+                        if (detail.allSeasons != null) {
+                            for (season in detail.allSeasons!!) {
                                 val seasonBtn = Button(this@MainActivity).apply {
                                     text = "第 ${season.seasonNumber ?: "?"} 季"
                                     setTextColor(Color.WHITE)

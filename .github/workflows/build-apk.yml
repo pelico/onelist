@@ -46,5 +46,5 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: android/app/build/outputs/apk/release/app-release.apk
-          asset_name: OneList-TV-v${{ github.event.release.tag_name }}.apk
+          asset_name: OneList-TV-${{ github.event.release.tag_name }}.apk
           asset_content_type: application/vnd.android.package-archive

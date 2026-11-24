@@ -132,6 +132,7 @@ data class Tv(
     @SerializedName("url") val url: String? = null,
     @SerializedName("genres") val genres: List<Genre>? = null,
     @SerializedName("seasons") val seasons: List<Season>? = null,
+    @SerializedName("the_seasons") val theSeasons: List<Season>? = null,
     @SerializedName("tagline") val tagline: String? = null,
     @SerializedName("star") val star: Boolean? = null,
     @SerializedName("heart") val heart: Boolean? = null,
@@ -141,6 +142,8 @@ data class Tv(
     val desc: String? get() = overview
     val title: String? get() = name
     val year: String? get() = firstAirDate?.take(4)
+    // 刮削数据走 seasons，未刮削的本地聚合剧集走 the_seasons
+    val allSeasons: List<Season>? get() = seasons ?: theSeasons
 }
 
 data class Season(
