@@ -101,13 +101,14 @@ object Ui {
         return cs.newDrawable()?.mutate() ?: makeRowFocusBg(normalBg)
     }
 
-    /** 统一焦点缩放：行/卡片 1.05，复用原动画节奏 */
+    /** 统一焦点缩放：1.05 缩放；translationZ 提层（不能用 bringToFront——会重排
+     *  LinearLayout children 导致详情页按钮互换位置；translationZ 只改绘制层级） */
     fun scaleOnFocus(v: android.view.View) {
         val target = if (v.isFocused) 1.05f else 1f
         if (v.scaleX != target) {
             v.animate().cancel()
             v.animate().scaleX(target).scaleY(target).setDuration(120).start()
         }
-        if (v.isFocused) v.bringToFront()
+        androidx.core.view.ViewCompat.setTranslationZ(v, if (v.isFocused) 10f else 0f)
     }
 }

@@ -438,6 +438,7 @@ class MainActivity : Activity() {
             card.addView(content)
 
             val confirmBtn = Button(this).apply {
+            stateListAnimator = null
                 text = "我知道了"
                 setTextColor(Ui.c.text1)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(16f))
@@ -726,6 +727,7 @@ class MainActivity : Activity() {
 
         // Login button
         val loginBtn = Button(this).apply {
+            stateListAnimator = null
             text = "登 录"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
@@ -1353,6 +1355,7 @@ class MainActivity : Activity() {
         pageLayout.addView(pageInfoText)
 
         val prevBtn = Button(this).apply {
+            stateListAnimator = null
             text = "上一页"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
@@ -1367,6 +1370,7 @@ class MainActivity : Activity() {
         pageLayout.addView(prevBtn)
 
         val nextBtn = Button(this).apply {
+            stateListAnimator = null
             text = "下一页"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(14f))
@@ -1890,6 +1894,7 @@ class MainActivity : Activity() {
         }
 
         val playBtn = Button(this).apply {
+            stateListAnimator = null
             text = "▶  播放"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
@@ -1926,6 +1931,7 @@ class MainActivity : Activity() {
             setColor(if (isHearted) activeColor else inactiveColor)
         }
         val heartBtn = Button(this).apply {
+            stateListAnimator = null
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
@@ -2148,6 +2154,7 @@ class MainActivity : Activity() {
             setColor(if (isHearted) activeColorTv else inactiveColorTv)
         }
         val heartBtn = Button(this).apply {
+            stateListAnimator = null
             text = if (isHearted) "❤ 已喜爱" else "❤ 喜爱"
             setTextColor(Ui.c.text1)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(18f))
@@ -2479,6 +2486,7 @@ class MainActivity : Activity() {
         searchRow.addView(searchInput)
 
         val searchBtn = Button(this).apply {
+            stateListAnimator = null
             text = "搜索"
             setTextColor(Ui.c.text1)
             isFocusable = true
@@ -3611,7 +3619,9 @@ class MainActivity : Activity() {
                     v.animate().cancel()
                     v.animate().scaleX(target).scaleY(target).setDuration(durationMs).start()
                 }
-                if (v.isFocused) v.bringToFront()
+                // translationZ 只改绘制层级（解决放大越界被相邻 view 盖住），
+                // 不能用 bringToFront——它会重排 LinearLayout children 导致按钮互换位置
+                androidx.core.view.ViewCompat.setTranslationZ(v, if (v.isFocused) 10f else 0f)
             } catch (_: Exception) {}
         }
     }
@@ -3706,14 +3716,17 @@ class MainActivity : Activity() {
     }
 
     /**
-     * 递归关闭整棵 view 树的 clipChildren。
-     * 焦点放大（scale 1.05）的绘制要完整显示，必须从子 view 到根的每层
-     * 容器都不裁剪（只关直接父级不够，外层容器会继续裁到自身 bounds）。
-     * 每次页面渲染完静态树后调用；之后异步加入的子树（季按钮行/网格）
-     * 已在各自构建处单独关闭。
+     * 递归关闭整棵 view 树的 clipChildren 与 clipToPadding。
+     * 焦点放大（scale 1.05）的绘制要完整显示：
+     *  - clipChildren=false：父容器不把子 view 裁到子自身 bounds
+     *  - clipToPadding=false：父容器有 padding 时，默认（true）会把子绘制
+     *    裁到 padding 框内（dispatchDraw 的画布级裁剪），与 clipChildren 无关
+     * 两者必须沿祖先链全部关闭才生效；每次页面渲染完静态树后调用，
+     * 之后异步加入的子树（季按钮行/网格）已在各自构建处单独关闭。
      */
     private fun ViewGroup.disableClipTree() {
         clipChildren = false
+        clipToPadding = false
         for (i in 0 until childCount) {
             val c = getChildAt(i)
             if (c is ViewGroup) c.disableClipTree()
