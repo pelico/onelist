@@ -1743,7 +1743,7 @@ class MainActivity : Activity() {
             setPadding(0, Ui.dp(20), 0, Ui.dp(40))
         }
 
-        val topBar = buildTopBar(movie.title ?: "详情", showSearch = false, showLogout = false)
+        val topBar = buildTopBar("", showSearch = false, showLogout = false, transparentBg = true)
         layout.addView(topBar)
 
         val contentLayout = LinearLayout(this).apply {
@@ -2006,7 +2006,7 @@ class MainActivity : Activity() {
             setPadding(0, Ui.dp(20), 0, Ui.dp(40))
         }
 
-        val topBar = buildTopBar(tv.title ?: "详情", showSearch = false, showLogout = false)
+        val topBar = buildTopBar("", showSearch = false, showLogout = false, transparentBg = true)
         layout.addView(topBar)
 
         val contentLayout = LinearLayout(this).apply {
@@ -3132,12 +3132,17 @@ class MainActivity : Activity() {
         return btn
     }
 
-    private fun buildTopBar(title: String, showSearch: Boolean, showLogout: Boolean, showUserPages: Boolean = false): LinearLayout {
+    private fun buildTopBar(title: String, showSearch: Boolean, showLogout: Boolean, showUserPages: Boolean = false, transparentBg: Boolean = false): LinearLayout {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(Ui.dp(24), Ui.dp(12), Ui.dp(24), Ui.dp(12))
-            setBackgroundColor(Ui.c.bg)
+            if (transparentBg) {
+                // 详情页顶栏融入高斯模糊背景，避免实色条与半透明内容区形成色差
+                background = null
+            } else {
+                setBackgroundColor(Ui.c.bg)
+            }
             // 顶栏明确裁剪子 View（避免按钮 scale 越界造成色块残留）
             clipChildren = true
         }
@@ -3147,16 +3152,21 @@ class MainActivity : Activity() {
             bar.addView(buildTopBtn(R.drawable.ic_back, "返回", Ui.c.accent) { navigateBack() })
         }
 
-        // Title
-        val titleView = TextView(this).apply {
-            text = title
-            setTextColor(Ui.c.text1)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(22f))
-            setTypeface(null, android.graphics.Typeface.BOLD)
+        // Title（详情页不传标题：内容区已有大标题，避免重复）
+        if (title.isNotEmpty()) {
+            val titleView = TextView(this).apply {
+                text = title
+                setTextColor(Ui.c.text1)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, Ui.sp(22f))
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+            val titleLp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            titleLp.leftMargin = Ui.dp(8)
+            bar.addView(titleView, titleLp)
+        } else if (showSearch || showLogout || showUserPages) {
+            // 无标题但有右侧按钮时补一个弹性占位，把按钮推到右边
+            bar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         }
-        val titleLp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        titleLp.leftMargin = Ui.dp(8)
-        bar.addView(titleView, titleLp)
 
         // User pages buttons (最爱 / 已播放)
         if (showUserPages) {
