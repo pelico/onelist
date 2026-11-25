@@ -3109,7 +3109,7 @@ class MainActivity : Activity() {
                     startScreensaverTracker()
                     // 防止绕过：如果今日已播放超标，立即触发锁定屏保
                     if (todayTotalSeconds >= screensaverDailyLimit && screensaverDailyLimit > 0) {
-                        triggerScreensaver("locked")
+                        triggerScreensaver("locked", "player_start_daily_limit")
                     }
                 }
                 android.util.Log.d("OneList", "Player prepared, url='$videoUrl' mime='$mimeType'")
@@ -3131,7 +3131,7 @@ class MainActivity : Activity() {
 
                             // 护眼屏保：达到每日限额时触发锁定屏保，不自动播放下一个
                             if (screensaverEnabled && todayTotalSeconds >= screensaverDailyLimit && screensaverDailyLimit > 0) {
-                                triggerScreensaver("locked")
+                                triggerScreensaver("locked", "episode_ended_daily_limit")
                             } else {
                                 val played = playNextInPlaylist(playerView, loadingText, nextHint, galleryUid)
                                 if (!played) {
@@ -3953,7 +3953,7 @@ class MainActivity : Activity() {
                 // 不立即锁定——锁定→服务端检查解锁→恢复播放→又达到限额→再锁
                 // 会构成自激循环（暂停期间服务端不累计，解锁检查永远通过）
                 if (remaining <= 0) {
-                    android.util.Log.d("OneList", "Screensaver: daily limit reached ($todayTotalSeconds >= $screensaverDailyLimit), dimming until episode ends")
+                    android.util.Log.i("ScreenSaver", "DIM daily limit reached: today=${todayTotalSeconds}s >= limit=${screensaverDailyLimit}s, waiting for episode end")
                     showDailyLimitDimmed(true)
                     showDailyLimitWarning(false)
                     screensaverHandler.postDelayed(this, 1000)
@@ -3969,7 +3969,7 @@ class MainActivity : Activity() {
 
                 // 检查连续播放阈值
                 if (cumulativePlaySeconds >= screensaverPlayDuration) {
-                    android.util.Log.d("OneList", "Screensaver: cumulative play reached threshold, starting warning")
+                    android.util.Log.i("ScreenSaver", "WARN cumulative=${cumulativePlaySeconds}s reached playThreshold=${screensaverPlayDuration}s, 10s countdown to rest")
                     startScreensaverWarning()
                 }
             }
@@ -4063,7 +4063,7 @@ class MainActivity : Activity() {
                 countdown--
                 if (countdown <= 0) {
                     banner.visibility = View.GONE
-                    triggerScreensaver("rest")
+                    triggerScreensaver("rest", "cumulative_threshold")
                     return
                 }
                 banner.text = "护眼屏保将在 ${countdown} 秒后启动，请准备休息"
@@ -4083,8 +4083,12 @@ class MainActivity : Activity() {
         warningBanner?.visibility = View.GONE
     }
 
-    /** 触发屏保（rest 或 locked） */
-    private fun triggerScreensaver(mode: String) {
+    /**
+     * 触发屏保（rest 或 locked）。
+     * @param reason 触发原因：cumulative_threshold 连续播放达阈值 / episode_ended_daily_limit
+     *               播完且当日限额 / player_start_daily_limit 进播放器时已超限额
+     */
+    private fun triggerScreensaver(mode: String, reason: String = "") {
         stopScreensaverWarning()
         showDailyLimitWarning(false)
         showDailyLimitDimmed(false)
@@ -4106,7 +4110,8 @@ class MainActivity : Activity() {
             // locked 模式：每 60 秒检查一次是否已跨天解锁
             screensaverHandler.postDelayed({ onScreensaverEnd() }, 60000)
         }
-        android.util.Log.d("OneList", "Screensaver triggered: mode=$mode")
+        // 系统日志：一行完整快照，adb logcat -s ScreenSaver 直接定位触发原因
+        android.util.Log.i("ScreenSaver", "TRIGGER mode=$mode reason=$reason cumulative=${cumulativePlaySeconds}s today=${todayTotalSeconds}s playThreshold=${screensaverPlayDuration}s dailyLimit=${screensaverDailyLimit}s restDuration=${screensaverDuration}s")
     }
 
     private val screensaverCountdownRunnable = object : Runnable {
@@ -4287,6 +4292,7 @@ class MainActivity : Activity() {
     /** 屏保结束：休息模式恢复播放，锁定模式检查解锁 */
     private fun onScreensaverEnd() {
         if (screensaverMode == "rest") {
+            android.util.Log.i("ScreenSaver", "END rest mode: resume playing, cumulative reset, today=${todayTotalSeconds}s")
             cumulativePlaySeconds = 0
             dismissScreensaver()
             player?.play()
