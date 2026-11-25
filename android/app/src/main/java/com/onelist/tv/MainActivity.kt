@@ -3455,8 +3455,13 @@ class MainActivity : Activity() {
     // ==================== KEY EVENTS ====================
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // 护眼屏保激活时，拦截所有按键（锁定模式下无法退出）
+        // 护眼屏保激活时拦截按键：
+        //  - locked 模式：全部吞掉（防绕过每日限额）
+        //  - rest 模式：按任意键提前结束休息、恢复播放（原实现吞键导致用户只能干等倒计时）
         if (screensaverActive) {
+            if (screensaverMode == "rest" && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                onScreensaverEnd()
+            }
             return true
         }
         if (event.action == KeyEvent.ACTION_DOWN) {
@@ -3874,9 +3879,11 @@ class MainActivity : Activity() {
                     return
                 }
                 screensaverEnabled = d.screensaverEnabled != "否"
-                screensaverPlayDuration = (d.screensaverPlayDuration?.toIntOrNull()) ?: 3600
-                screensaverDuration = (d.screensaverDuration?.toIntOrNull()) ?: 180
-                screensaverDailyLimit = (d.screensaverDailyLimit?.toIntOrNull()) ?: 7200
+                // 服务端存秒；旧版本 Web 端可能存过分钟数，小于 60 的值视为配置异常，
+                // 钳制到最低 60 秒，防止"播几秒→屏保→播几秒"狂循环
+                screensaverPlayDuration = (d.screensaverPlayDuration?.toIntOrNull() ?: 3600).coerceAtLeast(60)
+                screensaverDuration = (d.screensaverDuration?.toIntOrNull() ?: 180).coerceAtLeast(60)
+                screensaverDailyLimit = (d.screensaverDailyLimit?.toIntOrNull() ?: 7200).coerceAtLeast(0)
                 android.util.Log.d("OneList", "Screensaver config loaded: enabled=$screensaverEnabled play=${screensaverPlayDuration}s dur=${screensaverDuration}s daily=${screensaverDailyLimit}s")
             }
             override fun onFailure(call: Call<ApiResponse<Config>>, t: Throwable) {
@@ -4280,8 +4287,11 @@ class MainActivity : Activity() {
             cumulativePlaySeconds = 0
             dismissScreensaver()
             player?.play()
-            // 重新开始屏保计时
-            if (screensaverEnabled) startScreensaverTracker()
+            // 重新开始屏保计时，并与服务端重新对齐今日时长（防本地累计漂移导致误判锁定）
+            if (screensaverEnabled) {
+                fetchTodayPlayDuration()
+                startScreensaverTracker()
+            }
         } else if (screensaverMode == "locked") {
             // 重新查询今日时长，确认是否已跨天
             // 把检查逻辑放到回调中，确保用最新数据而非竞态旧值
