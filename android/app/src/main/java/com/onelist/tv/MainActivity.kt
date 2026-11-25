@@ -3949,11 +3949,14 @@ class MainActivity : Activity() {
 
                 val remaining = screensaverDailyLimit - todayTotalSeconds
 
-                // 达到每日上限：立即触发锁定屏保（不再只是变暗等待）
+                // 达到每日上限：画面变暗，等当前集播完再锁（对齐 v1.4.2）。
+                // 不立即锁定——锁定→服务端检查解锁→恢复播放→又达到限额→再锁
+                // 会构成自激循环（暂停期间服务端不累计，解锁检查永远通过）
                 if (remaining <= 0) {
-                    android.util.Log.d("OneList", "Screensaver: daily limit reached ($todayTotalSeconds >= $screensaverDailyLimit), triggering lock")
+                    android.util.Log.d("OneList", "Screensaver: daily limit reached ($todayTotalSeconds >= $screensaverDailyLimit), dimming until episode ends")
+                    showDailyLimitDimmed(true)
                     showDailyLimitWarning(false)
-                    triggerScreensaver("locked")
+                    screensaverHandler.postDelayed(this, 1000)
                     return
                 }
 
